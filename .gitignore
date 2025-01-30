@@ -1,0 +1,6 @@
+
+# Files to not include in GIT
+*.o
+*.bin
+*.elf
+*.iso

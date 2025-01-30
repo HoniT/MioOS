@@ -1,0 +1,15 @@
+// ========================================
+// Copyright Ioane Baidoshvili 2025.
+// Distributed under the terms of the MIT License.
+// ========================================
+
+#pragma once
+
+#ifndef KERNEL_PANIC_HPP
+#define KERNEL_PANIC_HPP
+
+// Kernel panic functions
+void kernel_panic(const char* error);
+void kernel_panic_isr(const char* error);
+
+#endif // KERNEL_PANIC_HPP
