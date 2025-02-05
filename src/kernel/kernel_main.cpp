@@ -12,22 +12,46 @@
 #endif // GFX_HPP
 #include <drivers/keyboard.hpp>
 #include <interrupts/idt.hpp>
+#include <interrupts/kernel_panic.hpp>
 #include <gdt.hpp>
 #include <cpuid.hpp>
 #include <pit.hpp>
 #include <kterminal.hpp>
+#include <mm/pmm.hpp>
+#include <mm/heap.hpp>
+#ifdef PMM_HPP
+#include <mm/vmm.hpp>
+#endif // PMM_HPP
+#include <tests/unit_tests.hpp>
 
-extern "C" void kernel_main(void) {
+extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
+    // Managing GRUB multiboot error
+    if(magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+        vga::error("Ivalid multiboot magic number: %x\n", magic);
+        kernel_panic("Invalid GRUB magic number!");
+        return;
+    }
+
     vga::init(); // Setting main VGA text/title
 
+    // Descriptor tables
     gdt::init(); // Global Descriptor Table (GDT)
     idt::init(); // Interrupts Descriptor Table (IDT)
 
     cpu::init(); // CPUID
 
+    // Initializing memory managers
+    heap::init();
+    pmm::init(mbi);
+    // vmm::init();
+    // Testing heap
+    unittsts::test_heap();
+    // Testing PMM
+    unittsts::test_pmm();
+
     // Drivers
     pit::init(); // Programmable Interval Timer
     keyboard::init(); // Keyboard drivers
-    
+
     cmd::init();
 }

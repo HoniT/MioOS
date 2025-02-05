@@ -1,7 +1,6 @@
 
 # Directories
 BUILD = $(CURDIR)/build
-BIN = $(CURDIR)/bin
 SRC = $(CURDIR)/src
 
 # HPP file includes
@@ -22,7 +21,6 @@ OBJCOPY = i686-elf-objcopy
 
 # Output files
 OS_ELF = $(CURDIR)/iso/boot/mio_os.elf
-OS_BIN = $(BIN)/mio_os.bin
 
 # Find all .cpp and .asm files in src directory and its subdirectories
 CPP_SOURCES = $(shell find $(SRC) -name "*.cpp")
@@ -33,15 +31,11 @@ CPP_OBJECTS = $(patsubst $(SRC)/%.cpp, $(BUILD)/%.o, $(CPP_SOURCES))
 ASM_OBJECTS = $(patsubst $(SRC)/%.asm, $(BUILD)/%.o, $(ASM_SOURCES))
 
 # Target
-all: $(OS_BIN)
+all: $(OS_ELF)
 
 # Compile and link each file separately
 $(OS_ELF): $(ASM_OBJECTS) $(CPP_OBJECTS)
-	@mkdir -p $(BIN)
 	$(LD) -m elf_i386 -T $(SRC)/kernel/linker.ld -o $@ $(ASM_OBJECTS) $(CPP_OBJECTS)
-
-$(OS_BIN): $(OS_ELF)
-	$(OBJCOPY) -O binary $< $@
 
 # Rule to compile each .cpp file individually
 $(BUILD)/%.o: $(SRC)/%.cpp
@@ -55,8 +49,8 @@ $(BUILD)/%.o: $(SRC)/%.asm
 
 # Cleaning the build
 clean:
-	rm -rf $(BUILD) $(BIN)
-	mkdir $(BUILD) $(BIN)
+	rm -rf $(BUILD)
+	mkdir $(BUILD)
 	rm $(OS_ELF) iso/mio_os.iso
 
 .PHONY: all clean

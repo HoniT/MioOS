@@ -14,6 +14,6 @@
 // Memory utility functions
 void memset(const void *dest, const char val, uint32_t count);
 void* memcpy(void* dest, const void* src, size_t n);
-constexpr size_t align_up(const size_t value, const size_t alignment);
+size_t align_up(const size_t value, const size_t alignment);
 
 #endif // MEM_UTIL_HPP

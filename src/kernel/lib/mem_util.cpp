@@ -28,6 +28,6 @@ void* memcpy(void* dest, const void* src, size_t n) {
 }
 
 // Alligns the size to the allignment
-constexpr size_t align_up(const size_t size, const size_t alignment) {
+size_t align_up(const size_t size, const size_t alignment) {
     return (size + alignment - 1) & ~(alignment - 1);
 }

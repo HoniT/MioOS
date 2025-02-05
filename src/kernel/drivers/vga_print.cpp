@@ -15,6 +15,9 @@
 // ====================
 #pragma region Variables
 
+// Notes if we initialized the title
+bool initialized_title = false;
+
 // Size constraints
 const size_t NUM_COLS = 80;
 const size_t NUM_ROWS = 25;
@@ -70,9 +73,8 @@ void print_newline(void) {
     if(row < NUM_ROWS - 1) {
         ++row;
     } else {
-        // Scrolling the screen up
-
-        for(size_t r = 1; r < NUM_ROWS; ++r) {
+        // Scrolling the screen up and also keeping the title in screen
+        for(size_t r = 2; r < NUM_ROWS; ++r) {
             for(size_t c = 0; c < NUM_COLS; ++c) {
                 // Copying this row to the one above
                 buffer[c + NUM_COLS * (r - 1)] = buffer[c + NUM_COLS * r];
@@ -120,6 +122,9 @@ void update_cursor(const int row, const int col) {
 
 void print_char(const char character) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
+
+    // This keeps the title in one place
+    if(initialized_title && row == 0) row++;
     
     // Handeling new line character input
     if(character == '\n') {
@@ -187,7 +192,9 @@ void init(void) {
     print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
     print_clear();
     
-    printf(" ==================================== IoOS ==================================== \n");
+    print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
+    printf(" =================================== MioOS ==================================== \n");
+    print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
 }
 
 // Print formatted overloads
@@ -439,7 +446,7 @@ void error(const char* format, ...) {
 // Clears whole screen
 void print_clear(void) {
     // Iterating through all of the rows, and using clear_row
-    for(size_t row = 0; row < NUM_ROWS; ++row) {
+    for(size_t row = 1; row < NUM_ROWS; ++row) {
         clear_row(row);
     }
 }

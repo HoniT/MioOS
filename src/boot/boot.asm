@@ -14,8 +14,8 @@ section .text
 ; GRUB multiboot header
 align 4
 dd 0x1BADB002          ; GRUB magic number
-dd 0x00000000          ; Flags
-dd -(0x1BADB002 + 0x0) ; Checksum
+dd 0x00000003          ; Flags
+dd -(0x1BADB002 + 0x3) ; Checksum
 
 global _start
 extern kernel_main ; Kernel function that we're jumping to
@@ -24,6 +24,10 @@ extern kernel_main ; Kernel function that we're jumping to
 _start:
     cli ; Clear interrupts
     mov esp, stack_space ; Setting stack pointer
+
+    ; Kernel main parameters
+    push ebx
+    push eax
     call kernel_main
 
     hlt

@@ -8,6 +8,8 @@
 
 #include <stdint.h>
 
+#define BYTES_IN_GIB 1073741824
+
 // Math utility functions 
 
 uint32_t hex_to_uint32(const char* hexStr);
