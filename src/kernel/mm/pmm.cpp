@@ -20,8 +20,8 @@ uint64_t pmm::total_used_ram = 0;
 multiboot_info* mb_info = nullptr;
 
 // We will have two different heads for two allocatable regions 
-MemoryNode* low_alloc_mem_head = nullptr; // Lower allocatable RAM: usually 0x100000 - 0xBFFDFFFF
-MemoryNode* high_alloc_mem_head = nullptr; // High allocatable RAM: usually 4 GiB and onwards
+MemoryNode* pmm::low_alloc_mem_head = nullptr; // Lower allocatable RAM: usually 0x100000 - 0xBFFDFFFF
+MemoryNode* pmm::high_alloc_mem_head = nullptr; // High allocatable RAM: usually 4 GiB and onwards
 
 #pragma region Memory Map Manager
 
@@ -52,6 +52,24 @@ void pmm::print_memory_map(void) {
     }
 }
 
+// Prints info of blocks in the allocatable memory regions 
+void pmm::print_usable_regions(void) {
+    // Getting list head
+    MemoryNode* current = low_alloc_mem_head;
+
+    // Itterating through blocks
+    while(current) {
+        // Printing info
+        vga::printf("-Block range: %lx-%lx\n", uint64_t(current), uint64_t(uint64_t(current) + current->size));
+        vga::printf("Block size: %lx\n", current->size);
+        vga::printf("Blocks of memory taken up: %d\n", udiv64(current->size, FRAME_SIZE));
+        vga::printf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
+
+        // Going to next block
+        current = current->next;
+    }
+}
+
 // Getts the total amount of usable RAM in the system and creates head (and other) nodes for memory alloc
 void pmm::manage_mmap(struct multiboot_info* _mb_info) {
     if (!(_mb_info->flags & (1 << 6))) {
@@ -75,16 +93,16 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
             // If the mmap entry address is at 4GiB+
             if(mmap->addr >= 0x100000000) {
                 // Creting node for high allocatable ram 
-                high_alloc_mem_head = (MemoryNode*)mmap->addr;
-                high_alloc_mem_head->size = mmap->len - sizeof(MemoryNode); // Making this nodes size the length of the region and minus the metadata size
-                high_alloc_mem_head->free = true; // Noting that this node is free
-                high_alloc_mem_head->next = nullptr; // Noting that this is the tail of the linked list
+                // high_alloc_mem_head = (MemoryNode*)mmap->addr;
+                // high_alloc_mem_head->size = mmap->len - sizeof(MemoryNode); // Making this nodes size the length of the region and minus the metadata size
+                // high_alloc_mem_head->free = true; // Noting that this node is free
+                // high_alloc_mem_head->next = nullptr; // Noting that this is the tail of the linked list
             } else if(mmap->addr >= 0x100000) { // If the mmap entry is at 1MiB+
                 // Creting node for low allocatable ram 
                 low_alloc_mem_head = (MemoryNode*)DATA_LOW_START_ADDR;
-                low_alloc_mem_head->size = mmap->size - (DATA_LOW_START_ADDR - mmap->addr); // The first node of the low allocatable memory is the kernel region 0x100000-0x200000
+                low_alloc_mem_head->size = mmap->len - (DATA_LOW_START_ADDR - mmap->addr) - 1; // The first node of the low allocatable memory is the kernel region 0x100000-0x200000
                 low_alloc_mem_head->free = true; // Noting that this is occupied
-                low_alloc_mem_head->next =  nullptr; // Making the next node the heap node
+                low_alloc_mem_head->next = nullptr; // Making the next node the heap node
             }
         }
 
@@ -110,10 +128,22 @@ void pmm::init(struct multiboot_info* _mb_info) {
 
 // Alloc and dealloc
 
-// Main alloc function
-void* alloc_frame(MemoryNode* heap_head, const size_t size) {
+// Allocates a frame in the usable memory regions
+void* pmm::alloc_frame(const uint64_t num_blocks) {
+    // Precausions
+    if(num_blocks <= 0) return nullptr;
 
-    MemoryNode* current = heap_head; // Setting the current block as the head
+    // Aligning to default frame size
+    uint64_t size = num_blocks * FRAME_SIZE;
+
+    MemoryNode* current = low_alloc_mem_head; // Setting the current block as the head
+
+    #ifdef VMM_HPP
+    // if (enabled_paging && !vmm::is_mapped((void*)(low_alloc_mem_head))) {
+    //     vga::error("Page fault: heap_head is not mapped!\n");
+    //     return nullptr;
+    // }
+    #endif
 
     // Find a free block with enough space
     while(current) {
@@ -124,7 +154,7 @@ void* alloc_frame(MemoryNode* heap_head, const size_t size) {
                 // Setting new block and adding the sizeof the Block to keep metadata in mind
                 MemoryNode* new_block = (MemoryNode*)((char*)current + sizeof(MemoryNode) + size);
                 // Trimming the extra space of
-                new_block->size = current->size - size - sizeof(HeapBlock);
+                new_block->size = current->size - size - sizeof(MemoryNode);
                 new_block->free = true;
                 /* Setting the current blocks next block as the trimmed (new)
                  * blocks next, because the new block is the end of the current block */
@@ -139,44 +169,32 @@ void* alloc_frame(MemoryNode* heap_head, const size_t size) {
             // Noting that we took up usable RAM
             pmm::total_used_ram += size;
 
+            // Returning the current blocks address plus the metadata size needed and aligning it to the page size
+            void* return_address = (char*)current + sizeof(MemoryNode);
+
             #ifdef VMM_HPP // If VMM is present
             // If paging is enabled
             if(enabled_paging) {
                 // Map the allocated frame to virtual memory
-                vmm::map_page(uint32_t(current), uint32_t(current), PTE_PRESENT | PTE_WRITABLE);
             }
             #endif // VMM_HPP
 
-            // Returning the current blocks address plus the metadata size needed
-            return (char*)current + sizeof(MemoryNode);
+            return return_address;
         }
         // Moving to the next block
         current = current->next;
     }
 
+    vga::error("Not enough memory to allocate %x block(s)!\n", num_blocks);
     return nullptr;
 }
 
-// Allocates a frame in the low usable memory region 
-void* pmm::alloc_lframe(const size_t num_blocks) {
-    // Precausions
-    if(num_blocks <= 0) return nullptr;
-
-    // Aligning to default frame size
-    size_t size = num_blocks * FRAME_SIZE;
-
-    return alloc_frame(low_alloc_mem_head, size);
-}
-
-// Allocates a frame in the high usable memory region 
-void* pmm::alloc_hframe(const size_t num_blocks) {
-    // Precaussions
-    if(num_blocks <= 0) return nullptr;
-
-    // Converting the size to frames
-    size_t size = num_blocks * FRAME_SIZE;
-
-    return alloc_frame(high_alloc_mem_head, size);
+/* Allocates blocks and returns the address aligned to page size.
+ * This should only be use for critical allocations that absolutely need pagesize-aligned addresses,
+ * because this waists PAGE_SIZE - sizeof(MemoryNode) of usable space just to be aligned */
+void* pmm::alloc_frame_aligned(const uint64_t num_blocks) {
+    // We allocate num_blocks + 1, the +1 is just there to insure alignment
+    return (void*)align_up(size_t(pmm::alloc_frame(num_blocks + 1)), PAGE_SIZE);
 }
 
 // Frees a frame
@@ -190,11 +208,7 @@ void pmm::free_frame(const void* ptr) {
     pmm::total_used_ram -= block->size;
 
     // Setting the corresponding linked list head, high or low usable mem region
-    MemoryNode* current;
-    if(uint32_t(ptr) >= uint32_t(high_alloc_mem_head)) 
-        current = high_alloc_mem_head;
-    else 
-        current = low_alloc_mem_head;
+    MemoryNode* current = low_alloc_mem_head;
 
     // Merging adjacent free blocks to decrease fragmentation
     while(current) {
@@ -203,8 +217,11 @@ void pmm::free_frame(const void* ptr) {
             // Adding the block sizes together
             current->size += current->next->size + sizeof(HeapBlock);
             /* The current blocks next block will be the next blocks next block, 
-             * because the next block doesn't exist anymore */
+            * because the next block doesn't exist anymore */
             current->next = current->next->next;
+
+            // Freeing the memory of the deleted node
+            free_frame(current->next);
         }
         // Going to the next block
         current = current->next;

@@ -43,7 +43,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Initializing memory managers
     heap::init();
     pmm::init(mbi);
-    // vmm::init();
+    vmm::init();
     // Testing heap
     unittsts::test_heap();
     // Testing PMM
@@ -53,5 +53,6 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     pit::init(); // Programmable Interval Timer
     keyboard::init(); // Keyboard drivers
 
+    // Kernel CLI and other 
     cmd::init();
 }

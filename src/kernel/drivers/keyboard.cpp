@@ -70,7 +70,7 @@ void keyboardHandler(InterruptRegisters* regs) {
                 break;
 
             default:  // Handle printable characters
-                if (press_state == 0 && onTerminal) {
+                if (press_state == 0 && onTerminal && strlen(currentInput) < 256) {
                     size_t len = strlen(currentInput);
                     if (capsOn || capsLock) {
                         vga::printf("%c", (char)(uppercase[scancode]));

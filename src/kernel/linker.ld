@@ -5,6 +5,7 @@ ENTRY(_start) /* Entry in boot.asm */
 
 SECTIONS {
     . = 0x100000; /* The kernel starts at 1MiB in physical memory */
+    __kernel_phys_base = .; /* Saving the kernels physical base */
 
     .text : AT(ADDR(.text)) ALIGN(4096) 
     {

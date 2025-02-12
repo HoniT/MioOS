@@ -1,132 +1,136 @@
-// ========================================
-// Copyright Ioane Baidoshvili 2025.
+// =======================================================================
+// Copyright Ioane Baidoshvili 2024.
 // Distributed under the terms of the MIT License.
-// ========================================
+// =======================================================================
 
 #pragma once
 
 #ifndef VMM_HPP
 #define VMM_HPP
 
-
 #include <stdint.h>
+
+#define PAGE_SIZE 4096
+// Macros defining entries in each structure
+#define PDPT_ENTRIES 4
+#define PD_ENTRIES 512
+#define PT_ENTRIES 512
+
+// Macro functions for paging structures
+
+// Sets an address for a page
+#define SET_FRAME(entry, addr) ((entry)->frame = ((addr) >> 12))
+// Gets the address of a page
+#define GET_FRAME(entry) (((entry)->frame) << 12)
+// Sets a flag for a page
+#define SET_FLAG(entry, flag) (*(uint64_t *)(entry) |= (flag))
+// Gets a flag of a page
+#define GET_FLAG(entry, flag) ((entry)->flag)
 
 extern bool enabled_paging;
 
-// Needed macros and macro functions
-#define PD_ENTRIES 1024
-#define PT_ENTRIES 1024
-#define PAGE_SIZE 4096
+#pragma region Structures and Enums
 
-#define KERNEL_VIRT_BASE 0xC0000000
+// Page Directory Pointer Table entry
+typedef struct PDPTEntry {
+    uint64_t present : 1;         // Bit 0: Present
+    uint64_t rw : 1;              // Bit 1: Read/Write
+    uint64_t user : 1;            // Bit 2: User/Supervisor
+    uint64_t write_through : 1;   // Bit 3: Write-Through
+    uint64_t cache_disable : 1;   // Bit 4: Cache Disable
+    uint64_t accessed : 1;        // Bit 5: Accessed
+    uint64_t dirty : 1;           // Bit 6: Dirty (if 1GB pages)
+    uint64_t reserved1 : 1;       // Bit 7: Reserved (Must be 0)
+    uint64_t global : 1;          // Bit 8: Global
+    uint64_t avl : 3;             // Bits 9-11: Available for software use
+    uint64_t pat : 1;             // Bit 12: Page Attribute Table
+    uint64_t reserved2 : 17;      // Bits 13-29: Reserved (Must be 0)
+    uint64_t frame : 22;          // Bits 30-51: Physical address of Page Directory
+    uint64_t avl2 : 7;            // Bits 52-58: Available for software use
+    uint64_t pk : 4;              // Bits 59-62: Protection Keys (Intel MPK)
+    uint64_t xd : 1;              // Bit 63: Execute Disable
+} __attribute__((packed)) pdpt_ent;
 
-#define PD_INDEX(address) (((address) >> 22) & 0x3FF)
-#define PT_INDEX(address) (((address) >> 12) & 0x3FF) // Max index 1023 = 0x3FF
-#define PAGE_PHYS_ADDRESS(dir_entry) ((*dir_entry) & ~0xFFF)    // Clear lowest 12 bits, only return frame/address
-#define SET_ATTRIBUTE(entry, attr) (*entry |= attr)
-#define CLEAR_ATTRIBUTE(entry, attr) (*entry &= ~attr)
-#define TEST_ATTRIBUTE(entry, attr) (*entry & attr)
-#define SET_FRAME(entry, address) (*entry = (*entry & ~0x7FFFF000) | address)   // Only set address/frame, not flags
+// Page Directory entry
+typedef struct PDEntry {
+    uint64_t present : 1;         // Bit 0: Present
+    uint64_t rw : 1;              // Bit 1: Read/Write
+    uint64_t user : 1;            // Bit 2: User/Supervisor
+    uint64_t write_through : 1;   // Bit 3: Write-Through
+    uint64_t cache_disable : 1;   // Bit 4: Cache Disable
+    uint64_t accessed : 1;        // Bit 5: Accessed
+    uint64_t dirty : 1;           // Bit 6: Dirty
+    uint64_t ps : 1;              // Bit 7: Page Size (1 = 2MB page)
+    uint64_t global : 1;          // Bit 8: Global
+    uint64_t avl : 3;             // Bits 9-11: Available for software use
+    uint64_t pat : 1;             // Bit 12: Page Attribute Table
+    uint64_t reserved1 : 8;       // Bits 13-20: Reserved (Must be 0)
+    uint64_t frame : 31;          // Bits 21-51: Physical address of 2MB page
+    uint64_t avl2 : 7;            // Bits 52-58: Available for software use
+    uint64_t pk : 4;              // Bits 59-62: Protection Keys (Intel MPK)
+    uint64_t xd : 1;              // Bit 63: Execute Disable
+} __attribute__((packed)) pd_ent;
 
-typedef uint32_t pt_ent; // Page table entry
-typedef uint32_t pd_ent; // Page directory entry
+// Page Table entry
+typedef struct PTEntry {
+    uint64_t present : 1;         // Bit 0: Present
+    uint64_t rw : 1;              // Bit 1: Read/Write
+    uint64_t user : 1;            // Bit 2: User/Supervisor
+    uint64_t write_through : 1;   // Bit 3: Write-Through
+    uint64_t cache_disable : 1;   // Bit 4: Cache Disable
+    uint64_t accessed : 1;        // Bit 5: Accessed
+    uint64_t dirty : 1;           // Bit 6: Dirty
+    uint64_t pat : 1;             // Bit 7: PAT (4KB pages use Bit 7, not 12)
+    uint64_t global : 1;          // Bit 8: Global
+    uint64_t avl : 3;             // Bits 9-11: Available for software use
+    uint64_t frame : 40;          // Bits 12-51: Physical address of 4KB page
+    uint64_t avl2 : 7;            // Bits 52-58: Available for software use
+    uint64_t pk : 4;              // Bits 59-62: Protection Keys (Intel MPK)
+    uint64_t xd : 1;              // Bit 63: Execute Disable
+} __attribute__((packed)) pt_ent;
 
-struct InterruptFrame {
-    uint32_t edi;
-    uint32_t esi;
-    uint32_t ebp;
-    uint32_t esp; // This is the stack before the interrupt
-    uint32_t ebx;
-    uint32_t edx;
-    uint32_t ecx;
-    uint32_t eax;
-    uint32_t interruptNumber; // Interrupt vector number
-    uint32_t errorCode;       // Error code (only for some interrupts like Page Fault)
-    uint32_t eip;             // Instruction pointer
-    uint32_t cs;              // Code segment
-    uint32_t eflags;          // Flags register
-    uint32_t userEsp;         // Stack pointer (if switching to ring 3)
-    uint32_t userSs;          // Stack segment (if switching to ring 3)
+// PT itself
+typedef struct PT {
+    pt_ent entries[PT_ENTRIES] __attribute__((aligned(PAGE_SIZE)));
+} __attribute__((packed)) pt_t;
+
+// PD itself
+typedef struct PD {
+    pt_t* entries[PD_ENTRIES] __attribute__((aligned(PAGE_SIZE)));
+} __attribute__((packed)) pd_t;
+
+// PDPT itself
+typedef struct PDPT {
+    pd_t* entries[PDPT_ENTRIES] __attribute__((aligned(PAGE_SIZE)));
+} __attribute__((packed)) pdpt_t;
+
+// Paging structure flags
+enum PAGING_FLAGS {
+    PRESENT      = 0x1,
+    WRITABLE     = 0x2,
+    USER         = 0x4,
+    WRITETHROUGH = 0x8,
+    NOTCACHABLE  = 0x10,
+    ACCESSED     = 0x20,
+    DIRTY        = 0x40,
+    PAT          = 0x80,   // Page Attribute Table
+    CPU_GLOBAL   = 0x100,
+    LV4_GLOBAL   = 0x200,
+    FRAME        = 0x7FFFF000 
 };
 
-
-// PTE flags
-enum PTE_FLAGS {
-    PTE_PRESENT      = 0x1,
-    PTE_WRITABLE     = 0x2,
-    PTE_USER         = 0x4,
-    PTE_WRITETHROUGH = 0x8,
-    PTE_NOTCACHABLE  = 0x10,
-    PTE_ACCESSED     = 0x20,
-    PTE_DIRTY        = 0x40,
-    PTE_PAT          = 0x80,   // Page Attribute Table
-    PTE_CPU_GLOBAL   = 0x100,
-    PTE_LV4_GLOBAL   = 0x200,
-    PTE_FRAME        = 0x7FFFF000 
-};
-
-// PDE flags
-enum PDE_FLAGS {
-    PDE_PRESENT      = 0x1,
-    PDE_WRITABLE     = 0x2,
-    PDE_USER         = 0x4,
-    PDE_WRITETHROUGH = 0x8,
-    PDE_NOTCACHABLE  = 0x10,
-    PDE_ACCESSED     = 0x20,
-    PDE_DIRTY        = 0x40,
-    PDE_PS           = 0x80,   // If set to 1 it will have a 4MiB page
-    PDE_CPU_GLOBAL   = 0x100,
-    PDE_LV4_GLOBAL   = 0x200,
-    PDE_FRAME        = 0x7FFFF000 
-};
-
-// Page Table: handle 4MiB (1024 entries * 4096)
-struct PageTable {
-    pt_ent entries[PT_ENTRIES];
-} __attribute__((packed));
-
-// Page Directory: handle 4GiB (1024 page tables * 4MiB)
-struct PageDirectory {
-    pd_ent entries[PD_ENTRIES];
-} __attribute__((packed));
-
-extern PageDirectory* current_page_directory;
+#pragma endregion
 
 namespace vmm {
-    // Needed functions
-
-    void flush_tlb(const void* virtAddr); // Flushes TLB
-    void set_pd(PageDirectory* pageDirectory); // Sets the page directory
-    void init(); // Initializes the VMM
-
-    // Mapping and unmapping pages
-    void map_page(const uint32_t virtAddr, const uint32_t physAddr, uint32_t flags);
-    void unmap_page(const uint32_t virtAddr);
-    void* allocate_page(pt_ent* page);
-    void free_page(pt_ent* page);
-
-    // Helper functions
-
-    // Gets a page for a given virtual address in the current PD
-    pt_ent* get_page(const uint32_t virtAddr);
-    // Gets entry in a given PD for a given address
-    pd_ent* get_pd_ent(const PageDirectory* pd, const uint32_t virtAddr);
-    // Gets entry in a given PT for a given address
-    pt_ent* get_pt_ent(const PageTable* pt, const uint32_t virtAddr);
-    // Checks if the page at a given virtual address is mapped
-    bool is_mapped(const void* virtAddr); 
-    uint32_t translate_virtual_to_physical(const uint32_t virtAddr);
-
-    void test_page_mapping(const void* virtAddr);
-
-    void page_fault_handler(InterruptFrame* frame);
+    // Initializes the VMM, sets PD, PDPT, PT structures
+    void init(void);
 
 } // namespace vmm
 
-// External functions from paging.asm
-
-extern "C" void set_page_directory(PageDirectory*);
+// ASM functions
+extern "C" void set_pdpt(uint64_t);
+extern "C" void enable_pae();
 extern "C" void enable_paging();
-
+extern "C" void flush_tlb(uint64_t);
 
 #endif // VMM_HPP

@@ -75,18 +75,21 @@ void cmd::run_cmd() {
             vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
 
             // Clearing the input
-            currentInput = (char*)kmalloc(sizeof(char) * 256);
+            kfree(currentInput);
+            currentInput = (char*)(kmalloc(sizeof(char) * 256));
             return;
         }
     }
 
     // If we made it to here that means that the inputted command could not be found
     vga::printf("\n%s isn't a valid command!\n", get_first_word(currentInput));
-    vga::print_set_color(PRINT_COLOR_LIGHT_GREEN, PRINT_COLOR_BLACK);
-    vga::printf("\nIoOS>$ ");
+    vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
+    vga::printf("#MioOS#KERNEL#>$ ");
     vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
 
-    currentInput = (char*)kmalloc(sizeof(char) * 256);
+    // Clearing the input
+    kfree(currentInput);
+    currentInput = (char*)(kmalloc(sizeof(char) * 256));
     return;
 }
 
@@ -130,8 +133,14 @@ void echo() {
 }
 
 void getmeminfo() {
-    vga::printf("Available usable memory: %lu GiB\n", (pmm::total_usable_ram / BYTES_IN_GIB));
-    vga::printf("Used memory: %lu bytes\n", (pmm::total_used_ram));
+    vga::printf("Available usable memory: ~%lu GiB\n", (pmm::total_usable_ram / BYTES_IN_GIB));
+    vga::printf("Used memory: %lu bytes\n\n", (pmm::total_used_ram));
+    
+    // Prints the memory map
+    pmm::print_memory_map();
+    vga::printf("\n");
+    // Prints block info
+    pmm::print_usable_regions();
 }
 
 void getuptime() {

@@ -22,43 +22,43 @@ void unittsts::test_heap(void) {
     vga::printf("=============== Testing Heap! ===============\n");
 
     // Allocating first block
-    uint32_t* block1 = (uint32_t*)kmalloc(40);
+    uint32_t block1 = uint32_t(kmalloc(40));
 
-    if(uint32_t(block1) > HEAP_START) 
-        vga::printf("   Test 1 successfull: allocated block in heap!\n");
+    if(block1 > HEAP_START) 
+        vga::printf("   Test 1 successfull: allocated block in heap! Allocated address: %x\n", block1);
     else {
         vga::error("   Test 1 failed: couldn't allocate block in heap!\n");
         passed = false; // Noting that the test failed
     }
 
     // Allocating second block
-    uint32_t* block2 = (uint32_t*)kmalloc(40);
-    uint32_t block2_addr = uint32_t(block2);
+    uint32_t block2 = uint32_t(kmalloc(40));
+    uint32_t block2_addr = block2;
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
-    if(uint32_t(block2) == uint32_t(block1) + 40 + sizeof(HeapBlock)) 
-        vga::printf("   Test 2 successfull: allocated block2 in heap!\n");
+    if(block2 == block1 + 40 + sizeof(HeapBlock)) 
+        vga::printf("   Test 2 successfull: allocated block2 in heap! Allocated address: %x\n", block2);
     else {
         vga::error("   Test 2 failed: couldn't allocate block2 in heap!\n");
         passed = false; // Noting that the test failed
     }
 
     // Freeing block2
-    kfree(block2);
+    kfree((void*)block2);
 
     // Reallocating second block
-    block2 = (uint32_t*)kmalloc(40);
+    block2 = uint32_t(kmalloc(40));
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
-    if(uint32_t(block2) == block2_addr) 
-        vga::printf("   Test 3 successfull: freed block2!\n");
+    if(block2 == block2_addr) 
+        vga::printf("   Test 3 successfull: freed block2! Reallocated address: %x\n", block2);
     else {
         vga::error("   Test 3 failed: couldn't free block2!\n");
         passed = false; // Noting that the test failed
     }
     
     // Freeing up heap
-    kfree(block1); kfree(block2);
+    kfree((void*)block1); kfree((void*)block2);
 
     // End text
     vga::printf("============ Heap Testing Ended! ============\n");

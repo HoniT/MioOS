@@ -83,12 +83,17 @@ void kfree(void* ptr) {
             /* The current blocks next block will be the next blocks next block, 
              * because the next block doesn't exist anymore */
             current->next = current->next->next;
+
+            // Freeing the memory of the deleted node
+            kfree(current->next);
         }
         // Going to the next block
         current = current->next;
     }
 
-    // Setting the ptr to null because it doesn't point to a valid address anymore
+    /* Setting the ptr to null because it doesn't point to a 
+     * valid address anymore and deleting data of of the ptr */
+    *(uint32_t*)ptr = 0; 
     ptr = nullptr;
 }
 
@@ -158,23 +163,42 @@ void* kcalloc(const size_t num, const size_t size) {
     return ptr;
 }
 
+void print_heap_blocks(void) {
+    HeapBlock* current = heap_head; // Setting current block as head
+
+    while(current) {
+        // Printing info
+        vga::printf("-Block range: %x-%x\n", current, uint32_t(current) + current->size);
+        vga::printf("Block size: %d bytes\n", current->size);
+        vga::printf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
+
+        // Going to next node/block
+        current = current->next;
+    }
+}
+
 void heap::heap_dump(void) {
     vga::printf("--------------- Heap Dump ---------------\n");
 
     HeapBlock* current = heap_head; // Setting the current block as the head
     uint64_t bytes_in_use = 0;
+    uint32_t allocated_block_num = 0;
 
     // Itterating through blocks
     while(current) {
         if(!current->free) {
             // if the block is free we'll output the size and store add it to the total amount
-            vga::printf("Block size: %u bytes\n", current->size);
+            vga::printf("Allocated block %d size: %u bytes\n", ++allocated_block_num, current->size);
             bytes_in_use += current->size;
         }
 
         // Getting next block
         current = current->next;
     }
+
+    // Printing every heap block
+    vga::printf("\n");
+    print_heap_blocks();
 
     // Printing final status of heap
     vga::printf("Heap status: %lu bytes used out of %u\n", bytes_in_use, HEAP_SIZE);

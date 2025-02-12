@@ -39,6 +39,25 @@ struct InterruptRegisters{
     uint32_t eip, csm, eflags, useresp, ss;
 };
 
+// Info gotten from an interrupt (ISR) 
+struct InterruptFrame {
+    uint32_t edi;
+    uint32_t esi;
+    uint32_t ebp;
+    uint32_t esp; // This is the stack before the interrupt
+    uint32_t ebx;
+    uint32_t edx;
+    uint32_t ecx;
+    uint32_t eax;
+    uint32_t interruptNumber; // Interrupt vector number
+    uint32_t errorCode;       // Error code (only for some interrupts like Page Fault)
+    uint32_t eip;             // Instruction pointer
+    uint32_t cs;              // Code segment
+    uint32_t eflags;          // Flags register
+    uint32_t userEsp;         // Stack pointer (if switching to ring 3)
+    uint32_t userSs;          // Stack segment (if switching to ring 3)
+};
+
 namespace idt {
 // Functions
 void init(void); // Initializes IDT
