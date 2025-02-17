@@ -55,6 +55,9 @@ void unittsts::test_pmm(void) {
         passed = false; // Noting that the test failed
     }
 
+    // Freeing up memory
+    pmm::free_frame((void*)block1); pmm::free_frame((void*)block2);
+
     uint32_t aligned_block = uint32_t(pmm::alloc_frame_aligned(1));
     if(aligned_block % PAGE_SIZE == 0) 
         vga::printf("   Test 4 successfull: allocated aligned block! Allocated address: %x\n", aligned_block);
@@ -63,9 +66,6 @@ void unittsts::test_pmm(void) {
         passed = false; // Noting that the test failed
     }
     
-    // Freeing up memory
-    pmm::free_frame((void*)block1); pmm::free_frame((void*)block2);
-
     // End text
     vga::printf("============= PMM Testing Ended! ============\n");
 

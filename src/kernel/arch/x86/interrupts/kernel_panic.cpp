@@ -21,7 +21,7 @@ void kernel_panic(const char* error) {
     return;
 }
 
-void kernel_panic_isr(const char* error) {
+void kernel_panic_isr(const char* error, InterruptFrame* frame) {
     // Page faults are handled by a page fault handler in vmm.cpp
     asm volatile ("cli"); // Clearing interrupts
 
@@ -32,6 +32,7 @@ void kernel_panic_isr(const char* error) {
     vga::print_clear();
 
     vga::printf("%s\nException! system Halted\n", error);
+    vga::printf("Error code: %x\n", frame->errorCode);
 
     // Will save dump in the future, instead of infinite loop
     for(;;) {}

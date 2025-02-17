@@ -175,7 +175,8 @@ void* pmm::alloc_frame(const uint64_t num_blocks) {
             #ifdef VMM_HPP // If VMM is present
             // If paging is enabled
             if(enabled_paging) {
-                // Map the allocated frame to virtual memory
+                // Identity map the allocated frame to virtual memory
+                vmm::map_page(uint64_t(return_address), uint64_t(return_address), PRESENT | WRITABLE);
             }
             #endif // VMM_HPP
 
@@ -205,6 +206,7 @@ void pmm::free_frame(const void* ptr) {
     MemoryNode* block = (MemoryNode*)((char*)ptr - sizeof(MemoryNode));
     block->free = true; // Setting as free
     // Noting that we freed a block
+    vga::error("Freeing block with size: %lx and address: %lx\n", block->size, uint64_t(block));
     pmm::total_used_ram -= block->size;
 
     // Setting the corresponding linked list head, high or low usable mem region
@@ -219,9 +221,6 @@ void pmm::free_frame(const void* ptr) {
             /* The current blocks next block will be the next blocks next block, 
             * because the next block doesn't exist anymore */
             current->next = current->next->next;
-
-            // Freeing the memory of the deleted node
-            free_frame(current->next);
         }
         // Going to the next block
         current = current->next;

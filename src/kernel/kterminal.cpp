@@ -133,14 +133,29 @@ void echo() {
 }
 
 void getmeminfo() {
-    vga::printf("Available usable memory: ~%lu GiB\n", (pmm::total_usable_ram / BYTES_IN_GIB));
-    vga::printf("Used memory: %lu bytes\n\n", (pmm::total_used_ram));
+    // If the user inputed the help flag
+    if(strcmp(get_remaining_string(currentInput), "-h") == 0) {
+        // Printing every available version of getmeminfo
+        vga::printf("-mmap - Prints the memory map given from GRUB\n");
+        vga::printf("-reg - Prints the blocks in the usable memory regions\n");
+        return;
+    }
+
+    // If there were no flags inputed
+    if(strcmp(get_remaining_string(currentInput), "") == 0) {
+        // Printing usable and used memory
+        vga::printf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
+        vga::printf("Available usable memory: ~%lu GiB\n", (pmm::total_usable_ram / BYTES_IN_GIB));
+        vga::printf("Used memory: %lu bytes\n\n", (pmm::total_used_ram));
+        return;
+    }
     
     // Prints the memory map
-    pmm::print_memory_map();
-    vga::printf("\n");
+    if(strcmp(get_remaining_string(currentInput), "-mmap") == 0)
+        pmm::print_memory_map();
     // Prints block info
-    pmm::print_usable_regions();
+    if(strcmp(get_remaining_string(currentInput), "-reg") == 0)
+        pmm::print_usable_regions();
 }
 
 void getuptime() {
