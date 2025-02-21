@@ -31,8 +31,6 @@ namespace heap {
 void* kmalloc(const size_t size);
 // Frees a block of memory at pointer <ptr>
 void kfree(void* ptr);
-// Reallocates an already allocated block with a new size
-void* krealloc(void* ptr, const size_t new_size);
 // Allocates space for an array
 void* kcalloc(const size_t num, const size_t size);
 

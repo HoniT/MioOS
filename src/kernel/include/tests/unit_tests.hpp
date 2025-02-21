@@ -13,6 +13,7 @@ namespace unittsts {
     // Specific unit tests
     void test_heap(void);
     void test_pmm(void);
+    void test_vmm(void);
 } // Namespace unittsts
 
 #endif // UNIT_TESTS_HPP

@@ -9,6 +9,7 @@
 #define VGA_PRINT_HPP
 
 #define VGA_ADDRESS 0xB8000 // VGA address
+#define SCROLLBACK_MAX_LINES 100 // Maximum amount of lines that we will store
 
 #include <stdint.h>
 #include <stddef.h>

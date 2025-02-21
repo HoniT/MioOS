@@ -205,8 +205,6 @@ void pmm::free_frame(const void* ptr) {
     // Getting the frame based of of the given address/pointer and setting it as free
     MemoryNode* block = (MemoryNode*)((char*)ptr - sizeof(MemoryNode));
     block->free = true; // Setting as free
-    // Noting that we freed a block
-    vga::error("Freeing block with size: %lx and address: %lx\n", block->size, uint64_t(block));
     pmm::total_used_ram -= block->size;
 
     // Setting the corresponding linked list head, high or low usable mem region
@@ -220,12 +218,20 @@ void pmm::free_frame(const void* ptr) {
             current->size += current->next->size + sizeof(HeapBlock);
             /* The current blocks next block will be the next blocks next block, 
             * because the next block doesn't exist anymore */
-            current->next = current->next->next;
+           current->next = current->next->next;
         }
         // Going to the next block
         current = current->next;
     }
-
+    
     // Setting the ptr to null because it doesn't point to a valid address anymore
     ptr = nullptr;
+
+    #ifdef VMM_HPP // If VMM is present
+        // If paging is enabled
+        if(enabled_paging) {
+            // Unmap the allocated frame from virtual memory
+            vmm::unmap_page(uint64_t(ptr));
+        }
+    #endif // VMM_HPP
 }

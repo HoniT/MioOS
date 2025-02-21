@@ -48,14 +48,12 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     unittsts::test_heap();
     // Testing PMM
     unittsts::test_pmm();
+    // Testing VMM
+    unittsts::test_vmm();
     
     // Drivers
     pit::init(); // Programmable Interval Timer
     keyboard::init(); // Keyboard drivers
-
-    vmm::map_page(1, 0xB8000, PRESENT | WRITABLE);
-    uint64_t* p = (uint64_t*)0xB;
-    *p = 0;
 
     // Kernel CLI and other 
     cmd::init();

@@ -136,7 +136,7 @@ namespace vmm {
             return;
         }
 
-        vga::printf("Mapping %lx -> %lx with flags %x (PT Entry Addr: %lx)\n", virt_addr, phys_addr, flags, (uint64_t)&pt->entries[pt_idx]);
+        // vga::printf("Mapping %lx -> %lx with flags %x (PT Entry Addr: %lx)\n", virt_addr, phys_addr, flags, (uint64_t)&pt->entries[pt_idx]);
 
         // Set PT entry
         pt->entries[pt_idx] = (phys_addr & ~0xFFF) | flags | PRESENT;
@@ -202,16 +202,38 @@ namespace vmm {
             pdpt->entries[pdpt_idx] = 0; // Remove PD entry in PDPT
         }
     
-        vga::printf("Unmapped page at %lx\n", virt_addr);
+        // vga::printf("Unmapped page at %lx\n", virt_addr);
     }
     
+    // Logs and returns a boolean value corresponding if a page at a given address is present/mapped
+    bool is_mapped(const uint64_t virt_addr) {
+        // Getting PDPT, PD, PT entry indexes based of the given address
+        uint64_t pdpt_idx = PDPT_INDEX(virt_addr);
+        uint64_t pd_idx   = PD_INDEX(virt_addr);
+        uint64_t pt_idx   = PT_INDEX(virt_addr);
+
+        // Retreiving the PDPT and checking id it's present
+        pdpt_t* pdpt = active_pdpt;
+        if (!(pdpt->entries[pdpt_idx] & PRESENT)) return false;
+
+        // Retreiving the PD and checking id it's present
+        pd_t* pd = (pd_t*)(pdpt->entries[pdpt_idx] & ~0xFFF);
+        if (!(pd->entries[pd_idx] & PRESENT)) return false;
+
+        // Retreiving the PT and checking id it's present
+        pt_t* pt = (pt_t*)(pd->entries[pd_idx] & ~0xFFF);
+        if (!(pt->entries[pt_idx] & PRESENT)) return false;
+
+        // Getting if it's present or not and returning
+        return pt->entries[pt_idx] & PRESENT;
+    }
     
     // Returnes the physical address corresponding to a virtual address
     uint64_t get_physical_address(const uint64_t virt_addr) {
         // Getting PDPT, PD, PT entry indexes based of the given address
-        int pdpt_idx = PDPT_INDEX(virt_addr);
-        int pd_idx   = PD_INDEX(virt_addr);
-        int pt_idx   = PT_INDEX(virt_addr);
+        uint64_t pdpt_idx = PDPT_INDEX(virt_addr);
+        uint64_t pd_idx   = PD_INDEX(virt_addr);
+        uint64_t pt_idx   = PT_INDEX(virt_addr);
     
         // Retreiving the PDPT and checking id it's present
         pdpt_t* pdpt = active_pdpt;

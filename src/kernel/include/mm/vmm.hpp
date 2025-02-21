@@ -82,6 +82,8 @@ namespace vmm {
 
     // Debug/helper function
 
+    // Logs and returns a boolean value corresponding if a page at a given address is present/mapped
+    bool is_mapped(const uint64_t virt_addr);
     // Returnes the physical address corresponding to a virtual address
     uint64_t get_physical_address(const uint64_t virt_addr);
 

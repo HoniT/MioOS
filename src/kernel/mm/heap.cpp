@@ -97,55 +97,6 @@ void kfree(void* ptr) {
     ptr = nullptr;
 }
 
-// Reallocates an already allocated block with a new size
-void* krealloc(void* ptr, size_t new_size) {
-    if (!ptr) {
-        // If the pointer is NULL, it's equivalent to kmalloc
-        return kmalloc(new_size);
-    }
-
-    // Find the HeapBlock corresponding to ptr
-    HeapBlock* block = (HeapBlock*)ptr - 1;  // Move back by the size of HeapBlock
-
-    if (new_size == 0) {
-        // If the new size is 0, free the memory
-        kfree(ptr);
-        return nullptr;
-    }
-
-    if (new_size <= block->size) {
-        // If the new size is smaller or equal, we shrink the block if necessary
-        if (new_size < block->size) {
-            // If shrinking, split the block if necessary
-            size_t remaining_size = block->size - new_size;
-            if (remaining_size >= sizeof(HeapBlock)) {
-                // Create a new free block after the current block
-                HeapBlock* new_free_block = (HeapBlock*)((char*)block + sizeof(HeapBlock) + new_size);
-                new_free_block->size = remaining_size - sizeof(HeapBlock);
-                new_free_block->free = true;
-                new_free_block->next = block->next;
-                block->next = new_free_block;  // Add new block to the linked list
-            }
-        }
-        block->size = new_size;  // Update the size of the block
-        return ptr;  // No need to allocate a new block, return the same pointer
-    }
-
-    // If the block is not big enough, we need to allocate a new block
-    void* new_ptr = kmalloc(new_size);  
-    if (!new_ptr) {
-        return nullptr;  // Return NULL if allocation fails
-    }
-
-    // Copy the data from the old block to the new block
-    memcpy(new_ptr, ptr, block->size);
-
-    // Free the old block
-    kfree(ptr);
-
-    return new_ptr;
-}
-
 // Allocates space for an array
 void* kcalloc(const size_t num, const size_t size) {
     // Getting the ptr from malloc
