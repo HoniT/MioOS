@@ -35,9 +35,9 @@ void unittsts::test_vmm(void) {
     }
 
     // Testing putting in a value
-    uint32_t value = 0x731;
-    *(uint32_t*)(address + 0xA) = value; // Writing in a value
-    if(*(uint32_t*)(0xB8000 + 0xA) == value) // If the value at the physical corresponding address is the same
+    uint16_t value = 0x072D;
+    *(uint16_t*)(address + 0xA) = value; // Writing in a value
+    if(*(uint16_t*)(0xB8000 + 0xA) == value) // If the value at the physical corresponding address is the same
         vga::printf("   Test 2 successfull: set value to page! Value: %x\n", value);
     else {
         vga::error("   Test 2 failed: it set the wrong value (%x)!\n", *(uint32_t*)(0xB8000 + 0xA));

@@ -50,7 +50,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     unittsts::test_pmm();
     // Testing VMM
     unittsts::test_vmm();
-    
+
     // Drivers
     pit::init(); // Programmable Interval Timer
     keyboard::init(); // Keyboard drivers

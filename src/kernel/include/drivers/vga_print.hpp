@@ -11,6 +11,10 @@
 #define VGA_ADDRESS 0xB8000 // VGA address
 #define SCROLLBACK_MAX_LINES 100 // Maximum amount of lines that we will store
 
+// Size constraints
+#define NUM_COLS 80
+#define NUM_ROWS 25
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -43,6 +47,11 @@ extern size_t row;
 namespace vga {
 
 void init(void); // Initializes main VGA text
+
+// Helper functions
+
+void clear_region(const size_t _row, const size_t _col, const uint32_t len);
+void insert(size_t _row, size_t _col, const char* str, bool _update_cursor = false);
 
 // VGA printing functions
 

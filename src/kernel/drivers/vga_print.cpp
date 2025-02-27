@@ -18,10 +18,6 @@
 // Notes if we initialized the title
 bool initialized_title = false;
 
-// Size constraints
-const size_t NUM_COLS = 80;
-const size_t NUM_ROWS = 25;
-
 // Defining structure of a character
 struct Char {
     uint8_t character;
@@ -49,6 +45,49 @@ bool printingString = false;
 // ====================
 #pragma region Helper Functions
 
+void update_cursor(const int row, const int col);
+
+// Clears a specific size of symbols from a given coordinate
+void vga::clear_region(const size_t _row, const size_t _col, const uint32_t len) {
+    Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // Getting VGA buffer
+
+    // Clearing
+    for(uint32_t i = 0; i < len; i++) {
+        vga[_col + _row * NUM_COLS + i].character = ' ';
+    }
+}
+
+// Inserts a string at a given coordinate
+void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor) {
+    Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // VGA buffer
+
+    // Copying the string into the VGA buffer
+    for (uint32_t i = 0; str[i] != '\0'; i++) {
+        vga[_col + _row * NUM_COLS + i].character = str[i];
+    }
+
+    // If we need to update the cursor, increment column
+    for (uint32_t i = 0; str[i] != '\0'; i++) {
+        if (_update_cursor) {
+            _col++;
+            if (_col >= NUM_COLS) {  // If we reach the end of the row
+                _col = 0;
+                _row++;
+                if (_row >= NUM_ROWS)  // Prevent overflow beyond VGA screen
+                    _row = NUM_ROWS - 1;
+            }
+        }
+    }
+
+    // Set global cursor position (if applicable)
+    row = _row;
+    col = _col;
+
+    // Update cursor to final position
+    update_cursor(row, col);
+}
+
+
 // Clears indicated line
 void clear_row(const size_t row) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
@@ -62,7 +101,6 @@ void clear_row(const size_t row) {
     }
 }
 
-void update_cursor(const int row, const int col);
 
 void print_newline(void) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);

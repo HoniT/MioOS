@@ -32,11 +32,21 @@ namespace vmm {
     void init(void) {
         // Setting ISR 14 to the Page Fault Handler
         idt::set_idt_gate(14, uint32_t(page_fault_handler), 0x08, 0x8E);
+        
+        bool nx_support = false;
+
+        CPUIDResult cpuid_res_nx = cpu::cpuid(CPUID_EXTENDED_PROCESSOR_INFO);
+        // Checking if bit 20 of EDX is set
+        if (cpuid_res_nx.edx & (1 << 20)) {
+            nx_support = true;
+            vga::printf("NX (No-Execute) bit is supported!\n");
+        } else {
+            vga::printf("NX (No-Execute) bit is NOT supported!\n");
+        }
 
         // Checking if the CPU supports the PAE (Physical Address Extension)
         // Getting feature list
         CPUIDResult cpuid_res = cpu::cpuid(CPUID_FEATURES);
-
         // Checking if bit 6 of EDX is set
         if(cpuid_res.edx & (1 << 6)) {
             vga::printf("PAE is supported!\n");
@@ -55,9 +65,9 @@ namespace vmm {
 
     enable_36bit:
         // Allocate memory for PDPT, PDs, and PTs
-        pdpt_t* pdpt = (pdpt_t*)pmm::alloc_frame_aligned(1);
-        pd_t* pds = (pd_t*)pmm::alloc_frame_aligned(4);
-        pt_t* pts = (pt_t*)pmm::alloc_frame_aligned(1024);
+        alignas(PAGE_SIZE) pdpt_t* pdpt = (pdpt_t*)pmm::alloc_frame(1);
+        alignas(PAGE_SIZE) pd_t* pds = (pd_t*)pmm::alloc_frame(4);
+        alignas(PAGE_SIZE) pt_t* pts = (pt_t*)pmm::alloc_frame(1024);
 
         // Checking if any allocation failed
         if (!pdpt || !pds || !pts) {
@@ -80,14 +90,22 @@ namespace vmm {
 
                 for (int k = 0; k < 512; k++) {
                     pts[pt_index].entries[k] = (frame_addr & ~0xFFF) | PRESENT | WRITABLE;
-                    frame_addr += FRAME_SIZE; // Move to next 4KiB frame
+                    frame_addr += PAGE_SIZE; // Move to next 4KiB frame
                 }
             }
         }
 
-        // Load PDPT, enable PAE, enable paging and flush the TLB
+        
+        // Load PDPT, setting up higher-half kernel, enable PAE, enable paging and flush the TLB
         active_pdpt = pdpt;
-        set_pdpt((uint64_t)pdpt);
+        set_pdpt((uint64_t)pdpt); // Sets PDPT in CR3
+
+        // Setting up higher half kernel
+        // Mapping 0x100000-0x400000 to 3GiB in virtual memory
+        uint64_t kernel_base = uint64_t(&__kernel_phys_base);
+        for(uint64_t addr = kernel_base, page = KERNEL_BASE; addr < kernel_base + 0x400000; addr += PAGE_SIZE, page += PAGE_SIZE)
+            vmm::map_page(page, addr, PRESENT | WRITABLE);
+
         enable_pae();
         enable_paging();
         flush_tlb((uint64_t)pdpt);
@@ -118,7 +136,7 @@ namespace vmm {
         pt_t* pt = (pt_t*)(pd->entries[pd_idx] & ~0xFFF);
         if (!(pd->entries[pd_idx] & PRESENT)) { 
             // Allocate new PT
-            pt = (pt_t*)pmm::alloc_frame_aligned(1);
+            pt = (pt_t*)pmm::alloc_frame(1);
             // Checking if PT is missing
             if (!pt) {
                 kernel_panic("Failed to allocate PT!\n");

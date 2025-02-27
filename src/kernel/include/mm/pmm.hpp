@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <kernel_main.hpp>
 
-#define DATA_LOW_START_ADDR 0x500000 // 5MiB mark
+#define METADATA_ADDR 0x500000 // 5MiB mark
 #define FRAME_SIZE 0x1000 // 4KiB frames
 
 // Memory map entry structure
@@ -22,21 +22,24 @@ struct multiboot_mmap_entry {
     uint32_t type;
 } __attribute__((packed));
 
-// Linked list node for memory
-struct MemoryNode {
+// Linked list node for memory metadata
+struct MetadataNode {
+    uint64_t addr;
     uint64_t size;
-    bool free;
-    MemoryNode* next;
-};
+    bool free : 1;
+    MetadataNode* next;
+    MetadataNode* prev;
+} __attribute__((packed));
 
 namespace pmm {
     // Variables
     extern uint64_t total_usable_ram;
     extern uint64_t total_used_ram;
+    extern uint64_t hardware_reserved_ram;
 
     // Linked list heads
-    extern MemoryNode* low_alloc_mem_head;
-    extern MemoryNode* high_alloc_mem_head;
+    extern MetadataNode* low_alloc_mem_head;
+    extern MetadataNode* high_alloc_mem_head;
 
     // Prints out memory map
     void print_memory_map(void);
@@ -51,8 +54,7 @@ namespace pmm {
 
     // Allocates a frame in the usable memory regions
     void* alloc_frame(const uint64_t num_blocks);
-    void* alloc_frame_aligned(const uint64_t num_blocks);
-    void free_frame(const void* ptr);
+    void free_frame(void* ptr);
 } // Namespace pmm
 
 #endif // PMM_HPP

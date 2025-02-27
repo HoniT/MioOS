@@ -35,6 +35,35 @@ uint32_t hex_to_uint32(const char* hexStr) {
     return result;
 }
 
+// Turns a char* hex number to a uint64_t
+#include <stdint.h>
+
+uint64_t hex_to_uint64(const char* hexStr) {
+    uint64_t result = 0;
+
+    // Skip the "0x" or "0X" prefix if present
+    if (hexStr[0] == '0' && (hexStr[1] == 'x' || hexStr[1] == 'X')) {
+        hexStr += 2;
+    }
+
+    while (*hexStr) {
+        result <<= 4; // Shift left by 4 bits to make space for the next digit
+        if (*hexStr >= '0' && *hexStr <= '9') {
+            result |= (*hexStr - '0');
+        } else if (*hexStr >= 'A' && *hexStr <= 'F') {
+            result |= (*hexStr - 'A' + 10);
+        } else if (*hexStr >= 'a' && *hexStr <= 'f') {
+            result |= (*hexStr - 'a' + 10);
+        } else {
+            // Invalid character encountered
+            return 0;
+        }
+        hexStr++;
+    }
+
+    return result;
+}
+
 
 // Perform 64-bit unsigned division
 uint64_t udiv64(uint64_t dividend, uint64_t divisor) {

@@ -37,9 +37,21 @@ void keyboardHandler(InterruptRegisters* regs) {
         switch (scancode) {
             case 0x1C:  // Numpad Enter (extended)
                 if (press_state == 0) {
+                    cmd::save_cmd();
                     cmd::run_cmd(); // Same as regular Enter
                 }
                 break;
+
+            case 72: // Up arrow
+                if (press_state == 0) 
+                    cmd::cmd_up();
+                break;
+            
+            case 80: // Down arrow
+                if (press_state == 0) 
+                    cmd::cmd_down();
+                break;
+
             default:
                 break; // Ignore other extended keys for now
         }
@@ -48,6 +60,7 @@ void keyboardHandler(InterruptRegisters* regs) {
         switch (scancode) {
             case 0x1C:  // Regular Enter
                 if (press_state == 0) {
+                    cmd::save_cmd();
                     cmd::run_cmd();
                 }
                 break;

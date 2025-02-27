@@ -22,7 +22,7 @@ void unittsts::test_pmm(void) {
     // Allocating first block
     uint32_t block1 = uint32_t(pmm::alloc_frame(1));
 
-    if(block1 > DATA_LOW_START_ADDR) 
+    if(block1 > METADATA_ADDR) 
         vga::printf("   Test 1 successfull: allocated frame! Allocated address: %x\n", block1);
     else {
         vga::error("   Test 1 failed: couldn't allocate frame!\n");
@@ -34,7 +34,7 @@ void unittsts::test_pmm(void) {
     uint32_t block2_addr = block2; // Saving the second blocks address
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
-    if(block2 == block1 + FRAME_SIZE + sizeof(MemoryNode)) 
+    if(block2 == block1 + FRAME_SIZE) 
         vga::printf("   Test 2 successfull: allocated block2! Allocated address: %x\n", block2);
     else {
         vga::error("   Test 2 failed: couldn't allocate block2! %x\n", block2);
@@ -45,26 +45,18 @@ void unittsts::test_pmm(void) {
     pmm::free_frame((void*)block2);
 
     // Reallocating second block
-    block2 = uint32_t(pmm::alloc_frame(1));
+    block2 = uint32_t(pmm::alloc_frame(2));
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 == block2_addr) 
         vga::printf("   Test 3 successfull: freed block2! Reallocated address: %x\n", block2);
     else {
-        vga::error("   Test 3 failed: couldn't free block2!\n");
+        vga::error("   Test 3 failed: couldn't free block2! %x isn't %x\n", block2, block2_addr);
         passed = false; // Noting that the test failed
     }
 
     // Freeing up memory
     pmm::free_frame((void*)block1); pmm::free_frame((void*)block2);
-
-    uint32_t aligned_block = uint32_t(pmm::alloc_frame_aligned(1));
-    if(aligned_block % PAGE_SIZE == 0) 
-        vga::printf("   Test 4 successfull: allocated aligned block! Allocated address: %x\n", aligned_block);
-    else {
-        vga::error("   Test 4 failed: couldn't allocate aligned block!\n");
-        passed = false; // Noting that the test failed
-    }
     
     // End text
     vga::printf("============= PMM Testing Ended! ============\n");
