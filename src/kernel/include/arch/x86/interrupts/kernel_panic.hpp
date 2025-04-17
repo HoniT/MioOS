@@ -12,6 +12,6 @@
 
 // Kernel panic functions
 void kernel_panic(const char* error);
-void kernel_panic_isr(const char* error, InterruptFrame* frame = nullptr);
+void kernel_panic(const char* error, InterruptRegistersISR* frame);
 
 #endif // KERNEL_PANIC_HPP

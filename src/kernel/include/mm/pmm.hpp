@@ -36,6 +36,7 @@ namespace pmm {
     extern uint64_t total_usable_ram;
     extern uint64_t total_used_ram;
     extern uint64_t hardware_reserved_ram;
+    extern uint64_t total_installed_ram;
 
     // Linked list heads
     extern MetadataNode* low_alloc_mem_head;

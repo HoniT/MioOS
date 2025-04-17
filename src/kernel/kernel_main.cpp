@@ -44,6 +44,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     heap::init();
     pmm::init(mbi);
     vmm::init();
+
     // Testing heap
     unittsts::test_heap();
     // Testing PMM

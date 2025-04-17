@@ -47,9 +47,9 @@ void unittsts::test_vmm(void) {
     // Testing translation of virtual to physical
     uint64_t phys_address =  vmm::get_physical_address(address);
     if(phys_address == 0xB8000) 
-        vga::printf("   Test 3 successfull: translated a physical to a virtual address!\n");
+        vga::printf("   Test 3 successfull: translated a virtual to a physical address!\n");
     else {
-        vga::error("   Test 3 failed: couldn't translate a physical to a virtual address!\n");
+        vga::error("   Test 3 failed: couldn't translate a virtual to a physical address!\n");
         passed = false;
     }
 

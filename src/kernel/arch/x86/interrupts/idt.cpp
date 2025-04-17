@@ -14,13 +14,13 @@
 
 using io::outPortB;
 
-struct idt_entry idt_entries[IDT_SIZE]; // 256 IDT entries in total
+__attribute__((aligned(4096))) idt_entry idt_entries[IDT_SIZE]; // 256 IDT entries in total
 struct idt_ptr idt_ptr;
 
 
 // Initializing IDT
 void idt::init() {
-    idt_ptr.limit = sizeof(struct idt_entry) * 256 - 1; // Same operation as gdt_descriptor in boot.asm
+    idt_ptr.limit = sizeof(idt_entry) * 256 - 1; // Same operation as gdt_descriptor in boot.asm
     idt_ptr.base = (uint32_t)&idt_entries;
 
     // Initialize everything to 0
@@ -99,7 +99,7 @@ void idt::init() {
 
     // Flushing IDT
     idt_flush((uint32_t)&idt_ptr);
-    vga::printf("Implemented IDT!\n");
+    vga::printf("Implemented IDT at %x!\n", idt_ptr.base);
 }
 
 // Sets an IDT gate
@@ -152,10 +152,10 @@ const char* idt::exception_messages[] = {
 
 
 // Interrupt Service Routine error message
-extern "C" void isr_handler(struct InterruptRegisters* regs) {
+extern "C" void isr_handler(InterruptRegistersISR* regs) {
     // Throwing kernel panic error
     if(regs->interr_no < 32) {
-        kernel_panic_isr(idt::exception_messages[regs->interr_no]);
+        kernel_panic(idt::exception_messages[regs->interr_no], regs);
     }
 }
 
@@ -172,7 +172,7 @@ void* irq_routines[IRQ_QUANTITY] = {
 
 // IRQ handler functions
 
-extern "C" void irq_install_handler(int irq_num, void (*handler)(struct InterruptRegisters* regs)) {
+extern "C" void irq_install_handler(int irq_num, void (*handler)(InterruptRegisters* regs)) {
     // Installing IRQ
     irq_routines[irq_num] = (void*)handler;
 }
@@ -183,11 +183,11 @@ extern "C" void irq_uninstall_handler(int irq_num) {
 }
 
 // Interrupt request handler
-extern "C" void irq_handler(struct InterruptRegisters* regs) {
-    void (*handler)(struct InterruptRegisters* regs);
+extern "C" void irq_handler(InterruptRegisters* regs) {
+    void (*handler)(InterruptRegisters* regs);
 
     // Getting value from irq_routines
-    handler = (void (*)(struct InterruptRegisters*))irq_routines[regs->interr_no - 32];
+    handler = (void (*)(InterruptRegisters*))irq_routines[regs->interr_no - 32];
 
     if(handler) {
         handler(regs);

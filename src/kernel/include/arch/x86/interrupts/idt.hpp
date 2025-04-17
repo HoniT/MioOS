@@ -30,33 +30,24 @@ struct idt_ptr {
     uint32_t base;
 } __attribute__((packed));
 
-// Registers related to an interrupt
-struct InterruptRegisters{
-    uint32_t cr2;
-    uint32_t ds;
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
-    uint32_t interr_no, err_code;
-    uint32_t eip, csm, eflags, useresp, ss;
-};
+// Registers related to an interrupt (ISR)
+struct InterruptRegistersISR {
+    uint32_t ds;               // Pushed manually in isr_common_stub
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // pusha
+    uint32_t interr_no;        // Interrupt number
+    uint32_t err_code;         // Error code (only for some exceptions)
+    uint32_t eip, cs, eflags, useresp, ss; // Pushed by CPU
+} __attribute__((packed));
 
-// Info gotten from an interrupt (ISR) 
-struct InterruptFrame {
-    uint32_t edi;
-    uint32_t esi;
-    uint32_t ebp;
-    uint32_t esp; // This is the stack before the interrupt
-    uint32_t ebx;
-    uint32_t edx;
-    uint32_t ecx;
-    uint32_t eax;
-    uint32_t interruptNumber; // Interrupt vector number
-    uint32_t errorCode;       // Error code (only for some interrupts like Page Fault)
-    uint32_t eip;             // Instruction pointer
-    uint32_t cs;              // Code segment
-    uint32_t eflags;          // Flags register
-    uint32_t userEsp;         // Stack pointer (if switching to ring 3)
-    uint32_t userSs;          // Stack segment (if switching to ring 3)
-};
+// Registers related to an interrupt (IRQ)
+struct InterruptRegisters {
+    uint32_t cr2;
+    uint32_t ds;               // Pushed manually in isr_common_stub
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // pusha
+    uint32_t interr_no;        // Interrupt number
+    uint32_t err_code;         // Error code (only for some exceptions)
+    uint32_t eip, cs, eflags, useresp, ss; // Pushed by CPU
+} __attribute__((packed));
 
 namespace idt {
 // Functions
@@ -72,7 +63,7 @@ extern const char* exception_messages[];
 } // Namespace idt
 
 // Handlers
-extern "C" void isr_handler(struct InterruptRegisters* regs);
+extern "C" void isr_handler(struct InterruptRegistersISR* regs);
 extern "C" void irq_handler(struct InterruptRegisters* regs);
 // Flushes the IDT
 extern "C" void idt_flush(uint32_t);

@@ -23,7 +23,7 @@ extern kernel_main ; Kernel function that we're jumping to
 ; Entry point
 _start:
     cli ; Clear interrupts
-    mov esp, stack_space ; Setting stack pointer
+    mov esp, stack_space + 4096 ; Setting stack pointer
 
     ; Kernel main parameters
     push ebx

@@ -18,10 +18,11 @@ global flush_tlb
 
 ; Sets the Page Directory Pointer Table in CR3
 set_pdpt:
-    ; Retrieving PDPT from stack
+    cli
+    ; Retrieve lower 32 bits of PDPT address
     mov eax, [esp + 4]
-    ; Loading PDPT in CR3
     mov cr3, eax
+    sti
     ret
 
 ; Enables Physical Address Extension
@@ -41,9 +42,13 @@ enable_paging:
     sti
     ret
 
-; Invalidate a Single Page (TLB Entry)
+; Invalidate TLB by reloading CR3
 flush_tlb:
-    ; Retrieving page from stack
-    mov eax, [esp + 4]
-    invlpg [eax]
+    ; Reloading CR3
+    cli
+
+    mov eax, cr3
+    mov cr3, eax
+
+    sti
     ret

@@ -20,6 +20,7 @@ extern "C" uint32_t __kernel_phys_base;
 uint64_t pmm::total_usable_ram = 0;
 uint64_t pmm::total_used_ram = 0;
 uint64_t pmm::hardware_reserved_ram = 0;
+uint64_t pmm::total_installed_ram = 0;
 // Multiboot info will be saved here
 multiboot_info* mb_info = nullptr;
 
@@ -124,6 +125,9 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
         // If the entry is reserved we'll add the size to the total amount of reserved ram
         else pmm::hardware_reserved_ram += mmap->len;
 
+        // Adding size to total amount of installed ram
+        pmm::total_installed_ram += mmap->len;
+
         // Move to the next entry
         mmap = (struct multiboot_mmap_entry*)(uint32_t(mmap) + mmap->size + sizeof(mmap->size));
     }
@@ -134,7 +138,7 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
     LOW_DATA_START_ADDR = align_up(METADATA_ADDR + metadata_reserved, PAGE_SIZE);
 
     // Printing the total amount of RAM
-    vga::printf("Total amount of usable RAM: ~%u\n", uint32_t(pmm::total_usable_ram / BYTES_IN_GIB));
+    vga::printf("Total amount of usable RAM: ~%u GiB\n", uint32_t(pmm::total_usable_ram / BYTES_IN_GIB));
 }
 
 #pragma endregion
@@ -216,7 +220,7 @@ void* pmm::alloc_frame(const uint64_t num_blocks) {
             }
             #endif // VMM_HPP
 
-            return (void*)return_address;
+            return (void*)align_up(return_address, PAGE_SIZE); // Insuring alignment
         }
         // Moving to the next block
         current = current->next;

@@ -68,7 +68,6 @@ This guide explains how to create a bootable USB drive from a `.iso` file on bot
    - Install and open Rufus.
 
 3. **Select the USB Drive**
-   - For Boot selection pick FreeDOS.
    - In Rufus, select your USB drive from the "Device" dropdown.
 
 4. **Choose the `.iso` File**

@@ -1,3 +1,3 @@
 
 # Running project with QEMU and 8GiB of RAM intialized
-qemu-system-i386 -m 8G iso/mio_os.iso
+sudo qemu-system-i386 -enable-kvm -m 8G -drive file=iso/mio_os.iso,format=raw

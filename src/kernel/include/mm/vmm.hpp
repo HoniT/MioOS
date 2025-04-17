@@ -31,6 +31,8 @@ extern bool enabled_paging;
 #define PD_INDEX(addr)   (((addr) >> 21) & 0x1FF) // Next 9 bits (21-29)
 #define PT_INDEX(addr)   (((addr) >> 12) & 0x1FF) // Next 9 bits (12-20)
 #define PAGE_OFFSET(addr) ((addr) & 0xFFF)  // Last 12 bits (0-11)
+// Testing alignment
+#define IS_ALIGNED(addr, align) (((uintptr_t)(addr) & ((align)-1)) == 0)
 
 // Macros defining entries in each structure
 #define PDPT_ENTRIES 4
@@ -90,9 +92,9 @@ namespace vmm {
 } // namespace vmm
 
 // ASM functions
-extern "C" void set_pdpt(uint64_t);
+extern "C" void set_pdpt(uint32_t);
 extern "C" void enable_pae();
 extern "C" void enable_paging();
-extern "C" void flush_tlb(uint64_t);
+extern "C" void flush_tlb();
 
 #endif // VMM_HPP

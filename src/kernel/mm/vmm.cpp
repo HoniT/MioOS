@@ -22,7 +22,7 @@ bool enabled_paging = false; // Stores paging enabled status
 pdpt_t* active_pdpt = nullptr;
 
 // Function declarations
-void page_fault_handler(InterruptFrame* frame);
+void page_fault_handler(InterruptRegisters* frame);
 
 namespace vmm {
     // Constants addresses for higher-half kernel impl
@@ -65,14 +65,23 @@ namespace vmm {
 
     enable_36bit:
         // Allocate memory for PDPT, PDs, and PTs
-        alignas(PAGE_SIZE) pdpt_t* pdpt = (pdpt_t*)pmm::alloc_frame(1);
+        alignas(32) pdpt_t* pdpt = (pdpt_t*)pmm::alloc_frame(1);
         alignas(PAGE_SIZE) pd_t* pds = (pd_t*)pmm::alloc_frame(4);
-        alignas(PAGE_SIZE) pt_t* pts = (pt_t*)pmm::alloc_frame(1024);
+        alignas(PAGE_SIZE) pt_t* pts = (pt_t*)pmm::alloc_frame(2048);
 
         // Checking if any allocation failed
         if (!pdpt || !pds || !pts) {
             kernel_panic("Paging structures allocation failed!\n");
             return;
+        }
+
+        // Testing alignment
+        if (!IS_ALIGNED(pdpt, 32))          kernel_panic("PDPT not 32-byte aligned!\n");
+        for (int i = 0; i < 4; ++i) {
+            if (!IS_ALIGNED(&pds[i], 4096)) kernel_panic("PD not 4KB aligned!\n");
+        }
+        for (int i = 0; i < 4 * 512; ++i) {
+            if (!IS_ALIGNED(&pts[i], 4096)) kernel_panic("PT not 4KB aligned!\n");
         }
 
         uint64_t frame_addr = 0; // Physical address starts at 0x00000000
@@ -94,21 +103,27 @@ namespace vmm {
                 }
             }
         }
-
         
         // Load PDPT, setting up higher-half kernel, enable PAE, enable paging and flush the TLB
+        enable_pae();
         active_pdpt = pdpt;
-        set_pdpt((uint64_t)pdpt); // Sets PDPT in CR3
 
+        // Identity mapping up to 4GiB (or to max RAM installed if 4GiB is not available)
+        uint64_t target = (0x100000000 > pmm::total_installed_ram) ? pmm::total_installed_ram : 0x100000000;
+        for (uint64_t addr = 0; addr < target; addr += PAGE_SIZE)
+            vmm::map_page(addr, addr, PRESENT | WRITABLE);
+        
         // Setting up higher half kernel
         // Mapping 0x100000-0x400000 to 3GiB in virtual memory
         uint64_t kernel_base = uint64_t(&__kernel_phys_base);
-        for(uint64_t addr = kernel_base, page = KERNEL_BASE; addr < kernel_base + 0x400000; addr += PAGE_SIZE, page += PAGE_SIZE)
-            vmm::map_page(page, addr, PRESENT | WRITABLE);
+        for(uint64_t addr = kernel_base, v_addr = KERNEL_BASE; addr < kernel_base + 0x400000; addr += PAGE_SIZE, v_addr += PAGE_SIZE)
+            vmm::map_page(v_addr, addr, PRESENT | WRITABLE);
 
-        enable_pae();
+        set_pdpt(uint32_t(pdpt));
+        flush_tlb();
+
         enable_paging();
-        flush_tlb((uint64_t)pdpt);
+        flush_tlb();
 
         enabled_paging = true;
         vga::printf("Paging initialized with identity map up to 4GiB\n");
@@ -160,7 +175,7 @@ namespace vmm {
         pt->entries[pt_idx] = (phys_addr & ~0xFFF) | flags | PRESENT;
         
         // Flush TLB
-        flush_tlb(virt_addr);
+        flush_tlb();
     }
 
     // Unmaps a page with the given virtual address
@@ -190,7 +205,7 @@ namespace vmm {
         pt->entries[pt_idx] = 0;
     
         // Flush TLB for this address
-        flush_tlb(virt_addr);
+        flush_tlb();
     
         // Check if the PT is now empty, and free it if necessary
         bool empty = true;
@@ -255,15 +270,15 @@ namespace vmm {
     
         // Retreiving the PDPT and checking id it's present
         pdpt_t* pdpt = active_pdpt;
-        if (!(pdpt->entries[pdpt_idx] & PRESENT)) return -1;
+        if (!(pdpt->entries[pdpt_idx] & PRESENT)) return 0xFFFFFFFFFFFFFFFF;
         
         // Retreiving the PD and checking id it's present
         pd_t* pd = (pd_t*)(pdpt->entries[pdpt_idx] & ~0xFFF);
-        if (!(pd->entries[pd_idx] & PRESENT)) return -1;
+        if (!(pd->entries[pd_idx] & PRESENT)) return 0xFFFFFFFFFFFFFFFF;
 
         // Retreiving the PT and checking id it's present
         pt_t* pt = (pt_t*)(pd->entries[pd_idx] & ~0xFFF);
-        if (!(pt->entries[pt_idx] & PRESENT)) return -1;
+        if (!(pt->entries[pt_idx] & PRESENT)) return 0xFFFFFFFFFFFFFFFF;
     
         // Returning the address
         return pt->entries[pt_idx] & ~0xFFF;
@@ -272,14 +287,14 @@ namespace vmm {
 } // namespace vmm
 
 // This will handle page faults and print needed info for debugging
-void page_fault_handler(InterruptFrame* frame) {
+void page_fault_handler(InterruptRegisters* frame) {
     // Getting faulting address from Control Register 2
-    uint64_t faulting_address;
+    uint32_t faulting_address;
     // Read the CR2 register to get the faulting address
     asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
     // Get the error code from the interrupt frame
-    uint32_t errorCode = frame->errorCode;
+    uint32_t errorCode = frame->err_code;
 
     // Decode the error code
     bool present = errorCode & PRESENT;       // Page not present

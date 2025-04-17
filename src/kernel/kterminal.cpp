@@ -260,9 +260,10 @@ void getmeminfo() {
     if(strcmp(get_remaining_string(currentInput), "") == 0) {
         // Printing usable and used memory
         vga::printf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
-        vga::printf("Available usable memory: ~%lu GiB\n", pmm::total_usable_ram / BYTES_IN_GIB);
-        vga::printf("Used memory: %lu bytes\n", pmm::total_used_ram);
-        vga::printf("Hardware reserved memory: %lu bytes\n\n", pmm::hardware_reserved_ram);
+        vga::printf("Total installed memory:  %lu bytes (~%lu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
+        vga::printf("Available usable memory: %lu bytes (~%lu GiB)\n", pmm::total_usable_ram, pmm::total_usable_ram / BYTES_IN_GIB);
+        vga::printf("Used memory:                %lu bytes\n", pmm::total_used_ram);
+        vga::printf("Hardware reserved memory:   %lu bytes\n", pmm::hardware_reserved_ram);
         return;
     }
     

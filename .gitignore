@@ -1,5 +1,5 @@
 
-# Files to not include in GIT
+# Output files
 *.o
 *.bin
 *.elf

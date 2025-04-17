@@ -116,26 +116,21 @@ extern isr_handler
 
 ; ISR common stub
 isr_common_stub:
-    pusha
+    pusha                    ; Push all registers
 
-    ; Stack
     mov eax, ds
-    push eax
-    mov eax, cr2
-    push eax 
+    push eax                 ; Save DS segment
 
-    ; Setting up segments
-    mov ax, 0x10 
+    mov ax, 0x10
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    push esp
+    push esp                 ; Pass pointer to struct (InterruptRegisters*)
     call isr_handler
 
-
-    add esp, 8
+    add esp, 4               ; Remove pushed values (CR2 + DS)
     pop ebx
 
     mov ds, bx
@@ -144,11 +139,8 @@ isr_common_stub:
     mov gs, bx
 
     popa
-    add esp, 8
-
-    sti ; Enables interrupts
-    iret 
-
+    sti                      ; Re-enable interrupts
+    iret
 
 extern irq_handler
 
