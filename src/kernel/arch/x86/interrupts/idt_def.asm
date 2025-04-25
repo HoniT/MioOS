@@ -120,6 +120,8 @@ isr_common_stub:
 
     mov eax, ds
     push eax                 ; Save DS segment
+    mov eax, cr2
+    push eax
 
     mov ax, 0x10
     mov ds, ax
@@ -130,7 +132,7 @@ isr_common_stub:
     push esp                 ; Pass pointer to struct (InterruptRegisters*)
     call isr_handler
 
-    add esp, 4               ; Remove pushed values (CR2 + DS)
+    add esp, 8               ; Remove pushed values (CR2 + DS)
     pop ebx
 
     mov ds, bx
@@ -139,6 +141,7 @@ isr_common_stub:
     mov gs, bx
 
     popa
+    add esp, 8
     sti                      ; Re-enable interrupts
     iret
 

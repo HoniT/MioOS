@@ -14,7 +14,7 @@
 
 using io::outPortB;
 
-__attribute__((aligned(4096))) idt_entry idt_entries[IDT_SIZE]; // 256 IDT entries in total
+__attribute__((aligned(8))) idt_entry idt_entries[IDT_SIZE]; // 256 IDT entries in total
 struct idt_ptr idt_ptr;
 
 
@@ -33,8 +33,8 @@ void idt::init() {
     outPortB(0xA0, 0x11);
     outPortB(0x21, 0x20);
     outPortB(0xA1, 0x28);
-    outPortB(0x21,0x04);
-    outPortB(0xA1,0x02);
+    outPortB(0x21, 0x04);
+    outPortB(0xA1, 0x02);
     outPortB(0x21, 0x01);
     outPortB(0xA1, 0x01);
     outPortB(0x21, 0x0);
@@ -152,7 +152,7 @@ const char* idt::exception_messages[] = {
 
 
 // Interrupt Service Routine error message
-extern "C" void isr_handler(InterruptRegistersISR* regs) {
+extern "C" void isr_handler(InterruptRegisters* regs) {
     // Throwing kernel panic error
     if(regs->interr_no < 32) {
         kernel_panic(idt::exception_messages[regs->interr_no], regs);

@@ -30,16 +30,7 @@ struct idt_ptr {
     uint32_t base;
 } __attribute__((packed));
 
-// Registers related to an interrupt (ISR)
-struct InterruptRegistersISR {
-    uint32_t ds;               // Pushed manually in isr_common_stub
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // pusha
-    uint32_t interr_no;        // Interrupt number
-    uint32_t err_code;         // Error code (only for some exceptions)
-    uint32_t eip, cs, eflags, useresp, ss; // Pushed by CPU
-} __attribute__((packed));
-
-// Registers related to an interrupt (IRQ)
+// Registers related to an interrupt
 struct InterruptRegisters {
     uint32_t cr2;
     uint32_t ds;               // Pushed manually in isr_common_stub
@@ -63,7 +54,7 @@ extern const char* exception_messages[];
 } // Namespace idt
 
 // Handlers
-extern "C" void isr_handler(struct InterruptRegistersISR* regs);
+extern "C" void isr_handler(struct InterruptRegisters* regs);
 extern "C" void irq_handler(struct InterruptRegisters* regs);
 // Flushes the IDT
 extern "C" void idt_flush(uint32_t);

@@ -46,9 +46,7 @@ enable_paging:
 flush_tlb:
     ; Reloading CR3
     cli
-
     mov eax, cr3
     mov cr3, eax
-
     sti
     ret

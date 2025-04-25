@@ -55,7 +55,6 @@ To use this project simply use the bash script located in tools. To do so:
 - 32-bit Operating System
 - Kernel written in C++
 - Paging with PAE
-- Ext2 file system
 (More will come in future)
 
 

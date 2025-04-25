@@ -20,17 +20,13 @@ void kernel_panic(const char* error) {
     return;
 }
 
-void kernel_panic(const char* error, InterruptRegistersISR* frame) {
+void kernel_panic(const char* error, InterruptRegisters* frame) {
     // (NOTE) Page faults are handled by a page fault handler in vmm.cpp
     asm volatile ("cli"); // Clearing interrupts
 
-    uint32_t _cr3, ss;
-    asm volatile ("mov %%cr3, %0" : "=r"(_cr3));
-    asm volatile ("mov %%ss, %0" : "=r"(ss));
-    vga::error("CR3: %x, SS: %x\n", _cr3, ss);
-
     vga::error("%s\nException! System halted\n", error);
     // Printing info
+    vga::error("CR2: %x\n", frame->cr2);
     vga::error("DS: %x\n", frame->ds);
     vga::error("EDI: %x\n", frame->edi);
     vga::error("ESI: %x\n", frame->err_code);

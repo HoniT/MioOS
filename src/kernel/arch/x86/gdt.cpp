@@ -11,7 +11,7 @@
 #include <lib/mem_util.hpp>
 
 // Arrays and variables
-__attribute__((aligned(4096))) gdt_entry gdt_entries[GDT_SEGMENT_QUANTITY];
+__attribute__((aligned(8))) gdt_entry gdt_entries[GDT_SEGMENT_QUANTITY];
 gdt_ptr _gdt_ptr;
 tss_entry _tss_entry;
 

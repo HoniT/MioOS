@@ -28,6 +28,38 @@ namespace vmm {
     // Constants addresses for higher-half kernel impl
     constexpr uint32_t KERNEL_BASE = 0xC0000000; // 3GiB higher-half kernel base
 
+    // Verifys PDPT, PD, PT entries alignment/flags
+    void verify_page_structures(const pdpt_t* pdpt, const pd_t* pds, const pt_t* pts) {
+        // Check PDPT alignment
+        if (!IS_ALIGNED(pdpt, 4096) || !GET_FLAG((uint32_t*)pdpt, PRESENT) || !GET_FLAG((uint32_t*)pdpt, WRITABLE)) {
+            vga::error("PDPT not 4KB aligned or flags missing!\n");
+            kernel_panic("PDPT not valid!");
+        }
+    
+        // Check each PD alignment
+        for (int i = 0; i < PDPT_ENTRIES; ++i) {
+            if (!IS_ALIGNED(&pds[i], 4096) || !GET_FLAG((uint32_t*)&pds[i], PRESENT) || !GET_FLAG((uint32_t*)&pds[i], WRITABLE)) {
+                vga::error("PD not 4KB aligned or flags missing! Index: %d\n", i);
+                kernel_panic("PD not valid!");
+            }
+    
+            // Check each PT table under each PD
+            for (int j = 0; j < PD_ENTRIES; ++j) {
+                uint64_t entry = pds[i].entries[j];
+                if (entry & PRESENT) {
+                    pt_t* pt = (pt_t*)(GET_FRAME(&entry));
+                    if (!IS_ALIGNED(pt, 4096) || !GET_FLAG((uint32_t*)pt, PRESENT) || !GET_FLAG((uint32_t*)pt, WRITABLE)) {
+                        vga::error("PT not 4KB aligned or flags missing! PD[%d] PT[%d] addr: %p\n", i, j, pt);
+                        kernel_panic("PT not valid!");
+                    }
+                }
+            }
+        }
+    
+        vga::printf("Page structure validation check passed.\n");
+    }
+    
+
     // Initializes the VMM, sets PD, PDPT, PT structures
     void init(void) {
         // Setting ISR 14 to the Page Fault Handler
@@ -65,9 +97,12 @@ namespace vmm {
 
     enable_36bit:
         // Allocate memory for PDPT, PDs, and PTs
-        alignas(32) pdpt_t* pdpt = (pdpt_t*)pmm::alloc_frame(1);
+        alignas(PAGE_SIZE) pdpt_t* pdpt = (pdpt_t*)pmm::alloc_frame(1);
+        memset(pdpt, 0, PAGE_SIZE);
         alignas(PAGE_SIZE) pd_t* pds = (pd_t*)pmm::alloc_frame(4);
+        memset(pds, 0, 4 * PAGE_SIZE);
         alignas(PAGE_SIZE) pt_t* pts = (pt_t*)pmm::alloc_frame(2048);
+        memset(pts, 0, 2048 * PAGE_SIZE);
 
         // Checking if any allocation failed
         if (!pdpt || !pds || !pts) {
@@ -75,23 +110,13 @@ namespace vmm {
             return;
         }
 
-        // Testing alignment
-        if (!IS_ALIGNED(pdpt, 32))          kernel_panic("PDPT not 32-byte aligned!\n");
-        for (int i = 0; i < 4; ++i) {
-            if (!IS_ALIGNED(&pds[i], 4096)) kernel_panic("PD not 4KB aligned!\n");
-        }
-        for (int i = 0; i < 4 * 512; ++i) {
-            if (!IS_ALIGNED(&pts[i], 4096)) kernel_panic("PT not 4KB aligned!\n");
-        }
-
-        uint64_t frame_addr = 0; // Physical address starts at 0x00000000
-
         // Set up PDPT
         for (int i = 0; i < 4; i++) {
             pdpt->entries[i] = ((uint64_t)&pds[i] & ~0xFFF) | PRESENT | WRITABLE;
         }
-
+        
         // Set up PDs and PTs
+        uint64_t frame_addr = 0; // Physical address starts at 0x00000000
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 512; j++) {
                 int pt_index = (i * 512) + j;
@@ -103,15 +128,19 @@ namespace vmm {
                 }
             }
         }
+
+        // Verifying alignment/flags
+        verify_page_structures(pdpt, pds, pts);
         
         // Load PDPT, setting up higher-half kernel, enable PAE, enable paging and flush the TLB
         enable_pae();
+        
         active_pdpt = pdpt;
-
-        // Identity mapping up to 4GiB (or to max RAM installed if 4GiB is not available)
-        uint64_t target = (0x100000000 > pmm::total_installed_ram) ? pmm::total_installed_ram : 0x100000000;
-        for (uint64_t addr = 0; addr < target; addr += PAGE_SIZE)
-            vmm::map_page(addr, addr, PRESENT | WRITABLE);
+        set_pdpt(reinterpret_cast<uintptr_t>(pdpt));
+        flush_tlb();
+        
+        enable_paging();
+        flush_tlb();
         
         // Setting up higher half kernel
         // Mapping 0x100000-0x400000 to 3GiB in virtual memory
@@ -119,15 +148,8 @@ namespace vmm {
         for(uint64_t addr = kernel_base, v_addr = KERNEL_BASE; addr < kernel_base + 0x400000; addr += PAGE_SIZE, v_addr += PAGE_SIZE)
             vmm::map_page(v_addr, addr, PRESENT | WRITABLE);
 
-        set_pdpt(uint32_t(pdpt));
-        flush_tlb();
-
-        enable_paging();
-        flush_tlb();
-
         enabled_paging = true;
         vga::printf("Paging initialized with identity map up to 4GiB\n");
-        
     }
 
     // Maps an address in virtual memory with given flags
