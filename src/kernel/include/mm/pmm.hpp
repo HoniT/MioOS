@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <kernel_main.hpp>
 
-#define METADATA_ADDR 0x500000 // 5MiB mark
+#define METADATA_ADDR 0x600000 // 6MiB mark
 #define FRAME_SIZE 0x1000 // 4KiB frames
 
 // Memory map entry structure

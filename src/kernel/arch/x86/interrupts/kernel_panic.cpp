@@ -29,19 +29,19 @@ void kernel_panic(const char* error, InterruptRegisters* frame) {
     vga::error("CR2: %x\n", frame->cr2);
     vga::error("DS: %x\n", frame->ds);
     vga::error("EDI: %x\n", frame->edi);
-    vga::error("ESI: %x\n", frame->err_code);
-    vga::error("EBP: %x\n", frame->err_code);
-    vga::error("ESP: %x\n", frame->err_code);
-    vga::error("EBX: %x\n", frame->err_code);
-    vga::error("EDX: %x\n", frame->err_code);
-    vga::error("ECX: %x\n", frame->err_code);
-    vga::error("EAX: %x\n", frame->err_code);
+    vga::error("ESI: %x\n", frame->esi);
+    vga::error("EBP: %x\n", frame->ebp);
+    vga::error("ESP: %x\n", frame->manual_esp);
+    vga::error("EBX: %x\n", frame->ebx);
+    vga::error("EDX: %x\n", frame->edx);
+    vga::error("ECX: %x\n", frame->ecx);
+    vga::error("EAX: %x\n", frame->eax);
     vga::error("Interrupt Number: %x\n", frame->interr_no);
     vga::error("Error code: %x\n", frame->err_code);
     vga::error("EIP: %x\n", frame->eip);
     vga::error("CS: %x\n", frame->cs);
     vga::error("EFlags: %x\n", frame->eflags);
-    vga::error("User SP: %x\n", frame->useresp);
+    vga::error("ESP (Pushed by CPU): %x\n", frame->esp);
     vga::error("SS: %x\n", frame->ss);
 
     // Printing major Control Registers

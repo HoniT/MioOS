@@ -26,14 +26,14 @@ void gdt::init(void) {
     set_gdt_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Kernel data segment
     set_gdt_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // User code segment
     set_gdt_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User data segment
-    // write_tss(5, 0x10, 0x0); // TSS
+    write_tss(5, 0x10, 0x0); // TSS
 
     // Flushing GDT and TSS
     gdt_flush((uint32_t)&_gdt_ptr);
     vga::printf("Implemented GDT at %x!\n", _gdt_ptr.base);
 
-    // tss_flush();
-    // vga::printf("Implemented TSS!\n");
+    tss_flush();
+    vga::printf("Implemented TSS!\n");
 }
 
 void gdt::set_gdt_gate(const uint32_t num, const uint32_t base, const uint32_t limit, const uint8_t access, const uint8_t gran) {

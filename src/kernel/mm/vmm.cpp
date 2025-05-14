@@ -16,6 +16,7 @@
 
 // Getting the kernels physical starting address from the linker script
 extern "C" uint32_t __kernel_phys_base;
+extern "C" uint32_t stack_space;
 
 // Global variables
 bool enabled_paging = false; // Stores paging enabled status
@@ -112,7 +113,8 @@ namespace vmm {
 
         // Set up PDPT
         for (int i = 0; i < 4; i++) {
-            pdpt->entries[i] = ((uint64_t)&pds[i] & ~0xFFF) | PRESENT | WRITABLE;
+            uint64_t pds_base = (uint64_t)pds; // Physical!
+            pdpt->entries[i] = ((pds_base + i * PAGE_SIZE) & ~0xFFF) | PRESENT | WRITABLE;
         }
         
         // Set up PDs and PTs
@@ -120,7 +122,8 @@ namespace vmm {
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 512; j++) {
                 int pt_index = (i * 512) + j;
-                pds[i].entries[j] = ((uint64_t)&pts[pt_index] & ~0xFFF) | PRESENT | WRITABLE;
+                uint64_t pts_base = (uint64_t)pts; // Physical!
+                pds[i].entries[j] = ((pts_base + pt_index * PAGE_SIZE) & ~0xFFF) | PRESENT | WRITABLE;
 
                 for (int k = 0; k < 512; k++) {
                     pts[pt_index].entries[k] = (frame_addr & ~0xFFF) | PRESENT | WRITABLE;
@@ -129,16 +132,23 @@ namespace vmm {
             }
         }
 
+        for(int i = 0; i < PDPT_ENTRIES; i++) {
+            vga::printf("Address(&pds[i]): %x Value(pds[i]): %x\n", &pds[i], pds[i]);
+        }
+
         // Verifying alignment/flags
         verify_page_structures(pdpt, pds, pts);
+        active_pdpt = pdpt;
+
+        // for(uint64_t i = 0; i < METADATA_ADDR; i++) map_page(i, i, PRESENT | WRITABLE);
         
         // Load PDPT, setting up higher-half kernel, enable PAE, enable paging and flush the TLB
         enable_pae();
         
-        active_pdpt = pdpt;
-        set_pdpt(reinterpret_cast<uintptr_t>(pdpt));
+        set_pdpt(get_physical_address((uint64_t)pdpt));
         flush_tlb();
-        
+        vga::printf("Stack: %x\n", &stack_space);
+        // return;
         enable_paging();
         flush_tlb();
         

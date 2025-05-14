@@ -18,12 +18,13 @@ dd 0x00000003          ; Flags
 dd -(0x1BADB002 + 0x3) ; Checksum
 
 global _start
+global stack_space
 extern kernel_main ; Kernel function that we're jumping to
 
 ; Entry point
 _start:
     cli ; Clear interrupts
-    mov esp, stack_space + 4096 ; Setting stack pointer
+    mov esp, stack_space ; Setting stack pointer
 
     ; Kernel main parameters
     push ebx
@@ -38,6 +39,5 @@ halt_loop:
 
 ; Stack label for stack pointer
 section .bss
-align 16
+resb 8192
 stack_space:
-    resb 4096

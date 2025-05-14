@@ -36,8 +36,8 @@ struct tss_entry {
     uint32_t ss2; // Segment selector; 0x18; Reserved
     uint32_t cr3, eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi; // 0x1C .. 0x44
     uint32_t es, cs, ss, ds, fs, gs, ldtr; // 0x48 .. 0x60
+    uint32_t trap; // Shadow stack pointer; 0x68
     uint32_t iopb; // I/O map base address; 0x64; Reserved
-    uint32_t ssp; // Shadow stack pointer; 0x68
 } __attribute__((packed));
 
 // Needs to be 8 bytes exactly because we have a 32-bit OS

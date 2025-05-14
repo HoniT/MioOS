@@ -34,10 +34,10 @@ struct idt_ptr {
 struct InterruptRegisters {
     uint32_t cr2;
     uint32_t ds;               // Pushed manually in isr_common_stub
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // pusha
+    uint32_t edi, esi, ebp, manual_esp, ebx, edx, ecx, eax; // pusha
     uint32_t interr_no;        // Interrupt number
     uint32_t err_code;         // Error code (only for some exceptions)
-    uint32_t eip, cs, eflags, useresp, ss; // Pushed by CPU
+    uint32_t eip, cs, eflags, esp, ss; // Pushed by CPU
 } __attribute__((packed));
 
 namespace idt {

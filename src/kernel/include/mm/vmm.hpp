@@ -46,8 +46,8 @@ typedef uint64_t pt_ent; // Same as page
 
 // Structures
 typedef struct PDPT {
-    pdpt_ent entries[PDPT_ENTRIES] __attribute__((aligned(32)));
-} __attribute__((packed)) pdpt_t;
+    pdpt_ent entries[PDPT_ENTRIES];
+} __attribute__((packed, aligned(32))) pdpt_t;
 
 typedef struct PD {
     pd_ent entries[PD_ENTRIES] __attribute__((aligned(32)));

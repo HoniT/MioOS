@@ -210,14 +210,15 @@ void* pmm::alloc_frame(const uint64_t num_blocks) {
 
             // Returning the current blocks address plus the metadata size needed and aligning it to the page size
             uint64_t return_address = current->addr;
-
+            
             #ifdef VMM_HPP // If VMM is present
             // If paging is enabled
             if(enabled_paging) {
                 // Identity map the allocated frames every 4KiB block to virtual memory
                 for(uint64_t block = 0, addr = return_address; block < num_blocks; block++, addr += PAGE_SIZE)
-                    vmm::map_page(addr, addr, PRESENT | WRITABLE);
+                vmm::map_page(addr, addr, PRESENT | WRITABLE);
             }
+            memset((void*)return_address, 0, FRAME_SIZE); // Zeroing out data
             #endif // VMM_HPP
 
             return (void*)align_up(return_address, PAGE_SIZE); // Insuring alignment
