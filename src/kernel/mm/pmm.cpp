@@ -133,7 +133,7 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
     }
 
     // Calculating amount of space to reserve for metadata
-    metadata_reserved = pmm::total_usable_ram / FRAME_SIZE * sizeof(MetadataNode);
+    metadata_reserved = vmm::pae_paging ? pmm::total_usable_ram : 0x100000000 / FRAME_SIZE * sizeof(MetadataNode);
     // Keeping the address in where the actual data will be placed and aligning it to ensore page-alignment
     LOW_DATA_START_ADDR = align_up(METADATA_ADDR + metadata_reserved, PAGE_SIZE);
 
@@ -172,7 +172,7 @@ void* pmm::alloc_frame(const uint64_t num_blocks) {
 
     #ifdef VMM_HPP
     // Checks if the list head is mapped
-    if (enabled_paging && !vmm::is_mapped(uint64_t(low_alloc_mem_head))) {
+    if (vmm::enabled_paging && !vmm::is_mapped(uint64_t(low_alloc_mem_head))) {
         vga::error("Page fault: heap_head is not mapped!\n");
         return nullptr;
     }
@@ -213,13 +213,13 @@ void* pmm::alloc_frame(const uint64_t num_blocks) {
             
             #ifdef VMM_HPP // If VMM is present
             // If paging is enabled
-            if(enabled_paging) {
+            if(vmm::enabled_paging) {
                 // Identity map the allocated frames every 4KiB block to virtual memory
                 for(uint64_t block = 0, addr = return_address; block < num_blocks; block++, addr += PAGE_SIZE)
-                vmm::map_page(addr, addr, PRESENT | WRITABLE);
+                vmm::alloc_page(addr, addr, PRESENT | WRITABLE);
             }
-            memset((void*)return_address, 0, FRAME_SIZE); // Zeroing out data
             #endif // VMM_HPP
+            memset((void*)return_address, 0, FRAME_SIZE); // Zeroing out data
 
             return (void*)align_up(return_address, PAGE_SIZE); // Insuring alignment
         }
@@ -289,10 +289,10 @@ void pmm::free_frame(void* ptr) {
 
     #ifdef VMM_HPP // If VMM is present
         // If paging is enabled
-        if(enabled_paging) {
+        if(vmm::enabled_paging) {
             // Unmap the allocated frames every 4KiB block from virtual memory
             for(uint64_t i = 0, addr = uint64_t(ptr); i < (block->size / PAGE_SIZE); block++, addr += PAGE_SIZE)
-                vmm::unmap_page(uint64_t(addr));
+                vmm::free_page(uint64_t(addr));
         }
     #endif // VMM_HPP
 }

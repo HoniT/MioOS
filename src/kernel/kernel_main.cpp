@@ -33,18 +33,18 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     }
 
     vga::init(); // Setting main VGA text/title
-
+    
     // Descriptor tables
     gdt::init(); // Global Descriptor Table (GDT)
     idt::init(); // Interrupts Descriptor Table (IDT)
-
+    
     cpu::init(); // CPUID
-
+    
     // Initializing memory managers
     heap::init();
     pmm::init(mbi);
     vmm::init();
-
+    
     // Testing heap
     unittsts::test_heap();
     // Testing PMM

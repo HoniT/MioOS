@@ -11,42 +11,39 @@
 section .text
 
 ; Global symbols
-global set_pdpt
-global enable_pae
+global set_pd
 global enable_paging
-global flush_tlb
+global reload_cr3
+global invlpg
 
-; Sets the Page Directory Pointer Table in CR3
-set_pdpt:
+; Sets the Page Directory in CR3
+set_pd:
     cli
-    ; Retrieve lower 32 bits of PDPT address
+    ; Retrieve PD address
     mov eax, [esp + 4]
     mov cr3, eax
-    sti
-    ret
-
-; Enables Physical Address Extension
-enable_pae:
-    cli 
-    mov eax, cr4
-    or eax, 0x20 ; Set bit 5 (PAE bit)
-    mov cr4, eax
     sti
     ret
 
 enable_paging:
     cli
     mov eax, cr0
-    or eax, 0x80000000 ; Set bit 31 (PG bit)
+    or eax, 1 << 31 ; Set bit 31 (PG bit)
     mov cr0, eax
     sti
     ret
 
 ; Invalidate TLB by reloading CR3
-flush_tlb:
+reload_cr3:
     ; Reloading CR3
     cli
     mov eax, cr3
     mov cr3, eax
     sti
+    ret
+
+; Invalidates a single virtual address
+invlpg:
+    mov eax, [esp + 4]
+    invlpg [eax]
     ret

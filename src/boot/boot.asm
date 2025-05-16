@@ -18,7 +18,6 @@ dd 0x00000003          ; Flags
 dd -(0x1BADB002 + 0x3) ; Checksum
 
 global _start
-global stack_space
 extern kernel_main ; Kernel function that we're jumping to
 
 ; Entry point

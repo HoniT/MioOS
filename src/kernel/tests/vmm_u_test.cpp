@@ -12,8 +12,9 @@
 #include <drivers/vga_print.hpp>
 
 void unittsts::test_vmm(void) {
+    #ifdef VMM_HPP
     // If this test is called before initializing the VMM/enabling paging
-    if(!enabled_paging) {
+    if(!vmm::enabled_paging) {
         vga::error("Paging not enabled! Please enable paging!\n");
         return;
     }
@@ -25,7 +26,7 @@ void unittsts::test_vmm(void) {
 
     // Testing mapping
     uint64_t address = 0x0;
-    vmm::map_page(address, 0xB8000, PRESENT | WRITABLE); // Mapping VGA address to 0
+    vmm::alloc_page(address, 0xB8000, PRESENT | WRITABLE); // Mapping VGA address to 0
     bool is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(is_mapped) 
         vga::printf("   Test 1 successfull: mapped page! Mapped v. address: %lx\n", address);
@@ -45,7 +46,7 @@ void unittsts::test_vmm(void) {
     }
 
     // Testing translation of virtual to physical
-    uint64_t phys_address =  vmm::get_physical_address(address);
+    uint64_t phys_address =  (uint64_t)vmm::virtual_to_physical(address);
     if(phys_address == 0xB8000) 
         vga::printf("   Test 3 successfull: translated a virtual to a physical address!\n");
     else {
@@ -54,7 +55,7 @@ void unittsts::test_vmm(void) {
     }
 
     // Testing unmaping
-    vmm::unmap_page(address); // Unmaping
+    vmm::free_page(address); // Unmaping
     is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(!is_mapped) 
         vga::printf("   Test 4 successfull: unmapped page! Unmapped v. address: %lx\n", address);
@@ -69,4 +70,5 @@ void unittsts::test_vmm(void) {
     // If this didn't pass al test we'll initialize kernel panic
     if(!passed)
         kernel_panic("VMM Failed!");
+    #endif
 }
