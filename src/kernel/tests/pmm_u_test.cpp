@@ -23,7 +23,7 @@ void unittsts::test_pmm(void) {
     uint32_t block1 = uint32_t(pmm::alloc_frame(1));
 
     if(block1 > METADATA_ADDR) 
-        vga::printf("   Test 1 successfull: allocated frame! Allocated address: %x\n", block1);
+        vga::printf("   Test 1 successful: allocated frame! Allocated address: %x\n", block1);
     else {
         vga::error("   Test 1 failed: couldn't allocate frame!\n");
         passed = false; // Noting that the test failed
@@ -35,7 +35,7 @@ void unittsts::test_pmm(void) {
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 == block1 + FRAME_SIZE) 
-        vga::printf("   Test 2 successfull: allocated block2! Allocated address: %x\n", block2);
+        vga::printf("   Test 2 successful: allocated block2! Allocated address: %x\n", block2);
     else {
         vga::error("   Test 2 failed: couldn't allocate block2! %x\n", block2);
         passed = false; // Noting that the test failed
@@ -49,7 +49,7 @@ void unittsts::test_pmm(void) {
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 == block2_addr) 
-        vga::printf("   Test 3 successfull: freed block2! Reallocated address: %x\n", block2);
+        vga::printf("   Test 3 successful: freed block2! Reallocated address: %x\n", block2);
     else {
         vga::error("   Test 3 failed: couldn't free block2! %x isn't %x\n", block2, block2_addr);
         passed = false; // Noting that the test failed

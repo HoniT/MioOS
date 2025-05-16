@@ -29,7 +29,7 @@ void unittsts::test_vmm(void) {
     vmm::alloc_page(address, 0xB8000, PRESENT | WRITABLE); // Mapping VGA address to 0
     bool is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(is_mapped) 
-        vga::printf("   Test 1 successfull: mapped page! Mapped v. address: %lx\n", address);
+        vga::printf("   Test 1 successful: mapped page! Mapped v. address: %lx\n", address);
     else {
         vga::error("   Test 1 failed: couldn't map page at v. address: %lx!\n", address);
         passed = false; // Noting that the test failed
@@ -39,7 +39,7 @@ void unittsts::test_vmm(void) {
     uint16_t value = 0x072D;
     *(uint16_t*)(address + 0xA) = value; // Writing in a value
     if(*(uint16_t*)(0xB8000 + 0xA) == value) // If the value at the physical corresponding address is the same
-        vga::printf("   Test 2 successfull: set value to page! Value: %x\n", value);
+        vga::printf("   Test 2 successful: set value to page! Value: %x\n", value);
     else {
         vga::error("   Test 2 failed: it set the wrong value (%x)!\n", *(uint32_t*)(0xB8000 + 0xA));
         passed = false;
@@ -48,7 +48,7 @@ void unittsts::test_vmm(void) {
     // Testing translation of virtual to physical
     uint64_t phys_address =  (uint64_t)vmm::virtual_to_physical(address);
     if(phys_address == 0xB8000) 
-        vga::printf("   Test 3 successfull: translated a virtual to a physical address!\n");
+        vga::printf("   Test 3 successful: translated a virtual to a physical address!\n");
     else {
         vga::error("   Test 3 failed: couldn't translate a virtual to a physical address!\n");
         passed = false;
@@ -58,10 +58,27 @@ void unittsts::test_vmm(void) {
     vmm::free_page(address); // Unmaping
     is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(!is_mapped) 
-        vga::printf("   Test 4 successfull: unmapped page! Unmapped v. address: %lx\n", address);
+        vga::printf("   Test 4 successful: unmapped page! Unmapped v. address: %lx\n", address);
     else {
         vga::error("   Test 4 failed: couldn't unmap page at v. address: %lx!\n", address);
         passed = false; // Noting that the test failed
+    }
+
+    // Testing 4MiB pages
+    uint32_t virt_4mb = 0x400000;   // 4 MiB aligned virtual address
+    uint32_t phys_4mb = 0x400000;   // 4 MiB aligned physical address
+
+    vmm::alloc_page_4mib(virt_4mb, phys_4mb, PRESENT | WRITABLE); // Map 4 MiB page
+
+    // Check if virtual address is mapped (naive check: dereference test)
+    volatile uint32_t* virt_ptr = (uint32_t*)virt_4mb;
+    *virt_ptr = 0xDEADBEEF;
+
+    if (*(uint32_t*)phys_4mb == 0xDEADBEEF) {
+        vga::printf("   Test 5 successful: 4MiB page mapped and verified!\n");
+    } else {
+        vga::error("   Test 5 failed: 4MiB page did not map correctly!\n");
+        passed = false;
     }
 
     // End text
