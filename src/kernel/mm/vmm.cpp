@@ -8,8 +8,12 @@
 
 #include <mm/vmm.hpp>
 #include <mm/pmm.hpp>
-#include <drivers/vga_print.hpp>
+#include <interrupts/idt.hpp>
 #include <interrupts/kernel_panic.hpp>
+#include <drivers/vga_print.hpp>
+
+// Getting kernels physical base from linker
+extern "C" uint32_t __kernel_phys_base;
 
 namespace vmm {
     alignas(PAGE_SIZE) pd_t* active_pd = nullptr; // The PD we'll be using
@@ -30,7 +34,12 @@ namespace vmm {
         enable_paging();
         reload_cr3();
 
-        vga::printf("Paging enabled with 4GiB identity maped!\n");
+        // Setting up HHK (Mapping kernel to 3GiB)
+        // for(uint32_t addr = (uint32_t)&__kernel_phys_base, page = KERNEL_LOAD_ADDRESS; addr < (uint32_t)&__kernel_phys_base + 0x100000; addr += PAGE_SIZE, page += PAGE_SIZE)
+        //     alloc_page(page, addr, PRESENT | WRITABLE);
+        // jump_to_hhk();
+
+        vga::printf("Paging enabled with Higher Half Kernel set up!\n");
         enabled_paging = true;
         return;
     }
@@ -122,7 +131,7 @@ namespace vmm {
 
     // Identity maps a region in a given range
     void identity_map_region(const uint32_t start_addr, const uint32_t end_addr, const uint32_t flags) {
-        for(uint32_t addr = start_addr; addr < end_addr; addr += PAGE_SIZE) vmm::alloc_page(addr, addr, flags);
+        for(uint32_t addr = start_addr; addr <= end_addr; addr += PAGE_SIZE) vmm::alloc_page(addr, addr, flags);
     }
 
     // Frees a page at a give virtual address
@@ -135,6 +144,15 @@ namespace vmm {
 
         // If PT is inactive
         if(!active_pd->page_tables[pd_index]) return false;
+
+        // If we're dealing with a 4MiB page
+        if(active_pd->entries[pd_index].ps) {
+            active_pd->entries[pd_index] = {0};
+            // Flushing TLB
+            invlpg(virt_addr);
+            return true;
+        }
+        
         pt_t* pt = active_pd->page_tables[pd_index];
         // If page is inactive
         if(!pt->pages[pt_index].present) return false;
@@ -165,7 +183,7 @@ namespace vmm {
         if(!pt->pages[pt_index].present) return nullptr;
 
         // returning the physical address gotten from the address field in the 4KiB page
-        return (void*)FRAME_TO_PHYS(pt->pages[pt_index].address);
+        return (void*)FRAME_TO_PHYS(pt->pages[pt_index].address) + PAGE_OFFSET(virt_addr);
     }
 
     // Returns if a page at the given virtual address is mapped or not
@@ -177,9 +195,9 @@ namespace vmm {
         uint16_t pt_index = PT_INDEX(virt_addr);
 
         // If PT is inactive
-        if(!active_pd->page_tables[pd_index]) return false;
+        if(active_pd->entries[pd_index].present == 0) return false;
         // If page is inactive
-        if(!active_pd->page_tables[pd_index]->pages[pt_index].present) return false;
+        if(active_pd->page_tables[pd_index]->pages[pt_index].present == 0) return false;
 
         // If we made it to here it means the page is mapped
         return true;

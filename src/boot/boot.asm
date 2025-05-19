@@ -9,13 +9,15 @@
 ; We're in protected mode already
 [BITS 32]
 
-section .text
+section .multiboot
 
 ; GRUB multiboot header
 align 4
 dd 0x1BADB002          ; GRUB magic number
 dd 0x00000003          ; Flags
 dd -(0x1BADB002 + 0x3) ; Checksum
+
+section .text
 
 global _start
 extern kernel_main ; Kernel function that we're jumping to

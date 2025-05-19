@@ -27,6 +27,13 @@ set_pd:
 
 enable_paging:
     cli
+
+    ; Enabling PSE
+    mov eax, cr4
+    or eax, 0x10
+    mov cr4, eax
+
+    ; Enabling paging
     mov eax, cr0
     or eax, 1 << 31 ; Set bit 31 (PG bit)
     mov cr0, eax

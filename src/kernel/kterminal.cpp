@@ -289,10 +289,10 @@ void getuptime() {
 void peek() {
     // Getting the address from the input
     const char* strAddress = get_remaining_string(currentInput);
-    uint64_t address = hex_to_uint64(strAddress);
+    uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
-        vga::error("The given address %lx is not mapped in virtual memory!\n", address);
+        vga::error("The given address %x is not mapped in virtual memory!\n", address);
         return;
     }
     #endif
@@ -303,10 +303,10 @@ void peek() {
 void poke() {
     // Getting address and value from the input
     const char* strAddress = get_first_word(get_remaining_string(currentInput));
-    uint64_t address = hex_to_uint64(strAddress);
+    uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
-        vga::error("The given address %lx is not mapped in virtual memory!\n", address);
+        vga::error("The given address %x is not mapped in virtual memory!\n", address);
         return;
     }
     #endif

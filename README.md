@@ -54,7 +54,9 @@ To use this project simply use the bash script located in tools. To do so:
 
 - 32-bit Operating System
 - Kernel written in C++
+- PMM and kernel heap deals with fragmentation
 - 32-bit paging
+- Kernel CLI
 (More will come in future)
 
 
@@ -74,5 +76,5 @@ To boot this OS onto real hardware follow [BootingOnHardware](documentation/Boot
 
 
 ## Credits
-- Thanks to [Michael Petch](https://www.github.com/mpetch) for contributing to this project.
 - Project author: [Ioane Baidoshvili](https://www.github.com/HoniT).
+- Thanks to [Michael Petch](https://www.github.com/mpetch) for contributing to this project.

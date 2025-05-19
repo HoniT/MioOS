@@ -8,6 +8,7 @@
 
 #include <tests/unit_tests.hpp>
 #include <mm/vmm.hpp>
+#include <mm/pmm.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <drivers/vga_print.hpp>
 
@@ -65,21 +66,22 @@ void unittsts::test_vmm(void) {
     }
 
     // Testing 4MiB pages
-    uint32_t virt_4mb = 0x400000;   // 4 MiB aligned virtual address
-    uint32_t phys_4mb = 0x400000;   // 4 MiB aligned physical address
-
-    vmm::alloc_page_4mib(virt_4mb, phys_4mb, PRESENT | WRITABLE); // Map 4 MiB page
-
+    uint32_t* virt_4mb = (uint32_t*)0x2000000;
+    
+    vmm::alloc_page_4mib((uint32_t)virt_4mb, (uint32_t)virt_4mb, PRESENT | WRITABLE); // Map 4 MiB page
+    
     // Check if virtual address is mapped (naive check: dereference test)
-    volatile uint32_t* virt_ptr = (uint32_t*)virt_4mb;
-    *virt_ptr = 0xDEADBEEF;
+    *virt_4mb = 0xDEADBEEF;
 
-    if (*(uint32_t*)phys_4mb == 0xDEADBEEF) {
+    if (*(uint32_t*)virt_4mb == 0xDEADBEEF) {
         vga::printf("   Test 5 successful: 4MiB page mapped and verified!\n");
     } else {
         vga::error("   Test 5 failed: 4MiB page did not map correctly!\n");
         passed = false;
     }
+
+    // Freeing page
+    vmm::free_page((uint32_t)virt_4mb);
 
     // End text
     vga::printf("============= VMM Testing Ended! ============\n");

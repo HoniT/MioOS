@@ -57,7 +57,7 @@ void idt::init() {
     set_idt_gate(11, uint32_t(isr11), 0x08, 0x8E);
     set_idt_gate(12, uint32_t(isr12), 0x08, 0x8E);
     set_idt_gate(13, uint32_t(isr13), 0x08, 0x8E);
-    set_idt_gate(14, uint32_t(isr14), 0x08, 0x8E); // We will switch this to the page fault handler later in vmm.cpp
+    set_idt_gate(14, uint32_t(isr14), 0x08, 0x8E);
     set_idt_gate(15, uint32_t(isr15), 0x08, 0x8E);
     set_idt_gate(16, uint32_t(isr16), 0x08, 0x8E);
     set_idt_gate(17, uint32_t(isr17), 0x08, 0x8E);
@@ -116,28 +116,28 @@ void idt::set_idt_gate(const uint8_t num, const uint32_t base, const uint16_t se
 
 // Exeption messages
 const char* idt::exception_messages[] = {
-    "Division By Zero",
-    "Debug",
-    "Non Maskable Interrupt",
-    "Breakpoint",
-    "Into Detected Overflow",
-    "Out of Bounds",
-    "Invalid Opcode",
-    "No Coprocessor",
-    "Double fault",
+    "Devide Error (#DE)",
+    "Debug Exception (#DB)",
+    "NMI Interrupt",
+    "Breakpoint (#BP)",
+    "Overflow (#OF)",
+    "BOUND Range Exceeded (#BR)",
+    "Invalid Opcode (Undefined Opcode) (#UD)",
+    "Device Not Available (No Math Coprocessor) (#NM)",
+    "Double Fault (#DF)",
     "Coprocessor Segment Overrun",
-    "Bad TSS",
-    "Segment not present",
-    "Stack fault",
-    "General protection fault",
-    "Page fault",
-    "Unknown Interrupt",
-    "Coprocessor Fault",
-    "Alignment Fault",
-    "Machine Check", 
+    "Invalid TSS (#TS)",
+    "Segment Not Present (#NP)",
+    "Stack-Segment Fault (#SS)",
+    "General Protection (#GP)",
+    "Page Fault (#PF)",
     "Reserved",
-    "Reserved",
-    "Reserved",
+    "x87 FPU Floating-Point Error (Math Fault) (#MF)",
+    "Alignment Check (#AC)",
+    "Machine Check (#MC)",
+    "SIMD Floating-Point Exception (#XM)",
+    "Virtualization Exception (#VE)",
+    "Control Protection Exception (#CP)",
     "Reserved",
     "Reserved",
     "Reserved",

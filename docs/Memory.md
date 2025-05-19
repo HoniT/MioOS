@@ -35,7 +35,7 @@ The lower usable memory region usually starts at the kernels physical base, whil
 
 ## Virtual Memory Manager
 
-The virtual memory manager takes care of setting up paging, mapping and unmaping pages. MioOS uses 32-bit paging that supports up to 4 GiB of RAM, which is more than enough for this system. The VMM identity maps needed regions in the initializing function, has alloc_page, alloc_page_4mib and free_page to map addresses to virtual memory with given flags. The VMM also supports debugging/helper functions like to translate a virtual address to a physical one, or to check if a page at a given virtual address is mapped.
+The virtual memory manager takes care of setting up paging, mapping and unmaping pages. MioOS uses 32-bit paging that supports up to 4 GiB of RAM, which is more than enough for this system. The VMM identity maps needed regions in the initializing function, has alloc_page, alloc_page_4mib, identity_map_region and free_page to map addresses to virtual memory with given flags. The VMM also supports debugging/helper functions like to translate a virtual address to a physical one, or to check if a page at a given virtual address is mapped.
 
 ### Mapping Functions in the VMM
 1. vmm::alloc_page(const uint32_t virt_addr, const uint32_t phys_addr, const uint32_t flags)
@@ -43,6 +43,9 @@ The virtual memory manager takes care of setting up paging, mapping and unmaping
 
 2. vmm::alloc_page_4mib(const uint32_t virt_addr, const uint32_t phys_addr, const uint32_t flags)
     This maps a given physical address to a given virtual address in a 4MiB page with a given set of flags
+
+3. vmm::identity_map_region(const uint32_t start_addr, const uint32_t end_addr, const uint32_t flags)
+    Identity maps a region starting from start_addr to end_addr including
 
 ### Unmapping Functions in the VMM
 1. vmm::free_page(const uint32_t virt_addr)

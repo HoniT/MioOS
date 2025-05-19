@@ -95,11 +95,12 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
     while (uint32_t(mmap) < mmap_addr + mmap_length) {
         // If the mmap entry is available
         if(mmap->type == 1) {
-            // Keeping the total RAM amount for stats
-            pmm::total_usable_ram += mmap->len;
-
+            
             // If the mmap entry is at 4GiB+
-            if(mmap->addr >= 0x100000000) {
+            if(mmap->addr >= 0x100000000 && vmm::pae_paging) {
+                // Keeping the total RAM amount for stats
+                pmm::total_usable_ram += mmap->len;
+
                 // Manage high allocatable ram
                 high_alloc_mem_head = (MetadataNode*)(METADATA_ADDR + sizeof(MetadataNode)); // The second node of the list
                 high_alloc_mem_head->addr = 0x100000000; // 4GiB (High usable region start)
@@ -110,12 +111,17 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
             }
             // If the mmap entry address is at the kernels base
             else if(mmap->addr == uint64_t(&__kernel_phys_base)) {
+                // Keeping the total RAM amount for stats
+                pmm::total_usable_ram += mmap->len;
+
                 // Creting node for low allocatable ram 
                 low_alloc_mem_head = (MetadataNode*)METADATA_ADDR;
                 low_alloc_mem_head->addr = 0; // We will set this later
                 low_alloc_mem_head->size = mmap->addr + mmap->len; // We will change this later
                 low_alloc_mem_head->free = true; // Noting that this is free
-                low_alloc_mem_head->next = high_alloc_mem_head; // Making the high usable region the next node
+                // Making the high usable region the next node only if PAE paging is enabled, because
+                // 32-bit paging only supports 4GiB of physical RAM
+                low_alloc_mem_head->next = vmm::pae_paging ? high_alloc_mem_head : nullptr; 
                 low_alloc_mem_head->prev = nullptr; // Making this the linked list head
             }
             /* There is one available mmap entry that starts at 0x0, but we will not use this because
@@ -161,7 +167,7 @@ void pmm::init(struct multiboot_info* _mb_info) {
 // Alloc and dealloc
 
 // Allocates a frame in the usable memory regions
-void* pmm::alloc_frame(const uint64_t num_blocks) {
+void* pmm::alloc_frame(const uint64_t num_blocks, bool identity_map) {
     // Precausions
     if(num_blocks <= 0) return nullptr;
 
@@ -185,7 +191,7 @@ void* pmm::alloc_frame(const uint64_t num_blocks) {
             // Split the block if theres extra space
             if(current->size > size) {
                 // Setting new block
-                MetadataNode* new_block = (MetadataNode*)(current + sizeof(MetadataNode));
+                MetadataNode* new_block = (MetadataNode*)((uint8_t*)current + sizeof(MetadataNode));
                 // Trimming the extra space of
                 new_block->size = current->size - size;
                 new_block->addr = current->addr + size; // Setting address
@@ -213,10 +219,9 @@ void* pmm::alloc_frame(const uint64_t num_blocks) {
             
             #ifdef VMM_HPP // If VMM is present
             // If paging is enabled
-            if(vmm::enabled_paging) {
+            if(vmm::enabled_paging && identity_map) {
                 // Identity map the allocated frames every 4KiB block to virtual memory
-                for(uint64_t block = 0, addr = return_address; block < num_blocks; block++, addr += PAGE_SIZE)
-                vmm::alloc_page(addr, addr, PRESENT | WRITABLE);
+                vmm::identity_map_region(return_address, return_address + PAGE_SIZE * num_blocks, PRESENT | WRITABLE);
             }
             #endif // VMM_HPP
             memset((void*)return_address, 0, FRAME_SIZE); // Zeroing out data

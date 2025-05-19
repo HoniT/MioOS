@@ -9,6 +9,7 @@ SECTIONS {
 
     .text : AT(ADDR(.text)) ALIGN(4096) 
     {
+        *(.multiboot*)
         *(.text*)
     }
     

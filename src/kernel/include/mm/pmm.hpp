@@ -54,7 +54,7 @@ namespace pmm {
     // Frame alloc / dealloc functions
 
     // Allocates a frame in the usable memory regions
-    void* alloc_frame(const uint64_t num_blocks);
+    void* alloc_frame(const uint64_t num_blocks, bool identity_map = true);
     void free_frame(void* ptr);
 } // Namespace pmm
 
