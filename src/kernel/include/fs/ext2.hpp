@@ -3,6 +3,8 @@
 // Distributed under the terms of the MIT License.
 // ========================================
 
+#pragma once
+
 #ifndef EXT2_HPP
 #define EXT2_HPP
 

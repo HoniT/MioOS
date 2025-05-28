@@ -45,7 +45,7 @@ extern char cpu_vendor[13]; // Vendor name
 extern char cpu_model_name[49];  // Model name
 
 namespace cpu {
-    void init(void);
+    void get_processor_info(void);
     void get_vendor(char* vendor);
     void get_processor_model(char* buffer);
     CPUIDResult cpuid(const uint32_t eax_input);

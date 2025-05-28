@@ -30,9 +30,9 @@ void unittsts::test_vmm(void) {
     vmm::alloc_page(address, 0xB8000, PRESENT | WRITABLE); // Mapping VGA address to 0
     bool is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(is_mapped) 
-        vga::printf("   Test 1 successful: mapped page! Mapped v. address: %lx\n", address);
+        vga::printf("   Test 1 successful: mapped page! Mapped v. address: %x\n", address);
     else {
-        vga::error("   Test 1 failed: couldn't map page at v. address: %lx!\n", address);
+        vga::error("   Test 1 failed: couldn't map page at v. address: %x!\n", address);
         passed = false; // Noting that the test failed
     }
 
@@ -59,9 +59,9 @@ void unittsts::test_vmm(void) {
     vmm::free_page(address); // Unmaping
     is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(!is_mapped) 
-        vga::printf("   Test 4 successful: unmapped page! Unmapped v. address: %lx\n", address);
+        vga::printf("   Test 4 successful: unmapped page! Unmapped v. address: %x\n", address);
     else {
-        vga::error("   Test 4 failed: couldn't unmap page at v. address: %lx!\n", address);
+        vga::error("   Test 4 failed: couldn't unmap page at v. address: %x!\n", address);
         passed = false; // Noting that the test failed
     }
 

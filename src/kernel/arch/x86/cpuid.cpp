@@ -50,7 +50,7 @@ void cpu::get_vendor(char* vendor) {
 char cpu_vendor[13]; // Vendor name
 char cpu_model_name[49];  // Model name
 // Gets basic info sutch as model and vendor saves and prints it
-void cpu::init(void) {
+void cpu::get_processor_info(void) {
     // Getting vender
     get_vendor(cpu_vendor);
     vga::printf("CPU Vendor: %s\n", cpu_vendor);

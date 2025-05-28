@@ -197,6 +197,16 @@ void print_str(const char* str) {
     printingString = false;
 }
 
+void print_hex(const int16_t num) {
+    // print_str("0x"); // Prefix for hex numbers
+
+    // Print each nibble (4 bits) as a hex digit
+    for (int i = 3; i >= 0; i--) {
+        uint8_t nibble = (num >> (i * 4)) & 0xF;  // Extract the current nibble
+        print_char(nibble_to_hex(nibble));        // Print the corresponding hex digit
+    }
+}
+
 void print_hex(const int32_t num) {
     print_str("0x"); // Prefix for hex numbers
 
@@ -374,6 +384,11 @@ void printf(const char* format, ...) {
                     }
                     break;
                 }
+                case 'h': { // Unsigned 16-bit integer
+                    uint32_t num = va_arg(args, uint32_t);
+                    print_hex(int16_t(num));
+                    break;
+                }
                 case 'x': {  // Unsigned 32-bit integer in hexadecimal
                     uint32_t num = va_arg(args, uint32_t);
                     print_hex(int32_t(num));
@@ -414,68 +429,14 @@ void error(const char* format, ...) {
     // Changing print color to make it more visible
     print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
 
-    // Printing text
-    va_list args;  // Declare a variable argument list
-    va_start(args, format);  // Initialize the argument list with the last fixed parameter
+    // Retreiving arguments
+    va_list args;
+    va_start(args, format);
 
-    while (*format) {
-        if (*format == '%') {
-            format++;  // Move to the format specifier
-            switch (*format) {
-                case 'd': {  // Signed 32-bit integer in decimal
-                    int32_t num = va_arg(args, int32_t);
-                    print_decimal(num);
-                    break;
-                }
-                case 'u': {  // Unsigned 32-bit integer in decimal
-                    uint32_t num = va_arg(args, uint32_t);
-                    print_decimal(num);
-                    break;
-                }
-                case 'l': {  // 64-bit integers (signed or unsigned)
-                    format++;
-                    if (*format == 'd') {  // Signed 64-bit integer in decimal
-                        int64_t num = va_arg(args, int64_t);
-                        print_decimal(num);
-                    } else if (*format == 'u') {  // Unsigned 64-bit integer in decimal
-                        uint64_t num = va_arg(args, uint64_t);
-                        print_decimal(num);
-                    } else if (*format == 'x') {  // Unsigned 64-bit integer in hexadecimal
-                        uint64_t num = va_arg(args, uint64_t);
-                        print_hex(int64_t(num));
-                    }
-                    break;
-                }
-                case 'x': {  // Unsigned 32-bit integer in hexadecimal
-                    uint32_t num = va_arg(args, uint32_t);
-                    print_hex(int32_t(num));
-                    break;
-                }
-                case 'c': {  // Character
-                    char ch = (char)va_arg(args, int);  // Characters are promoted to int
-                    print_char(ch);
-                    break;
-                }
-                case 's': {  // String
-                    const char* str = va_arg(args, const char*);
-                    if (str) {
-                        print_str(str);
-                    } else {
-                        print_str("(null)");
-                    }
-                    break;
-                }
-                default:  // Unknown format specifier
-                    print_char('%');
-                    print_char(*format);
-            }
-        } else {
-            print_char(*format);  // Print normal characters
-        }
-        format++;
-    }
+    // Calling print
+    printf(format, args);
 
-    va_end(args);  // Clean up the argument list
+    va_end(args);
 
     // Returning to original color
     color = original_color;

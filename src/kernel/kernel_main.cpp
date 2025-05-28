@@ -22,6 +22,7 @@
 #ifdef PMM_HPP
 #include <mm/vmm.hpp>
 #endif // PMM_HPP
+#include <drivers/ata.hpp>
 #include <tests/unit_tests.hpp>
 
 extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
@@ -38,13 +39,13 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     gdt::init(); // Global Descriptor Table (GDT)
     idt::init(); // Interrupts Descriptor Table (IDT)
     
-    cpu::init(); // CPUID
-    
     // Initializing memory managers
     heap::init();
     pmm::init(mbi);
     vmm::init();
     
+    cpu::get_processor_info(); // Printing CPU vendor and model
+
     // Testing heap
     unittsts::test_heap();
     // Testing PMM
@@ -56,6 +57,9 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     pit::init(); // Programmable Interval Timer
     keyboard::init(); // Keyboard drivers
 
+    // Checking if we have an ATA device
+    ata::identify();
+    
     // Kernel CLI and other 
     cmd::init();
 }

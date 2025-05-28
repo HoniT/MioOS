@@ -13,6 +13,7 @@
 #include <mm/vmm.hpp>
 #include <cpuid.hpp>
 #include <pit.hpp>
+#include <drivers/ata.hpp>
 #include <kernel_main.hpp>
 #include <lib/string_util.hpp>
 #include <lib/math.hpp>
@@ -34,6 +35,8 @@ void getuptime();
 // Memory debugging commands
 void peek();
 void poke();
+// Storage commands
+void read_mbr();
 
 // List of commands
 Command commands[] = {
@@ -48,7 +51,9 @@ Command commands[] = {
     // Memory debugging commands
     {"peek", peek, " <address> - Prints a value at a given physical address"},
     {"poke", poke, " <address> <value> - Writes to a given address a given value"},
-    {"heapdump", heap::heap_dump, " - Prints the allocation status of blocks in the heap"}
+    {"heapdump", heap::heap_dump, " - Prints the allocation status of blocks in the heap"},
+    // Storage commands
+    {"read_mbr", read_mbr, " - Prints LBA0 of main ATA drive"}
 };
 
 // Saving inputs
@@ -317,5 +322,13 @@ void poke() {
     *(uint32_t*)address = val;
 }
 
-
+// Reads LBA0 on main drive using our ATA driver 
+void read_mbr() {
+    uint16_t buffer[256];
+    pio_28::read_sector(0, buffer);
+    for(uint16_t i = 0; i < 256; i++) {
+        vga::printf("%h ", buffer[i]);
+        if((i + 1) % 16 == 0) vga::printf("\n");
+    }
+}
 #pragma endregion

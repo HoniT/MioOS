@@ -9,6 +9,7 @@
 #include <interrupts/idt.hpp>
 #include <drivers/vga_print.hpp>
 #include <interrupts/kernel_panic.hpp>
+#include <pic.hpp>
 #include <lib/io.hpp>
 #include <lib/mem_util.hpp>
 
@@ -29,16 +30,16 @@ void idt::init() {
     // Sending data to chips using outPortB defined in util.cpp
     // Configuring the Programmable Interrupt Controller (PIC)
 
-    outPortB(0x20, 0x11);
-    outPortB(0xA0, 0x11);
-    outPortB(0x21, 0x20);
-    outPortB(0xA1, 0x28);
-    outPortB(0x21, 0x04);
-    outPortB(0xA1, 0x02);
-    outPortB(0x21, 0x01);
-    outPortB(0xA1, 0x01);
-    outPortB(0x21, 0x0);
-    outPortB(0xA1, 0x0);
+    outPortB(PIC_MASTER_COMMAND, ICW1_INIT);
+    outPortB(PIC_SLAVE_COMMAND, ICW1_INIT);
+    outPortB(PIC_MASTER_DATA, 0x20);
+    outPortB(PIC_SLAVE_DATA, 0x28);
+    outPortB(PIC_MASTER_DATA, 0x04);
+    outPortB(PIC_SLAVE_DATA, 0x02);
+    outPortB(PIC_MASTER_DATA, ICW4_8086);
+    outPortB(PIC_SLAVE_DATA, ICW4_8086);
+    outPortB(PIC_MASTER_DATA, 0x0);
+    outPortB(PIC_SLAVE_DATA, 0x0);
 
     // Setting every gate up
     // These all are 32 bit Interrupt Gates based off of the flag 0x8E
