@@ -9,6 +9,7 @@
 #include <mm/heap.hpp>
 #include <drivers/vga_print.hpp>
 #include <lib/mem_util.hpp>
+#include <lib/math.hpp>
 
 // Start of the heap
 static HeapBlock* heap_head = nullptr;
@@ -102,7 +103,7 @@ void* kcalloc(const size_t num, const size_t size) {
     // Getting the ptr from malloc
     void* ptr = kmalloc(num * size);
     if(!ptr) {
-        vga::error("Out of memory!\n");
+        vga::error("Out of heap memory!\n");
         return nullptr; // Safety check
     }
 
@@ -152,6 +153,6 @@ void heap::heap_dump(void) {
     print_heap_blocks();
 
     // Printing final status of heap
-    vga::printf("Heap status: %lu bytes used out of %u\n", bytes_in_use, HEAP_SIZE);
+    vga::printf("Heap status: %lu bytes used out of %lu (%u%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use, HEAP_SIZE) * 100);
     vga::printf("-----------------------------------------\n");
 }

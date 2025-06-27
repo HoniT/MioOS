@@ -14,6 +14,7 @@
 #include <cpuid.hpp>
 #include <pit.hpp>
 #include <drivers/ata.hpp>
+#include <device.hpp>
 #include <kernel_main.hpp>
 #include <lib/string_util.hpp>
 #include <lib/math.hpp>
@@ -36,7 +37,8 @@ void getuptime();
 void peek();
 void poke();
 // Storage commands
-void read_mbr();
+void read_sect();
+void list_ata();
 
 // List of commands
 Command commands[] = {
@@ -53,7 +55,8 @@ Command commands[] = {
     {"poke", poke, " <address> <value> - Writes to a given address a given value"},
     {"heapdump", heap::heap_dump, " - Prints the allocation status of blocks in the heap"},
     // Storage commands
-    {"read_mbr", read_mbr, " - Prints LBA0 of main ATA drive"}
+    {"read_sect", read_sect, " -dev <device_index> -sect <sector_index> - Prints a given sector of a given ATA device"},
+    {"list_ata", list_ata, " - Lists available ATA devices"}
 };
 
 // Saving inputs
@@ -115,7 +118,7 @@ void cmd::run_cmd(void) {
     }
 
     // If we made it to here that means that the inputted command could not be found
-    vga::printf("\n%s isn't a valid command!\n", get_first_word(currentInput));
+    vga::warning("\n%s isn't a valid command!\n", get_first_word(currentInput));
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
     vga::printf("%s@MioOS: %s# ", currentUser, currentDir);
     vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
@@ -221,7 +224,7 @@ void help() {
 
 void getsysinfo() {
     // RAM
-    vga::printf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_usable_ram / BYTES_IN_GIB));
+    vga::printf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
 
     // CPU
     vga::printf("CPU Vendor: %s\n", cpu_vendor);
@@ -276,7 +279,7 @@ void getmeminfo() {
     }
     
     // If an invalid flag has been entered we'll throw an error
-    vga::error("Invalid flag \"%s\"for \"getmeminfo\"!\n", get_remaining_string(currentInput));
+    vga::warning("Invalid flag \"%s\"for \"getmeminfo\"!\n", get_remaining_string(currentInput));
 }
 
 void getuptime() {
@@ -302,7 +305,7 @@ void peek() {
     }
     #endif
     // Printing the value
-    vga::printf("Value at the given address: %x\n", *(uint32_t*)address);
+    vga::printf("Value at the given address: %h\n", *(uint8_t*)address);
 }
 
 void poke() {
@@ -316,19 +319,47 @@ void poke() {
     }
     #endif
     const char* strVal = get_remaining_string(get_remaining_string(currentInput));
-    uint32_t val = hex_to_uint32(strVal);
+    uint8_t val = hex_to_uint32(strVal);
 
     // Writing the value to the address
-    *(uint32_t*)address = val;
+    *(uint8_t*)address = val;
 }
 
-// Reads LBA0 on main drive using our ATA driver 
-void read_mbr() {
+// Reads a given sector on a given device 
+void read_sect() {
+    // Getting arguments from string
+    const char* args = get_remaining_string(currentInput);
+    if(strlen(args) == 0 || get_words(args) != 4 || strcmp(get_word_at_index(args, 0), "-dev") != 0 || strcmp(get_word_at_index(args, 2), "-sect") != 0) {
+        vga::warning("Syntax: read_mbr -dev <device_index> -sect <sector_index>\n");
+        return;
+    }
+
+    int device_index = str_to_int(get_word_at_index(args, 1));
+    if(device_index < 0 || device_index >= 4) {
+        vga::warning("Please use an integer (0-3) as the device index in decimal format.\n");
+        return;
+    }
+
+    int sector_index = str_to_int(get_word_at_index(args, 3));
+    if(sector_index < 0 || sector_index >= ata_devices[device_index].total_sectors) {
+        vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index].total_sectors);
+        return;
+    }
+
     uint16_t buffer[256];
-    pio_28::read_sector(0, buffer);
-    for(uint16_t i = 0; i < 256; i++) {
-        vga::printf("%h ", buffer[i]);
-        if((i + 1) % 16 == 0) vga::printf("\n");
+    if(pio_28::read_sector(&(ata_devices[device_index]), sector_index, buffer))
+        for(uint16_t i = 0; i < 256; i++) 
+            vga::printf("%h ", buffer[i]);
+}
+
+void list_ata(void) {
+    for(int i = 0; i < 4; i++) {
+        if(strlen(ata_devices[i].serial) == 0) continue;
+        ata::device_t* device = &(ata_devices[i]); 
+        vga::printf("\nSaving ATA Device! model: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
+            device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
+        vga::printf("%s's IO information: bus: %h, drive: %h\n", device->model, device->bus, device->drive);
     }
 }
+
 #pragma endregion

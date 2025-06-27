@@ -13,6 +13,7 @@
 #include <drivers/keyboard.hpp>
 #include <interrupts/idt.hpp>
 #include <interrupts/kernel_panic.hpp>
+#include <device.hpp>
 #include <gdt.hpp>
 #include <cpuid.hpp>
 #include <pit.hpp>
@@ -57,8 +58,9 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     pit::init(); // Programmable Interval Timer
     keyboard::init(); // Keyboard drivers
 
-    // Checking if we have an ATA device
-    ata::identify();
+    // Initializing File System, storage drivers...
+    device_init();
+    ata::init();
     
     // Kernel CLI and other 
     cmd::init();

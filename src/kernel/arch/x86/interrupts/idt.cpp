@@ -10,7 +10,7 @@
 #include <drivers/vga_print.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <pic.hpp>
-#include <lib/io.hpp>
+#include <io.hpp>
 #include <lib/mem_util.hpp>
 
 using io::outPortB;
@@ -195,12 +195,7 @@ extern "C" void irq_handler(InterruptRegisters* regs) {
     }
 
     // EOI signal
-    if(regs->interr_no >= 40) {
-        // Sending signal
-        outPortB(0xA0, 0x20); // Slave PIC
-    }
-
-    outPortB(0x20, 0x20); // Master PIC
+    pic::send_eoi(regs->interr_no);
 }
 
 #pragma endregion

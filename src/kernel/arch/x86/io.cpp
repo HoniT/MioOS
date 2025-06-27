@@ -6,7 +6,7 @@
 // In charge of I/O port commands
 // ========================================
 
-#include <lib/io.hpp>
+#include <io.hpp>
 
 namespace io {
 

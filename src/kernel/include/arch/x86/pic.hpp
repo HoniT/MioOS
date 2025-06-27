@@ -8,6 +8,8 @@
 #ifndef PIC_HPP
 #define PIC_HPP
 
+#include <stdint.h>
+
 // Macros for common PIC ports/commands
 
 // Ports
@@ -19,5 +21,14 @@
 // Initialization command words
 #define ICW1_INIT    0x11
 #define ICW4_8086    0x01
+
+#define EOI 0x20
+
+namespace pic {
+    // Sends End of Interrupt signal for a given IRQ
+    void send_eoi(const uint8_t irq);
+    // Unmasks IRQ
+    void unmask_irq(const uint8_t irq);
+}
 
 #endif // PIC_HPP

@@ -46,28 +46,30 @@ extern size_t row;
 
 namespace vga {
 
-void init(void); // Initializes main VGA text
+	void init(void); // Initializes main VGA text
 
-// Helper functions
+	// Helper functions
 
-void clear_region(const size_t _row, const size_t _col, const uint32_t len);
-void insert(size_t _row, size_t _col, const char* str, bool _update_cursor = false);
+	void clear_region(const size_t _row, const size_t _col, const uint32_t len);
+	void insert(size_t _row, size_t _col, const char* str, bool _update_cursor = false);
 
-// VGA printing functions
+	// VGA printing functions
 
-// Print formatted
-void printf(const char* format, ...);
+	// Print formatted
+	void printf(const char* format, ...);
 
-void print_decimal(uint32_t num);
-void print_decimal(uint64_t num);
+	void print_decimal(uint32_t num);
+	void print_decimal(uint64_t num);
 
-// Error messages
-void error(const char* format, ...);
+	// Error messages
+	void error(const char* format, ...);
+	// Warnings
+	void warning(const char* format, ...);
 
-void print_clear(void); // Clearing screen
-void backspace(void);
+	void print_clear(void); // Clearing screen
+	void backspace(void);
 
-void print_set_color(const uint8_t foreground, const uint8_t background); // Changing text color
+	void print_set_color(const uint8_t foreground, const uint8_t background); // Changing text color
 
 } // Namespace vga
 

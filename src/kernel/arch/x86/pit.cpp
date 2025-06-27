@@ -9,7 +9,7 @@
 #include <pit.hpp>
 #include <interrupts/idt.hpp>
 #include <drivers/vga_print.hpp>
-#include <lib/io.hpp>
+#include <io.hpp>
 
 volatile uint64_t ticks;
 const uint32_t frequency = 100;

@@ -46,7 +46,7 @@ char* get_first_word(const char* str) {
     return first_word;
 }
 
-// gets the remainder of a string (everything except the first word)
+// Gets the remainder of a string (everything except the first word)
 const char* get_remaining_string(const char* str) {
     static char rest[1024]; // Buffer for the rest of the string, adjust size as needed
     int i = 0;
@@ -75,6 +75,89 @@ const char* get_remaining_string(const char* str) {
     rest[j] = '\0'; // Null-terminate the rest of the string
     return rest;
 }
+
+const char* get_word_at_index(const char* str, int index) {
+    int current_index = 0;
+    int i = 0;
+
+    // Buffer for the word
+    static char word[256];
+
+    while (str[i] != '\0') {
+        // Skip leading whitespace
+        while (str[i] == ' ' || str[i] == '\t' || str[i] == '\n') {
+            i++;
+        }
+
+        // If end of string after whitespace, break
+        if (str[i] == '\0') break;
+
+        // Start of a word
+        int j = 0;
+        int start = i;
+
+        while (str[i] != '\0' && str[i] != ' ' && str[i] != '\t' && str[i] != '\n') {
+            if (j < sizeof(word) - 1) {
+                word[j++] = str[i];
+            }
+            i++;
+        }
+
+        word[j] = '\0'; // Null-terminate the word
+
+        if (current_index == index) {
+            return word;
+        }
+
+        current_index++;
+    }
+
+    return nullptr;
+}
+
+uint32_t get_words(const char* str) {
+    int count = 0;
+    int i = 0;
+
+    while (str[i] != '\0') {
+        // Skip any whitespace
+        while (str[i] == ' ' || str[i] == '\t' || str[i] == '\n') {
+            i++;
+        }
+
+        // If a word starts here, count it
+        if (str[i] != '\0') {
+            count++;
+
+            // Skip this word
+            while (str[i] != '\0' && str[i] != ' ' && str[i] != '\t' && str[i] != '\n') {
+                i++;
+            }
+        }
+    }
+
+    return count;
+}
+
+
+// Turns a char* into an int
+int str_to_int(const char* str) {
+    if (!str || *str == '\0') return -1; // Null or empty string
+
+    int result = 0;
+
+    while (*str) {
+        if (*str < '0' || *str > '9') {
+            return -1; // Illegal (non-digit) character
+        }
+
+        result = result * 10 + (*str - '0');
+        str++;
+    }
+
+    return result;
+}
+
 
 // Copies a source string to a destination
 char* strcpy(char* dest, const char* src) {

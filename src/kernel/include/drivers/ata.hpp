@@ -42,17 +42,30 @@
 // Device control register for secondary ATA bus
 #define SECONDARY_DEVICE_CONTROL 0x376
 
+// IRQ nums
+#define PRIMARY_IDE_IRQ   14
+#define SECONDARY_IDE_IRQ 15
+
 namespace ata {
+    struct device_t;
+
+    enum class Bus {Primary, Secondary};
+    enum class Drive {Master, Slave};
+
+    // Initializes ATA driver for 28-bit PIO mode
+    void init(void);
     // Identifies if an ATA device exists
-    bool identify(void);
+    bool identify(Bus bus, Drive drive);
+    // Checks all 4 devices
+    bool probe(void);
 } // namespace ata
 
 // 28 bit PIO mode functions
 namespace pio_28 {
-    // Reads sector from lba on the primary bus and saves value to buffer
-    void read_sector(uint32_t lba, uint16_t* buffer, uint16_t sector_count = 1);
-    // Writes value given from buffer into lba on primary bus
-    void write_sector(uint32_t lba, uint16_t* buffer, uint16_t sector_count = 1);
+    // Reads a given amount of sectors starting at a given LBA from a given device
+    bool read_sector(ata::device_t* dev, uint32_t lba, uint16_t* buffer, uint32_t sectors = 1);
+    // Writes a value to a given amount of sectors starting at a given LBA from a given device
+    bool write_sector(ata::device_t* dev, uint32_t lba, uint16_t* buffer, uint32_t sectors = 1);
 } // namespace pio_28
 
 #endif // ATA_HPP

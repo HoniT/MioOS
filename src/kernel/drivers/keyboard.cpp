@@ -7,7 +7,7 @@
 // ========================================
 
 #include <drivers/keyboard.hpp>
-#include <lib/io.hpp>
+#include <io.hpp>
 #include <drivers/vga_print.hpp>
 #include <kterminal.hpp>
 #include <interrupts/idt.hpp>

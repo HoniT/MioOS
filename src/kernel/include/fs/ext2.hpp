@@ -21,7 +21,7 @@ struct superblock {
     uint32_t unalloc_blk_num;
     uint32_t unalloc_inode_num;
     uint32_t superblock_blk_num;
-    uint32_t blk_size;
+    uint32_t blk_size; 
     uint32_t frag_size;
     uint32_t blkgroup_blk_num;
     uint32_t blkgroup_frag_num;

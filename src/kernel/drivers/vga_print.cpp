@@ -7,7 +7,7 @@
 // ========================================
 
 #include <drivers/vga_print.hpp>
-#include <lib/io.hpp>
+#include <io.hpp>
 #include <stdarg.h>
 
 // ====================
@@ -64,6 +64,7 @@ void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor)
     // Copying the string into the VGA buffer
     for (uint32_t i = 0; str[i] != '\0'; i++) {
         vga[_col + _row * NUM_COLS + i].character = str[i];
+        vga[_col + _row * NUM_COLS + i].color = color;
     }
 
     // If we need to update the cursor, increment column
@@ -351,11 +352,7 @@ void print_decimal(int64_t num) {
     }
 }
 
-// Main printf function
-void printf(const char* format, ...) {
-    va_list args;  // Declare a variable argument list
-    va_start(args, format);  // Initialize the argument list with the last fixed parameter
-
+void vprintf(const char* format, va_list args) {
     while (*format) {
         if (*format == '%') {
             format++;  // Move to the format specifier
@@ -417,6 +414,14 @@ void printf(const char* format, ...) {
         }
         format++;
     }
+}
+
+// Main printf function
+void printf(const char* format, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, format);  // Initialize the argument list with the last fixed parameter
+
+    vprintf(format, args);
 
     va_end(args);  // Clean up the argument list
 }
@@ -434,7 +439,28 @@ void error(const char* format, ...) {
     va_start(args, format);
 
     // Calling print
-    printf(format, args);
+    vprintf(format, args);
+
+    va_end(args);
+
+    // Returning to original color
+    color = original_color;
+}
+
+// Main warning function
+void warning(const char* format, ...) {
+    // Saving current color
+    uint8_t original_color = color;
+
+    // Changing print color to make it more visible
+    print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
+
+    // Retreiving arguments
+    va_list args;
+    va_start(args, format);
+
+    // Calling print
+    vprintf(format, args);
 
     va_end(args);
 
