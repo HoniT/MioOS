@@ -16,4 +16,5 @@ grub-mkrescue -o iso/mio_os.iso iso/
 if [ ! -f hdd.img ]; then
   echo "Creating ATA disk image (hdd.img)..."
   qemu-img create -f raw hdd.img 16M
+  mkfs.ext2 -F hdd.img
 fi

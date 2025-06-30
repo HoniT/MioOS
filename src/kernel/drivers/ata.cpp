@@ -16,8 +16,44 @@
 
 using namespace io;
 
+// IRQ handlers
+volatile bool primary_irq_received = false;
+volatile bool secondary_irq_received = false;
+
+void primary_ata_handler(InterruptRegisters* regs) {
+    primary_irq_received = true;
+    // Sending EOI
+    pic::send_eoi(PRIMARY_IDE_IRQ);
+}
+
+void secondary_ata_handler(InterruptRegisters* regs) {
+    secondary_irq_received = true;
+    // Sending EOI
+    pic::send_eoi(SECONDARY_IDE_IRQ);
+}
+
+void ata_irq_wait(const bool secondary) {
+    volatile bool* irq_ptr = secondary ? &secondary_irq_received : &primary_irq_received;
+
+    // Wait for IRQ with timeout
+    int timeout = 100000000;
+    while (!*irq_ptr && --timeout);
+    if (timeout <= 0) {
+        vga::error("Timeout waiting for IRQ on read!\n");
+        return;
+    }
+
+    *irq_ptr = false;
+}
+
 // Initializes ATA driver for 28-bit PIO mode
 void ata::init(void) {
+    // Switching to IRQ mode and subscribing handlers
+    idt::irq_install_handler(PRIMARY_IDE_IRQ, &primary_ata_handler);
+    outPortW(PRIMARY_DEVICE_CONTROL, 0x00);
+    idt::irq_install_handler(SECONDARY_IDE_IRQ, &secondary_ata_handler);
+    outPortW(SECONDARY_DEVICE_CONTROL, 0x00);
+
     // Probing ATA
     ata::probe();
 }
@@ -55,12 +91,14 @@ bool ata::identify(Bus bus, Drive drive) {
     /* Selects target drive by sending 0xA0 to master drive, or 0xB0 to the
      * slave drives "drive select" IO port */
     outPortB(drive_head_port, (slave ? 0xB0 : 0xA0));
+    ata::delay_400ns(secondary);
     outPortB(sector_count_port, 0x0);
     outPortB(sector_num_port, 0x0);
     outPortB(lba_low_port, 0x0);
     outPortB(lba_high_port, 0x0);
     // Sending IDENTIFY command to command IO port
     outPortB(command_port, IDENTIFY_COMMAND);
+    ata::delay_400ns(secondary);
 
     vga::printf("Checking %s bus, %s drive: ", secondary ? "Secondary" : "Primary", slave ? "Slave" : "Master");
     // If we couldn't find an ATA device
@@ -69,8 +107,8 @@ bool ata::identify(Bus bus, Drive drive) {
         return false;
     }
 
-    // Polling status port until bit 7 (BSY (0x80)) clears
-    while (inPortB(status_port) & 0x80);
+    // Waiting for IRQ
+    ata_irq_wait(secondary);
 
     // If LBAmid and LBAhi ports are non-zero the device is not ATA
     if (inPortB(lba_low_port) == 0x14 && inPortB(lba_high_port) == 0xEB) {
@@ -93,7 +131,7 @@ bool ata::identify(Bus bus, Drive drive) {
     // Reading 256 words (256 x 2 = 512 bytes)
     uint16_t buffer[256];
     for (uint16_t i = 0; i < 256; i++) {
-        buffer[i] = inPortW(PRIMARY_DATA);
+        buffer[i] = inPortW(data_port);
     }
 
     // Saving to device
@@ -103,13 +141,18 @@ bool ata::identify(Bus bus, Drive drive) {
     return true;
 }
 
+void ata::delay_400ns(const bool secondary) {
+    uint16_t ctrl_port = secondary ? SECONDARY_STATUS : PRIMARY_STATUS;
+    for(int i = 0; i < 4; i++) inPortB(ctrl_port);
+}
+
 namespace pio_28 {
     
     // Reads one sector from lba on the given bus and drive and saves value to buffer
     void read_one_sector(ata::Bus bus, ata::Drive drive, uint32_t lba, uint16_t* buffer) {
         bool secondary = (bus == ata::Bus::Secondary);
         bool slave = (drive == ata::Drive::Slave);
-        
+
         // Getting corresponding ports for the bus and drive fields given
         uint16_t data_port = secondary ? SECONDARY_DATA : PRIMARY_DATA;
         uint16_t sector_count_port = secondary ? SECONDARY_SECTOR_COUNT : PRIMARY_SECTOR_COUNT;
@@ -118,7 +161,9 @@ namespace pio_28 {
         uint16_t lba_high_port = secondary ? SECONDARY_LBA_HIGH : PRIMARY_LBA_HIGH;
         uint16_t drive_head_port = secondary ? SECONDARY_DRIVE_HEAD : PRIMARY_DRIVE_HEAD;
         uint16_t command_port = secondary ? SECONDARY_COMMAND : PRIMARY_COMMAND;
+        uint16_t status_port = secondary ? SECONDARY_STATUS : PRIMARY_STATUS;
         
+
         // Sending 0xE0 to master drive , ORed with the highest 4 bits of LBA
         uint8_t drive_head = (slave ? 0xF0 : 0xE0) | ((lba >> 24) & 0x0F);
         outPortB(drive_head_port, drive_head);
@@ -131,9 +176,13 @@ namespace pio_28 {
         
         // Sending READ SECTORS command (0x20)
         outPortB(command_port, READ_SECTOR_COMMAND);
-        
-        // Waiting for IRQ or poll (in this case waiting for DRQ (0x8) to set)
-        while (!(inPortB(command_port) & 0x08));
+
+        ata_irq_wait(secondary);
+
+        // Waiting for BSY to clear
+        while(inPortB(status_port) & 0x80);
+        // Waiting for DRQ to set
+        while(!(inPortB(status_port) & 0x8));
         
         // Writing to buffer
         for (int j = 0; j < 256; j++) {
@@ -150,7 +199,7 @@ namespace pio_28 {
 
         for(int i = 0; i < sectors; i++) {
             read_one_sector(dev->bus, dev->drive, lba + i, buffer);
-            buffer += 512;
+            buffer += 256;
         }
         return true;
     }
@@ -170,9 +219,6 @@ namespace pio_28 {
         uint16_t command_port = secondary ? SECONDARY_COMMAND : PRIMARY_COMMAND;
         uint16_t status_port = secondary ? SECONDARY_STATUS : PRIMARY_STATUS;
         
-        // Wait for the drive to be ready
-        while (inPortB(status_port) & 0x80); // Wait for BSY (0x80) to clear
-        
         // Send drive/head: 0xE0 = master, LBA mode
         uint8_t drive_head = (slave ? 0xF0 : 0xE0) | ((lba >> 24) & 0x0F);
         outPortB(drive_head_port, drive_head);
@@ -185,20 +231,19 @@ namespace pio_28 {
         
         // Send WRITE SECTORS command (0x30)
         outPortB(command_port, WRITE_SECTOR_COMMAND);
-        
-        // Wait for DRQ (data request)
-        while (!(inPortB(status_port) & 0x08)); // Wait for DRQ set
+
+        // Waiting for BSY to clear
+        while(inPortB(status_port) & 0x80);
+        // Waiting for DRQ to set
+        while(!(inPortB(status_port) & 0x8));
         
         // Write 256 words (512 bytes) to the data port
         for (int j = 0; j < 256; j++) {
             outPortW(data_port, buffer[j]);
         }
-        
-        // Flush cache with 0xE7 command (optional but recommended)
-        outPortB(command_port, 0xE7);
-        
-        // Wait for BSY to clear again after flush
-        while (inPortB(status_port) & 0x80);
+
+        // Wait for IRQ
+        ata_irq_wait(secondary);
     }
 
     // Writes a value to a given amount of sectors starting at a given LBA from a given device
@@ -210,7 +255,7 @@ namespace pio_28 {
 
         for(int i = 0; i < sectors; i++) {
             write_one_sector(dev->bus, dev->drive, lba + i, buffer);
-            buffer += 512;
+            buffer += 256;
         }
         return true;
     }

@@ -25,6 +25,7 @@
 #endif // PMM_HPP
 #include <drivers/ata.hpp>
 #include <tests/unit_tests.hpp>
+#include<lib/mem_util.hpp>
 
 extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Managing GRUB multiboot error

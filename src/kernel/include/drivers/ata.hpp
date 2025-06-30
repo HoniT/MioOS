@@ -58,6 +58,8 @@ namespace ata {
     bool identify(Bus bus, Drive drive);
     // Checks all 4 devices
     bool probe(void);
+    // 400 ns delay
+    void delay_400ns(const bool secondary);
 } // namespace ata
 
 // 28 bit PIO mode functions

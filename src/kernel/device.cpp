@@ -60,7 +60,7 @@ void ata::save_ata_device(uint16_t* data, const ata::Bus bus, const ata::Drive d
 
     vga::printf("Saving ATA Device! model: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h\n", 
         device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
-    vga::printf("%s's IO information: bus: %h, drive: %h\n", device->model, device->bus, device->drive);
+    vga::printf("IO information: bus: %h, drive: %h\n", device->bus, device->drive);
 
     // Saving to array
     ata_devices[last_device_index] = *device;

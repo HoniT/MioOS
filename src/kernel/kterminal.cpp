@@ -37,7 +37,7 @@ void getuptime();
 void peek();
 void poke();
 // Storage commands
-void read_sect();
+void read_ata();
 void list_ata();
 
 // List of commands
@@ -55,7 +55,7 @@ Command commands[] = {
     {"poke", poke, " <address> <value> - Writes to a given address a given value"},
     {"heapdump", heap::heap_dump, " - Prints the allocation status of blocks in the heap"},
     // Storage commands
-    {"read_sect", read_sect, " -dev <device_index> -sect <sector_index> - Prints a given sector of a given ATA device"},
+    {"read_ata", read_ata, " -dev <device_index> -sect <sector_index> - Prints a given sector of a given ATA device"},
     {"list_ata", list_ata, " - Lists available ATA devices"}
 };
 
@@ -325,8 +325,8 @@ void poke() {
     *(uint8_t*)address = val;
 }
 
-// Reads a given sector on a given device 
-void read_sect() {
+// Reads a given sector on a given ATA device 
+void read_ata() {
     // Getting arguments from string
     const char* args = get_remaining_string(currentInput);
     if(strlen(args) == 0 || get_words(args) != 4 || strcmp(get_word_at_index(args, 0), "-dev") != 0 || strcmp(get_word_at_index(args, 2), "-sect") != 0) {
@@ -356,9 +356,9 @@ void list_ata(void) {
     for(int i = 0; i < 4; i++) {
         if(strlen(ata_devices[i].serial) == 0) continue;
         ata::device_t* device = &(ata_devices[i]); 
-        vga::printf("\nSaving ATA Device! model: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
+        vga::printf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
             device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
-        vga::printf("%s's IO information: bus: %h, drive: %h\n", device->model, device->bus, device->drive);
+        vga::printf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");
     }
 }
 
