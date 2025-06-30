@@ -57,6 +57,7 @@ To use this project simply use the bash script located in tools. To do so:
 - PMM and kernel heap deals with fragmentation
 - 32-bit paging
 - Kernel CLI
+- 28-bit PIO ATA driver (IRQ mode)
 (More will come in future)
 
 
@@ -72,7 +73,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 # Documentation
 
-To boot this OS onto real hardware follow [BootingOnHardware](documentation/BootingOnHardware.md).
+To boot this OS onto real hardware follow [BootingOnHardware](docs/BootingOnHardware.md).
 
 
 ## Credits
