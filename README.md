@@ -40,7 +40,7 @@ MioOS is an Operating System designed for educational reasons.
         To install NASM and QEMU, visit they're site and follow instructions.
 
 3. Install the GCC cross-compiler:
-    Follow instructions on the [OSDevOrg](https://www.wiki.osdev.org/GCC_Cross-Compiler).
+    Follow instructions on the [OSDevOrg](https://wiki.osdev.org/GCC_Cross-Compiler).
 
 # Usage
 

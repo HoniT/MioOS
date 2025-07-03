@@ -24,8 +24,9 @@
 #include <mm/vmm.hpp>
 #endif // PMM_HPP
 #include <drivers/ata.hpp>
+#include <fs/ext2.hpp>
+#include <lib/string_util.hpp>
 #include <tests/unit_tests.hpp>
-#include<lib/mem_util.hpp>
 
 extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Managing GRUB multiboot error
@@ -62,6 +63,10 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Initializing File System, storage drivers...
     device_init();
     ata::init();
+    // Initializing Ext2 on ATA devices
+    for(int i = 0; i < sizeof(ata_devices); i++)
+        if(strcmp(ata_devices[i].serial, "") != 0)
+            ext2::init_ext2_device(&ata_devices[i]);
     
     // Kernel CLI and other 
     cmd::init();

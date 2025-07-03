@@ -9,11 +9,20 @@
 #define EXT2_HPP
 
 #include <stdint.h>
+#include <device.hpp>
 
 #pragma region Structures
 
+// For superblock
+#define SUPERBLOCK_SIZE 1024
+#define EXT2_MAGIC 0xEF53
+
+// For inodes
+#define ROOT_INODE_NUM 2
+#define EXT2_S_IFDIR 0x4000
+
 // Structure of Ext2 Superblock
-struct superblock {
+struct superblock_t {
     // -- Base Fields --
     uint32_t inodes_num;
     uint32_t blks_num;
@@ -63,7 +72,7 @@ struct superblock {
 } __attribute__((packed));
 
 // Structure of Ext2 Block Group Descriptor
-struct blkgrp_descriptor {
+struct blkgrp_descriptor_t {
     uint32_t blk_addr_blk_usage_bitmap;
     uint32_t blk_addr_inode_usage_bitmap;
     uint32_t inode_tbl_start_blk_addr;
@@ -74,7 +83,7 @@ struct blkgrp_descriptor {
 } __attribute__((packed));
 
 // Structure of Ext2 Inode
-struct inode {
+struct inode_t {
     uint16_t type_and_perm;
     uint16_t uid;
     uint32_t size_low;
@@ -110,7 +119,7 @@ struct inode {
 } __attribute__((packed));
 
 // Structure of Ext2 Directory Entry
-struct dir_ent {
+struct dir_ent_t {
     uint32_t inode;
     uint16_t entry_size;
     uint8_t name_len;
@@ -119,5 +128,34 @@ struct dir_ent {
 } __attribute__((packed));
 
 #pragma endregion
+
+struct ext2_fs_t {
+    // Device
+    union {
+        ata::device_t* dev;
+        // TODO: Add an AHCI device to this union after implementing an AHCI driver
+    };
+
+    // File system info
+    superblock_t* sb;
+    blkgrp_descriptor_t* blk_grp_descs;
+    uint32_t block_size;
+    uint32_t blocks_per_group;
+    uint32_t inodes_per_group;
+    uint32_t total_groups;
+    uint32_t blk_grp_desc_blocks;
+};
+
+namespace ext2 {
+    // Initialization functions
+
+    bool init_ext2_device(ata::device_t* dev);
+
+    // Read / Write functions
+
+    void read_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_read);
+    void write_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_write);
+
+} // namespace ext2
 
 #endif // EXT2_HPP
