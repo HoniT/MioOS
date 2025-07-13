@@ -76,23 +76,23 @@ void keyboardHandler(InterruptRegisters* regs) {
                 break;
 
             case 0x0E:  // Backspace
-                if (press_state == 0 && strlen(currentInput) > 0) {
+                if (press_state == 0 && strlen(cmd::currentInput) > 0) {
                     vga::backspace();
-                    currentInput[strlen(currentInput) - 1] = '\0';
+                    cmd::currentInput[strlen(cmd::currentInput) - 1] = '\0';
                 }
                 break;
 
             default:  // Handle printable characters
-                if (press_state == 0 && onTerminal && strlen(currentInput) < 256) {
-                    size_t len = strlen(currentInput);
+                if (press_state == 0 && cmd::onTerminal && strlen(cmd::currentInput) < 256) {
+                    size_t len = strlen(cmd::currentInput);
                     if (capsOn || capsLock) {
                         vga::printf("%c", (char)(uppercase[scancode]));
-                        currentInput[len] = (char)(uppercase[scancode]);
+                        cmd::currentInput[len] = (char)(uppercase[scancode]);
                     } else {
                         vga::printf("%c", (char)(lowercase[scancode]));
-                        currentInput[len] = (char)(lowercase[scancode]);
+                        cmd::currentInput[len] = (char)(lowercase[scancode]);
                     }
-                    currentInput[len + 1] = '\0';
+                    cmd::currentInput[len + 1] = '\0';
                 }
                 break;
         }

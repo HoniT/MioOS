@@ -19,5 +19,6 @@ const char* get_remaining_string(const char* str);
 const char* get_word_at_index(const char* str, int index);
 uint32_t get_words(const char* str);
 int str_to_int(const char* str);
+char* strcat(char* dest, const char* src);
 
 #endif // STRING_UTIL_HPP

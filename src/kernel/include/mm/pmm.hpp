@@ -56,6 +56,9 @@ namespace pmm {
     // Allocates a frame in the usable memory regions
     void* alloc_frame(const uint64_t num_blocks, bool identity_map = true);
     void free_frame(void* ptr);
+
+    // Terminal functions
+    void getmeminfo(void);
 } // Namespace pmm
 
 #endif // PMM_HPP

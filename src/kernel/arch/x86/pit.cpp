@@ -10,6 +10,7 @@
 #include <interrupts/idt.hpp>
 #include <drivers/vga_print.hpp>
 #include <io.hpp>
+#include <lib/math.hpp>
 
 volatile uint64_t ticks;
 const uint32_t frequency = 100;
@@ -46,3 +47,19 @@ void pit::delay(const uint64_t ms) {
         __asm__("nop");
     }
 }
+
+#pragma region Terminal Functions
+
+void pit::getuptime(void) {
+    uint64_t total_seconds = udiv64(ticks, uint64_t(frequency));
+
+    uint64_t hours = udiv64(total_seconds, 3600);
+    uint64_t minutes = udiv64(umod64(total_seconds, 3600), 60);
+    uint64_t seconds = umod64(total_seconds, 60);
+
+    vga::printf("Hours: %lu\n", hours);
+    vga::printf("Minutes: %lu\n", minutes);
+    vga::printf("Seconds: %lu\n", seconds);
+}
+
+#pragma endregion

@@ -60,6 +60,10 @@ namespace ata {
     bool probe(void);
     // 400 ns delay
     void delay_400ns(const bool secondary);
+    
+    // Terminal Functions
+    void list_ata(void);
+    void read_ata(void);
 } // namespace ata
 
 // 28 bit PIO mode functions
@@ -69,5 +73,6 @@ namespace pio_28 {
     // Writes a value to a given amount of sectors starting at a given LBA from a given device
     bool write_sector(ata::device_t* dev, uint32_t lba, uint16_t* buffer, uint32_t sectors = 1);
 } // namespace pio_28
+
 
 #endif // ATA_HPP

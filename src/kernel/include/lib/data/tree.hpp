@@ -83,8 +83,9 @@ namespace data {
         // Helper functions
 
         // Finds a child node using predicate
-        Node* find_child_by_predicate(Node* parent, bool (*predicate)(const T&)) {
-            if (!parent || !predicate) return nullptr;
+        template<typename Func>
+        Node* find_child_by_predicate(Node* parent, Func predicate) {
+            if (!parent) return nullptr;
 
             // Traversing untill we find the child
             Node* cur = parent->first_child;

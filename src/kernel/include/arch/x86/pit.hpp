@@ -16,6 +16,9 @@ extern const uint32_t frequency;
 namespace pit {
     void init(void); // Initializes the PIT
     void delay(const uint64_t ms);
+
+    // Terminal functions
+    void getuptime(void);
 } // Namespace pit
 
 #endif // PIT_HPP

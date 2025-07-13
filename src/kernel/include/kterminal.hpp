@@ -8,10 +8,6 @@
 #ifndef KTERMINAL_HPP
 #define KTERMINAL_HPP
 
-// External symbols
-extern bool onTerminal;
-extern char* currentInput;
-
 typedef void (*CommandFunc)();
 
 #define INPUTS_TO_SAVE 10
@@ -24,6 +20,12 @@ struct Command {
 };
 
 namespace cmd {
+    // Info from kterminal
+    extern bool onTerminal;
+    extern char* currentInput;
+    extern char* currentDir; // Current directory in fs to display in terminal
+    extern char* currentUser; // Current user using the terminal
+
     void init(void);
     void run_cmd(void);
     void save_cmd(void);

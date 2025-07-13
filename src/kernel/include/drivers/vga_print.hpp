@@ -58,9 +58,6 @@ namespace vga {
 	// Print formatted
 	void printf(const char* format, ...);
 
-	void print_decimal(uint32_t num);
-	void print_decimal(uint64_t num);
-
 	// Error messages
 	void error(const char* format, ...);
 	// Warnings

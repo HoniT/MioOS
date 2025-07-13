@@ -12,6 +12,7 @@
 #include <interrupts/idt.hpp>
 #include <drivers/vga_print.hpp>
 #include <io.hpp>
+#include <kterminal.hpp>
 #include <lib/string_util.hpp>
 
 using namespace io;
@@ -36,10 +37,9 @@ void ata_irq_wait(const bool secondary) {
     volatile bool* irq_ptr = secondary ? &secondary_irq_received : &primary_irq_received;
 
     // Wait for IRQ with timeout
-    int timeout = 100000000;
+    int timeout = 5000000;
     while (!*irq_ptr && --timeout);
     if (timeout <= 0) {
-        vga::error("Timeout waiting for IRQ on read!\n");
         return;
     }
 
@@ -53,6 +53,10 @@ void ata::init(void) {
     outPortW(PRIMARY_DEVICE_CONTROL, 0x00);
     idt::irq_install_handler(SECONDARY_IDE_IRQ, &secondary_ata_handler);
     outPortW(SECONDARY_DEVICE_CONTROL, 0x00);
+
+    // Unmasking IRQs
+    pic::unmask_irq(PRIMARY_IDE_IRQ);
+    pic::unmask_irq(SECONDARY_IDE_IRQ);
 
     // Probing ATA
     ata::probe();
@@ -261,3 +265,44 @@ namespace pio_28 {
     }
 
 } // namespace pio_28
+
+#pragma region Terminal Functions
+
+// Reads a given sector on a given ATA device 
+void ata::read_ata(void) {
+    // Getting arguments from string
+    const char* args = get_remaining_string(cmd::currentInput);
+    if(strlen(args) == 0 || get_words(args) != 4 || strcmp(get_word_at_index(args, 0), "-dev") != 0 || strcmp(get_word_at_index(args, 2), "-sect") != 0) {
+        vga::warning("Syntax: read_mbr -dev <device_index> -sect <sector_index>\n");
+        return;
+    }
+
+    int device_index = str_to_int(get_word_at_index(args, 1));
+    if(device_index < 0 || device_index >= 4) {
+        vga::warning("Please use an integer (0-3) as the device index in decimal format.\n");
+        return;
+    }
+
+    int sector_index = str_to_int(get_word_at_index(args, 3));
+    if(sector_index < 0 || sector_index >= ata_devices[device_index].total_sectors) {
+        vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index].total_sectors);
+        return;
+    }
+
+    uint16_t buffer[256];
+    if(pio_28::read_sector(&(ata_devices[device_index]), sector_index, buffer))
+        for(uint16_t i = 0; i < 256; i++) 
+            vga::printf("%h ", buffer[i]);
+}
+
+void ata::list_ata(void) {
+    for(int i = 0; i < 4; i++) {
+        if(strlen(ata_devices[i].serial) == 0) continue;
+        ata::device_t* device = &(ata_devices[i]); 
+        vga::printf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
+            device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
+        vga::printf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");
+    }
+}
+
+#pragma endregion

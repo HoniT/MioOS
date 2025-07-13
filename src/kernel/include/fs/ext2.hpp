@@ -20,6 +20,7 @@
 // For inodes
 #define ROOT_INODE_NUM 2
 #define EXT2_S_IFDIR 0x4000
+#define INODE_IS_DIR(inode) (bool)((inode->type_and_perm & 0xF000) != EXT2_S_IFDIR)
 
 // Structure of Ext2 Superblock
 struct superblock_t {
@@ -30,7 +31,7 @@ struct superblock_t {
     uint32_t unalloc_blk_num;
     uint32_t unalloc_inode_num;
     uint32_t superblock_blk_num;
-    uint32_t blk_size; 
+    uint32_t blk_size;
     uint32_t frag_size;
     uint32_t blkgroup_blk_num;
     uint32_t blkgroup_frag_num;
@@ -96,18 +97,7 @@ struct inode_t {
     uint32_t disk_sect_count;
     uint32_t flags;
     uint32_t os_specific_1;
-    uint32_t direct_blk_ptr_0;
-    uint32_t direct_blk_ptr_1;
-    uint32_t direct_blk_ptr_2;
-    uint32_t direct_blk_ptr_3;
-    uint32_t direct_blk_ptr_4;
-    uint32_t direct_blk_ptr_5;
-    uint32_t direct_blk_ptr_6;
-    uint32_t direct_blk_ptr_7;
-    uint32_t direct_blk_ptr_8;
-    uint32_t direct_blk_ptr_9;
-    uint32_t direct_blk_ptr_10;
-    uint32_t direct_blk_ptr_11;
+    uint32_t direct_blk_ptr[12];
     uint32_t singly_inderect_blk_ptr;
     uint32_t doubly_inderect_blk_ptr;
     uint32_t triply_inderect_blk_ptr;
@@ -146,16 +136,26 @@ struct ext2_fs_t {
     uint32_t blk_grp_desc_blocks;
 };
 
+struct vfsNode;
+
 namespace ext2 {
     // Initialization functions
-
     bool init_ext2_device(ata::device_t* dev);
 
     // Read / Write functions
+    void read_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_read = 1);
+    void write_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_write = 1);
+    // Returns a list of VFS nodes of entries in the given dir
+    vfsNode* read_dir(ext2_fs_t* fs, vfsNode* node, int& count);
+    
+    // Loads an inode with a given inode number
+    inode_t* load_inode(ext2_fs_t* fs, const uint32_t inode_num);
 
-    void read_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_read);
-    void write_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_write);
-
+    // Terminal functions
+    // Prints dir entries
+    void ls(void);
+    // Changes Directory
+    void cd(void);
 } // namespace ext2
 
 #endif // EXT2_HPP

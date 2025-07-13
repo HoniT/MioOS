@@ -10,8 +10,10 @@
 #include <mm/heap.hpp>
 #include <mm/vmm.hpp>
 #include <drivers/vga_print.hpp>
+#include <kterminal.hpp>
 #include <lib/math.hpp>
 #include <lib/mem_util.hpp>
+#include <lib/string_util.hpp>
 
 // Getting the kernels physical starting address from the linker script
 extern "C" uint32_t __kernel_phys_base;
@@ -301,3 +303,43 @@ void pmm::free_frame(void* ptr) {
         }
     #endif // VMM_HPP
 }
+
+#pragma region Terminal Functions
+
+void pmm::getmeminfo(void) {
+    // If the user inputed the help flag
+    if(strcmp(get_remaining_string(cmd::currentInput), "-h") == 0) {
+        // Printing every available version of getmeminfo
+        vga::printf("-mmap - Prints the memory map given from GRUB\n");
+        vga::printf("-reg - Prints the blocks in the usable memory regions\n");
+        return;
+    }
+
+    // Prints the memory map
+    if(strcmp(get_remaining_string(cmd::currentInput), "-mmap") == 0) {
+        pmm::print_memory_map();
+        return;
+    }
+
+    // Prints block info
+    if(strcmp(get_remaining_string(cmd::currentInput), "-reg") == 0) {
+        pmm::print_usable_regions();
+        return;
+    }
+
+    // If there were no flags inputed
+    if(strcmp(get_remaining_string(cmd::currentInput), "") == 0) {
+        // Printing usable and used memory
+        vga::printf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
+        vga::printf("Total installed memory:  %lu bytes (~%lu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
+        vga::printf("Available usable memory: %lu bytes (~%lu GiB)\n", pmm::total_usable_ram, pmm::total_usable_ram / BYTES_IN_GIB);
+        vga::printf("Used memory:                %lu bytes\n", pmm::total_used_ram);
+        vga::printf("Hardware reserved memory:   %lu bytes\n", pmm::hardware_reserved_ram);
+        return;
+    }
+    
+    // If an invalid flag has been entered we'll throw an error
+    vga::warning("Invalid flag \"%s\"for \"getmeminfo\"!\n", get_remaining_string(cmd::currentInput));
+}
+
+#pragma endregion

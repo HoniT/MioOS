@@ -26,8 +26,9 @@ void unittsts::test_vmm(void) {
     vga::printf("=============== Testing VMM! ================\n");
 
     // Testing mapping
-    uint64_t address = 0x0;
-    vmm::alloc_page(address, 0xB8000, PRESENT | WRITABLE); // Mapping VGA address to 0
+    uint32_t address = 0x0;
+    uint32_t phys_addr = 0xB8000;
+    vmm::alloc_page(address, phys_addr, PRESENT | WRITABLE); // Mapping VGA address to 0
     bool is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(is_mapped) 
         vga::printf("   Test 1 successful: mapped page! Mapped v. address: %x\n", address);
@@ -39,16 +40,16 @@ void unittsts::test_vmm(void) {
     // Testing putting in a value
     uint16_t value = 0x072D;
     *(uint16_t*)(address + 0xA) = value; // Writing in a value
-    if(*(uint16_t*)(0xB8000 + 0xA) == value) // If the value at the physical corresponding address is the same
+    if(*(uint16_t*)(phys_addr + 0xA) == value) // If the value at the physical corresponding address is the same
         vga::printf("   Test 2 successful: set value to page! Value: %x\n", value);
     else {
-        vga::error("   Test 2 failed: it set the wrong value (%x)!\n", *(uint32_t*)(0xB8000 + 0xA));
+        vga::error("   Test 2 failed: it set the wrong value (%x)!\n", *(uint32_t*)(phys_addr + 0xA));
         passed = false;
     }
 
     // Testing translation of virtual to physical
     uint64_t phys_address =  (uint64_t)vmm::virtual_to_physical(address);
-    if(phys_address == 0xB8000) 
+    if(phys_address == phys_addr) 
         vga::printf("   Test 3 successful: translated a virtual to a physical address!\n");
     else {
         vga::error("   Test 3 failed: couldn't translate a virtual to a physical address!\n");

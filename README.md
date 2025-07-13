@@ -58,6 +58,8 @@ To use this project simply use the bash script located in tools. To do so:
 - 32-bit paging
 - Kernel CLI
 - 28-bit PIO ATA driver (IRQ mode)
+- Ext2 file system
+- Virtual File System
 (More will come in future)
 
 

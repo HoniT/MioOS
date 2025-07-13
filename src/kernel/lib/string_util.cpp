@@ -168,3 +168,20 @@ char* strcpy(char* dest, const char* src) {
 
     return dest; // Return the destination pointer
 }
+
+// Appends src to the end of dest
+char* strcat(char* dest, const char* src) {
+    if (!dest || !src) return dest;
+
+    // Move to the end of dest
+    char* d = dest;
+    while (*d) d++;
+
+    // Copy src to dest
+    while (*src) {
+        *d++ = *src++;
+    }
+
+    *d = '\0'; // Null-terminate
+    return dest;
+}

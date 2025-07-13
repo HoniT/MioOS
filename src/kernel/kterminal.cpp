@@ -14,31 +14,27 @@
 #include <cpuid.hpp>
 #include <pit.hpp>
 #include <drivers/ata.hpp>
+#include <fs/ext2.hpp>
 #include <device.hpp>
 #include <kernel_main.hpp>
 #include <lib/string_util.hpp>
 #include <lib/math.hpp>
 
 // Tells us if were on the terminal mode
-bool onTerminal = false;
+bool cmd::onTerminal = false;
 // Current input
-char* currentInput;
+char* cmd::currentInput;
 
-// Command function declarations
+// Basic command function declarations
 void help();
 void clear();
 void echo();
 void print_inputs();
 // System info commands
 void getsysinfo();
-void getmeminfo();
-void getuptime();
 // Memory debugging commands
 void peek();
 void poke();
-// Storage commands
-void read_ata();
-void list_ata();
 
 // List of commands
 Command commands[] = {
@@ -48,15 +44,17 @@ Command commands[] = {
     {"printinputs", print_inputs, " - Writes the list of old inputs"},
     // For system information
     {"getsysinfo", getsysinfo, " - Prints system software and hardware information"},
-    {"getmeminfo", getmeminfo, " - Prints system memory info"},
-    {"getuptime", getuptime, " - Prints how much time the systems been on since booting"},
+    {"getmeminfo", pmm::getmeminfo, " - Prints system memory info"},
+    {"getuptime", pit::getuptime, " - Prints how much time the systems been on since booting"},
     // Memory debugging commands
     {"peek", peek, " <address> - Prints a value at a given physical address"},
     {"poke", poke, " <address> <value> - Writes to a given address a given value"},
     {"heapdump", heap::heap_dump, " - Prints the allocation status of blocks in the heap"},
     // Storage commands
-    {"read_ata", read_ata, " -dev <device_index> -sect <sector_index> - Prints a given sector of a given ATA device"},
-    {"list_ata", list_ata, " - Lists available ATA devices"}
+    {"read_ata", ata::read_ata, " -dev <device_index> -sect <sector_index> - Prints a given sector of a given ATA device"},
+    {"list_ata", ata::list_ata, " - Lists available ATA devices"},
+    {"ls", ext2::ls, " - Lists current directory entries"},
+    {"cd", ext2::cd, " - Changes directories"}
 };
 
 // Saving inputs
@@ -68,8 +66,8 @@ uint8_t saved_inputs_num = 0; // This counts how many places are occupied in the
 // The coordinates of the screen in which the current input resides
 size_t input_row, input_col;
 
-char* currentDir = "~"; // Current directory in fs to display in terminal
-char* currentUser = "root"; // Current user using the terminal
+char* cmd::currentDir = "/"; // Current directory in fs to display in terminal
+char* cmd::currentUser = "root"; // Current user using the terminal
 
 // Initializes the terminal
 void cmd::init(void) {
@@ -211,7 +209,7 @@ void print_inputs(void) {
 // Commands
 // ====================
 
-#pragma region Commands
+#pragma region Basic Commands
 
 void help() {
     // Itterating through the commands
@@ -243,60 +241,12 @@ void clear() {
 }
 
 void echo() {
-    vga::printf("%s\n", get_remaining_string(currentInput));
-}
-
-void getmeminfo() {
-    // If the user inputed the help flag
-    if(strcmp(get_remaining_string(currentInput), "-h") == 0) {
-        // Printing every available version of getmeminfo
-        vga::printf("-mmap - Prints the memory map given from GRUB\n");
-        vga::printf("-reg - Prints the blocks in the usable memory regions\n");
-        return;
-    }
-
-    // Prints the memory map
-    if(strcmp(get_remaining_string(currentInput), "-mmap") == 0) {
-        pmm::print_memory_map();
-        return;
-    }
-
-    // Prints block info
-    if(strcmp(get_remaining_string(currentInput), "-reg") == 0) {
-        pmm::print_usable_regions();
-        return;
-    }
-
-    // If there were no flags inputed
-    if(strcmp(get_remaining_string(currentInput), "") == 0) {
-        // Printing usable and used memory
-        vga::printf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
-        vga::printf("Total installed memory:  %lu bytes (~%lu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
-        vga::printf("Available usable memory: %lu bytes (~%lu GiB)\n", pmm::total_usable_ram, pmm::total_usable_ram / BYTES_IN_GIB);
-        vga::printf("Used memory:                %lu bytes\n", pmm::total_used_ram);
-        vga::printf("Hardware reserved memory:   %lu bytes\n", pmm::hardware_reserved_ram);
-        return;
-    }
-    
-    // If an invalid flag has been entered we'll throw an error
-    vga::warning("Invalid flag \"%s\"for \"getmeminfo\"!\n", get_remaining_string(currentInput));
-}
-
-void getuptime() {
-    uint64_t total_seconds = udiv64(ticks, uint64_t(frequency));
-
-    uint64_t hours = udiv64(total_seconds, 3600);
-    uint64_t minutes = udiv64(umod64(total_seconds, 3600), 60);
-    uint64_t seconds = umod64(total_seconds, 60);
-
-    vga::printf("Hours: %lu\n", hours);
-    vga::printf("Minutes: %lu\n", minutes);
-    vga::printf("Seconds: %lu\n", seconds);
+    vga::printf("%s\n", get_remaining_string(cmd::currentInput));
 }
 
 void peek() {
     // Getting the address from the input
-    const char* strAddress = get_remaining_string(currentInput);
+    const char* strAddress = get_remaining_string(cmd::currentInput);
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
@@ -310,7 +260,7 @@ void peek() {
 
 void poke() {
     // Getting address and value from the input
-    const char* strAddress = get_first_word(get_remaining_string(currentInput));
+    const char* strAddress = get_first_word(get_remaining_string(cmd::currentInput));
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
@@ -318,48 +268,11 @@ void poke() {
         return;
     }
     #endif
-    const char* strVal = get_remaining_string(get_remaining_string(currentInput));
+    const char* strVal = get_remaining_string(get_remaining_string(cmd::currentInput));
     uint8_t val = hex_to_uint32(strVal);
 
     // Writing the value to the address
     *(uint8_t*)address = val;
-}
-
-// Reads a given sector on a given ATA device 
-void read_ata() {
-    // Getting arguments from string
-    const char* args = get_remaining_string(currentInput);
-    if(strlen(args) == 0 || get_words(args) != 4 || strcmp(get_word_at_index(args, 0), "-dev") != 0 || strcmp(get_word_at_index(args, 2), "-sect") != 0) {
-        vga::warning("Syntax: read_mbr -dev <device_index> -sect <sector_index>\n");
-        return;
-    }
-
-    int device_index = str_to_int(get_word_at_index(args, 1));
-    if(device_index < 0 || device_index >= 4) {
-        vga::warning("Please use an integer (0-3) as the device index in decimal format.\n");
-        return;
-    }
-
-    int sector_index = str_to_int(get_word_at_index(args, 3));
-    if(sector_index < 0 || sector_index >= ata_devices[device_index].total_sectors) {
-        vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index].total_sectors);
-        return;
-    }
-
-    uint16_t buffer[256];
-    if(pio_28::read_sector(&(ata_devices[device_index]), sector_index, buffer))
-        for(uint16_t i = 0; i < 256; i++) 
-            vga::printf("%h ", buffer[i]);
-}
-
-void list_ata(void) {
-    for(int i = 0; i < 4; i++) {
-        if(strlen(ata_devices[i].serial) == 0) continue;
-        ata::device_t* device = &(ata_devices[i]); 
-        vga::printf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
-            device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
-        vga::printf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");
-    }
 }
 
 #pragma endregion
