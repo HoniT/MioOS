@@ -8,6 +8,7 @@
 
 #include <drivers/vga_print.hpp>
 #include <io.hpp>
+#include <lib/data/string.hpp>
 #include <stdarg.h>
 
 // ====================
@@ -400,6 +401,15 @@ void vprintf(const char* format, va_list args) {
                     const char* str = va_arg(args, const char*);
                     if (str) {
                         print_str(str);
+                    } else {
+                        print_str("(null)");
+                    }
+                    break;
+                }
+                case 'S': {  // Custom string
+                    data::string* str = va_arg(args, data::string*);
+                    if (str) {
+                        print_str(str->data);
                     } else {
                         print_str("(null)");
                     }
