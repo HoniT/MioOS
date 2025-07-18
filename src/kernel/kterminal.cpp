@@ -66,18 +66,18 @@ uint8_t saved_inputs_num = 0; // This counts how many places are occupied in the
 // The coordinates of the screen in which the current input resides
 size_t input_row, input_col;
 
-char* cmd::currentDir = "/"; // Current directory in fs to display in terminal
+data::string cmd::currentDir; // Current directory in fs to display in terminal
 char* cmd::currentUser = "root"; // Current user using the terminal
 
 // Initializes the terminal
 void cmd::init(void) {
-    onTerminal = true;
     currentInput = (char*)kmalloc(255);
+    currentDir = "/";
 
     // Setting up VGA enviorment for terminal
     vga::printf("\n ===========Type \"help\" to get available commands\n");
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-    vga::printf("%s@MioOS: %s# ", currentUser, currentDir);
+    vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
     vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
 
     // Saving the current screen coordinates
@@ -86,6 +86,8 @@ void cmd::init(void) {
 
     for(uint8_t i = 0; i < INPUTS_TO_SAVE; i++) 
         saved_inputs[i] = (char*)kmalloc(255);
+
+    onTerminal = true;
 }
 
 // Runs a command
@@ -101,7 +103,7 @@ void cmd::run_cmd(void) {
             commands[i].function();
             
             vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-            vga::printf("%s@MioOS: %s# ", currentUser, currentDir);
+            vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
             vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
             
             // Saving the current screen coordinates
@@ -118,7 +120,7 @@ void cmd::run_cmd(void) {
     // If we made it to here that means that the inputted command could not be found
     vga::warning("\n%s isn't a valid command!\n", get_first_word(currentInput));
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-    vga::printf("%s@MioOS: %s# ", currentUser, currentDir);
+    vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
     vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
 
     // Saving the current screen coordinates

@@ -1,4 +1,3 @@
-#!/bin/bash
 
 # Adding GCC cross-compiler files to PATH
 export PREFIX="$HOME/opt/cross"

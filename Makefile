@@ -11,7 +11,7 @@ INCLUDE = -I $(SRC)/kernel/include \
 NASM = nasm
 
 CXX = i686-elf-g++
-CXX_FLAGS = $(INCLUDE) -g -Wall -O2 -ffreestanding -mgeneral-regs-only \
+CXX_FLAGS = $(INCLUDE) -g -Wall -O2 -ffreestanding -mgeneral-regs-only -fno-use-cxa-atexit \
             -fno-exceptions -fno-rtti -fno-pic -fno-asynchronous-unwind-tables \
             -m32 -march=i386
 

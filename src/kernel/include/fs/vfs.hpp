@@ -9,14 +9,15 @@
 #define VFS_HPP
 
 #include <lib/data/tree.hpp>
+#include <lib/data/string.hpp>
 #include <fs/ext2.hpp>
 
 typedef data::tree<vfsNode>::Node treeNode;
 
 // VFS node (directory / file)
 struct vfsNode {
-    const char* name;
-    const char* path;
+    data::string name;
+    data::string path;
     bool is_dir;
     inode_t* inode; // Extra data (inode)
 };
@@ -29,11 +30,11 @@ namespace vfs {
     // Prints VFS tree node
     void print_node(const vfsNode& node, int depth);
     // Gets VFS node from path
-    vfsNode* get_node(const char* path);
+    vfsNode* get_node(data::string path);
     // Gets tree node from path
-    treeNode* get_tree_node(const char* path);
+    treeNode* get_tree_node(data::string path);
     // Adds a dir/file
-    void add_node(const char* path, inode_t* inode);
+    void add_node(data::string path, inode_t* inode);
 } // namespace vfs
 
 #endif // VFS_HPP

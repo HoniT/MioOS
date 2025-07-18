@@ -9,37 +9,38 @@
 #include <lib/path_util.hpp>
 #include <mm/heap.hpp>
 #include <lib/string_util.hpp>
+#include <lib/data/string.hpp>
+#include <drivers/vga_print.hpp>
 
 // Splits a file/dir path into tokens (returns every dir/file going into the path in an array given by the user and stores count)
-char** split_path_tokens(const char* path, int& count) {
+data::string* split_path_tokens(data::string path, int& count) {
+    if (path.empty()) return nullptr;
+
+
     int max_tokens = 16;
-    char** tokens = (char**)kmalloc(sizeof(char*) * max_tokens);
+    data::string* tokens = (data::string*)kmalloc(sizeof(data::string) * max_tokens);
 
     int token_index = 0;
+    uint32_t i = 0;
 
-    if (path[0] == '/') {
-        tokens[token_index] = (char*)kmalloc(1);
-        strcpy(tokens[token_index], "/");
-        token_index++;
-        path++;
+    // Add leading slash as a token if present
+    if (path.at(0) == '/') {
+        tokens[token_index++] = data::string("/");
+        i++; // Skip the first '/'
     }
 
-    while (*path && token_index < max_tokens) {
-        // Skip repeated '/'
-        while (*path == '/') path++;
+    while (i < path.size() && token_index < max_tokens) {
+        // Skip repeated slashes
+        while (i < path.size() && path[i] == '/') i++;
 
-        // Allocate and extract token
-        char* token = (char*)kmalloc(256);
-        int i = 0;
-        while (*path && *path != '/' && i < 255) {
-            token[i++] = *path++;
-        }
-        token[i] = '\0';
+        // Start of token
+        uint32_t start = i;
+        while (i < path.size() && path[i] != '/') i++;
+        uint32_t len = i - start;
 
-        if (i > 0) {
-            tokens[token_index++] = token;
-        } else {
-            kfree(token); // No useful data, discard
+        if (len > 0) {
+            // Create string from substring
+            tokens[token_index++] = data::string(path.data + start, len);
         }
     }
 

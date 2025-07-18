@@ -20,7 +20,7 @@
 // For inodes
 #define ROOT_INODE_NUM 2
 #define EXT2_S_IFDIR 0x4000
-#define INODE_IS_DIR(inode) (bool)((inode->type_and_perm & 0xF000) != EXT2_S_IFDIR)
+#define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)
 
 // Structure of Ext2 Superblock
 struct superblock_t {

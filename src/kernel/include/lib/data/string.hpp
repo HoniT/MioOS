@@ -12,6 +12,7 @@
 #include <mm/heap.hpp>
 #include <lib/string_util.hpp>
 #include <lib/mem_util.hpp>
+#include <drivers/vga_print.hpp>
 
 namespace data{
     class string {
@@ -37,6 +38,13 @@ namespace data{
             length = other.length;
             data = (char*)kmalloc(length + 1);
             memcpy(data, other.data, length);
+            data[length] = '\0'; // Null-terminate
+        }
+
+        string(const char* str, uint32_t len) {
+            length = len;
+            data = (char*)kmalloc(length + 1);
+            memcpy(data, str, length);
             data[length] = '\0'; // Null-terminate
         }
 
@@ -112,8 +120,6 @@ namespace data{
         void clear() {
             // Freeing and allocating only one byte
             kfree(data);
-            data = (char*)kmalloc(1);
-            data[0] = '\0'; // Null-terminate
             length = 0;
         }
         // Appending const char* to this string
