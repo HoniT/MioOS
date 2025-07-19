@@ -65,84 +65,89 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, vfsN
         dir_ent_t* entry = (dir_ent_t*)(block + offset);
         if (entry->inode == 0) break;
         if (entry->entry_size < 8) break; // Entry too small or corrupted
-
+        
         inode_t* inode = ext2::load_inode(fs, entry->inode);
         
         // Retrieve name
         data::string name(entry->name, entry->name_len);
         if(!inode) vga::warning("No inode for %S\n", name);
-
+        
         // Build full path
         data::string path = parent.path;
         path.append(name);
-
+        
         // If it's a directory, add trailing slash
         if (INODE_IS_DIR(inode)) path.append("/");
-
+        
         // Adding to array
         entries[last_index++] = {name, path, INODE_IS_DIR(inode), inode};
-
+        
         offset += entry->entry_size;
     }
 }
 
+ext2_fs_t* curr_fs = nullptr;
 // Returns a list of VFS nodes of entries in the given dir
-vfsNode* ext2::read_dir(ext2_fs_t* fs, vfsNode* node, int& count) {
-    if (!node || !fs || !count) return nullptr;
+vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
+    if (!tree_node || !count) return nullptr;
+    vfsNode* node = &tree_node->data;
     if (!node->is_dir) {
-        vga::error("read_dir error: node is not a directory");
+        vga::error("read_dir error: node is not a directory!\n");
         return nullptr;
     }
-
     int last_index = 0;
     vfsNode* entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256); // Estimate 256 entries for now
+    // If we're not in a physical FS (In virtually added directories e.g. "/" (root)) we'll find children in the VFS tree
+    if(!curr_fs) {
+        treeNode* curr = tree_node->first_child;
+        entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256);
+        while(curr) {
+            entries[last_index++] = curr->data;
+            curr = curr->next_sibling;
+        }
+        count = last_index;
+        return entries;
+    }
 
+    entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256);
     // -- Direct blocks --
     for (int i = 0; i < 12; i++) { 
         // Getting block num
         uint32_t block_num = node->inode->direct_blk_ptr[i];
-        if (block_num == 0) continue; // Unused, going to return values    
+        if (block_num == 0) continue; // Unused
         
         // Reading block
-        uint8_t block[fs->block_size];
-        ext2::read_block(fs, block_num, (uint16_t*)block);
-
-        parse_directory_block(fs, block, entries, *node, last_index);
+        uint8_t block[curr_fs->block_size];
+        ext2::read_block(curr_fs, block_num, (uint16_t*)block);
+        
+        parse_directory_block(curr_fs, block, entries, *node, last_index);
     }
     
     // -- Singly inderect blocks -- 
     if (node->inode->singly_inderect_blk_ptr != 0) {
         uint32_t block_ptrs[1024];
-        ext2::read_block(fs, node->inode->singly_inderect_blk_ptr, (uint16_t*)block_ptrs);
+        ext2::read_block(curr_fs, node->inode->singly_inderect_blk_ptr, (uint16_t*)block_ptrs);
         
         for (int i = 0; i < 1024; ++i) {
             if (block_ptrs[i] == 0) continue;
             // Reading block
-            uint8_t block[fs->block_size];
-            ext2::read_block(fs, block_ptrs[i], (uint16_t*)block);
-            parse_directory_block(fs, block, entries, *node, last_index);
+            uint8_t block[curr_fs->block_size];
+            ext2::read_block(curr_fs, block_ptrs[i], (uint16_t*)block);
+            parse_directory_block(curr_fs, block, entries, *node, last_index);
         }
     }
 
     count = last_index;
-
-    // Adds to VFS tree
-    for(int i = 0; i < count; i++) {
-        // If the entry isn't the current or parent dir
-        if(!entries[i].name.equals(".") && !entries[i].name.equals("..")) vfs::add_node(entries[i].path, entries[i].inode);
-    }
-
     return entries;
 }
 
-ext2_fs_t* curr_fs;
 // Initializes the Ext2 FS for an ATA device
 bool ext2::init_ext2_device(ata::device_t* dev) {
     // Allocating space for the FS metadata and superblock. Adding device 
     ext2_fs_t* ext2fs = (ext2_fs_t*)kcalloc(1, sizeof(ext2_fs_t));
     ext2fs->dev = dev;
     ext2fs->sb = (superblock_t*)kmalloc(SUPERBLOCK_SIZE);
-
+    
     // Reading superblock (Located at LBA 2 and takes up 2 sectors)
     pio_28::read_sector(dev, 2, (uint16_t*)ext2fs->sb, 2);
     // Verifying superblock
@@ -174,83 +179,92 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
         vga::error("The root inode wasn't a directory!\n");
         return false;
     }
-    // Setting root inode in VFS
-    vfs::set_root(root_inode);
-    // Adding any entries of root
-    int count;
-    vfsNode* nodes = ext2::read_dir(ext2fs, &vfs_tree.get_root()->data, count);
+
+    // Mounting to VFS
+    vfs::mount_dev(vfs::device_names[vfs::device_name_index++], root_inode, ext2fs);
+
     vga::printf("Successfully initialized Ext2 file system on ATA device %s!\n", dev->serial);
-    curr_fs = ext2fs;
     return true;
 }
 
-#pragma region Terminal Functions
+#pragma Terminal Functions
 
-// Lists dir entries
+/// @brief Lists directory entries
 void ext2::ls(void) {
+    treeNode* node = vfs::get_node(cmd::currentDir); // Retreiving node from current path
+    if(!node) return;
+    
     int count;
-    vfsNode* nodes = ext2::read_dir(curr_fs, vfs::get_node(cmd::currentDir), count);
-    if (!nodes) return;
+    vfsNode* nodes = ext2::read_dir(node, count);
+    if(!nodes) return;
 
-    // Printing dir entry names
-    for (int i = 0; i < count; i++) {
-        if (nodes[i].name.equals("..")) vga::warning(".. "); // Parent dir
-        else if (!nodes[i].name.equals(".")) vga::printf("%S ", nodes[i].name);
+    // Printing
+    for(int i = 0; i < count; i++) {
+        vga::printf("%S ", nodes[i].name);
     }
     vga::printf("\n");
-
-    // vfs_tree.traverse(vfs_tree.get_root(), vfs::print_node);
-
-    // Free string memory and entry array
-    for (int i = 0; i < count; i++) {
-        nodes[i].name.~string();  // Manually call destructor
-        nodes[i].path.~string();  // Manually call destructor
-    }
-    kfree(nodes);
 }
 
-
-// Changes Directory
+/// @brief Changes directory
 void ext2::cd(void) {
-    
-    // Getting dir
+    // Getting directory to change to
     data::string dir = get_remaining_string(cmd::currentInput);
     if(dir.empty()) {
         vga::warning("Syntax: cd <dir>\n");
         return;
     }
 
-    // Current dir as input (".")
+    // Current dir
     if(dir.equals(".")) return;
-
-    // Parent dir as input ("..")
+    
+    // Finding child (dir to find) from current node (VFS tree)
+    treeNode* currNode = vfs::get_node(cmd::currentDir);
+    // Parent dir
     if(dir.equals("..")) {
-        data::tree<vfsNode>::Node* curr_tree_node = vfs::get_tree_node(cmd::currentDir);
-        if(!curr_tree_node) return;
-        
-        // If we're in root dir, there is no more parent
-        if(!curr_tree_node->parent) {
-            vga::printf("No parent for root!\n");
+        // If we're in root
+        if(!currNode->parent) {
+            vga::warning("No parent for root dir!\n");
             return;
         }
 
-        cmd::currentDir = curr_tree_node->parent->data.path;
+        cmd::currentDir = currNode->parent->data.path;
+        return;
+    }
+    
+    treeNode* found_dir = vfs_tree.find_child_by_predicate(currNode, [dir](vfsNode node){return node.name == dir;});
+    // If we found in tree
+    if(found_dir) {
+        cmd::currentDir = found_dir->data.path;
+        // Setting FS if possible
+        if(curr_fs != found_dir->data.fs) curr_fs = found_dir->data.fs;
         return;
     }
 
+    // If we're in virtual dirs, it's pointless to check again physically
+    if (!curr_fs) {
+        vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, cmd::currentDir);
+        return;
+    }
+    
+    // If we couldnt find the dir in the virtual tree, we'll check physically
     int count;
-    vfsNode* nodes = ext2::read_dir(curr_fs, vfs::get_node(cmd::currentDir), count);
-    if(!nodes) goto no_dir_found;
+    vfsNode* nodes = ext2::read_dir(currNode, count);
+    if(!nodes) return;
     for(int i = 0; i < count; i++) {
-        
-        // If we found a match
-        if(dir == nodes[i].name) {
+        // If we found it here
+        if(nodes[i].name == dir) {
             cmd::currentDir = nodes[i].path;
-            kfree(nodes);
+            // Setting FS if possible
+            if(curr_fs != nodes[i].fs) curr_fs = nodes[i].fs;
+            
+            // Adding to VFS tree
+            vfs::add_node(currNode, nodes[i].name, nodes[i].inode, nodes[i].fs);
             return;
         }
     }
-no_dir_found:
-    vga::warning("No directory found of name %S in %S!\n", dir, cmd::currentDir);
-    kfree(nodes);
+
+    vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, cmd::currentDir);
+    return;
 }
+
+#pragma endregion

@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <device.hpp>
+#include <lib/data/tree.hpp>
 
 #pragma region Structures
 
@@ -146,15 +147,13 @@ namespace ext2 {
     void read_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_read = 1);
     void write_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_write = 1);
     // Returns a list of VFS nodes of entries in the given dir
-    vfsNode* read_dir(ext2_fs_t* fs, vfsNode* node, int& count);
+    vfsNode* read_dir(data::tree<vfsNode>::Node* node, int& count);
     
     // Loads an inode with a given inode number
     inode_t* load_inode(ext2_fs_t* fs, const uint32_t inode_num);
 
     // Terminal functions
-    // Prints dir entries
     void ls(void);
-    // Changes Directory
     void cd(void);
 } // namespace ext2
 

@@ -20,21 +20,23 @@ struct vfsNode {
     data::string path;
     bool is_dir;
     inode_t* inode; // Extra data (inode)
+    ext2_fs_t* fs; // Extra data (FS)
 };
 
 extern data::tree<vfsNode> vfs_tree;
 
 namespace vfs {
-    // Sets up root VFS node from Inode #2
-    void set_root(inode_t* inode);
+    extern int device_name_index;
+    extern const char* device_names[26];
+
+    // Initializes the VFS
+    void init(void);
     // Prints VFS tree node
     void print_node(const vfsNode& node, int depth);
-    // Gets VFS node from path
-    vfsNode* get_node(data::string path);
-    // Gets tree node from path
-    treeNode* get_tree_node(data::string path);
-    // Adds a dir/file
-    void add_node(data::string path, inode_t* inode);
+    void add_node(treeNode* parent, data::string name);
+    void add_node(treeNode* parent, data::string name, inode_t* inode, ext2_fs_t* fs);
+    treeNode* get_node(const data::string path);
+    void mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs);
 } // namespace vfs
 
 #endif // VFS_HPP

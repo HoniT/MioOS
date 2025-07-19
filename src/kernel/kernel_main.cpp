@@ -25,6 +25,7 @@
 #endif // PMM_HPP
 #include <drivers/ata.hpp>
 #include <fs/ext2.hpp>
+#include <fs/vfs.hpp>
 #include <lib/string_util.hpp>
 #include <tests/unit_tests.hpp>
 
@@ -63,6 +64,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Initializing File System, storage drivers...
     device_init();
     ata::init();
+    vfs::init();
     // Initializing Ext2 on ATA devices
     for(int i = 0; i < sizeof(ata_devices); i++)
         if(strcmp(ata_devices[i].serial, "") != 0)

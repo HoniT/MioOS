@@ -119,7 +119,8 @@ namespace data{
         // Clearing data
         void clear() {
             // Freeing and allocating only one byte
-            kfree(data);
+            if(data) kfree(data);
+            data = nullptr;
             length = 0;
         }
         // Appending const char* to this string

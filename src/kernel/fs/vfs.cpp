@@ -18,129 +18,96 @@
 
 data::tree<vfsNode> vfs_tree;
 
-// Sets up root VFS node from Inode #2
-void vfs::set_root(inode_t* inode) {
-    // Creating node for root
-    auto* root = vfs_tree.create({"/", "/", true, inode});
-    vfs_tree.set_root(root);
-}
+int vfs::device_name_index = 0;
+const char* vfs::device_names[26] = {
+    "da", "db", "dc", "dd", "de", "df", "dg", "dh", "di", "dj",
+    "dk", "dl", "dm", "dn", "do", "dp", "dq", "dr", "ds", "dt",
+    "du", "dv", "dw", "dx", "dy", "dz"
+};
 
 // Prints VFS tree node
 void vfs::print_node(const vfsNode& node, int depth) {
     for(int i = 0; i < depth; i++) vga::printf(" ");
-    vga::printf("%S", node.name);
-
-    // Current dir indicator
-    data::string temp = node.path;
-    if(node.is_dir && !node.path.equals("/")) temp.append("/");
-    if(temp == cmd::currentDir) vga::warning(" <- You are here!");
-    vga::printf("\n");
+    vga::printf("%S\n", node.name);
 }
 
-// Gets VFS node from path
-vfsNode* vfs::get_node(data::string path) {
-    return &(vfs::get_tree_node(path)->data);
+// Initializes the VFS
+void vfs::init(void) {
+    // Creating and setting root dir
+    kmalloc(sizeof(ext2_fs_t)); // Reserving memory
+    vfs_tree.set_root(vfs_tree.create({"/", "/", true, nullptr}));
+    // Adding mount directory
+    vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"mnt", "/mnt/", true, nullptr}));
 }
-// Gets tree node from path
-treeNode* vfs::get_tree_node(data::string path) {
-    if(!path || path.empty()) return nullptr;
-    // Spliting path to tokens
+
+/// @brief Adds a virtual node (dir, file...) to the VFS
+/// @param parent Parent of the node to add
+/// @param node node to add
+void vfs::add_node(treeNode* parent, data::string name) {
+    vfs::add_node(parent, name, nullptr, nullptr);
+}
+
+/// @brief Adds a physical node (dir, file...) to the VFS
+/// @param parent Parent of the node to add
+/// @param node node to add
+/// @param inode Inode pointing to actual FS dir entry
+void vfs::add_node(treeNode* parent, data::string name, inode_t* inode, ext2_fs_t* fs) {
+    if(name.empty() || !parent) return;
+    if(!parent->data.is_dir) {
+        vga::warning("Parent passed to add_node isn't a dir!\n");
+        return;
+    }
+
+    // Creating path for new node
+    data::string path = parent->data.path;
+    path.append(name);
+    path.append("/");
+
+    // Checking if parent already has a child of node
+    treeNode* child = vfs_tree.find_child_by_predicate(parent, [path](vfsNode curr){return curr.path == path;});
+    if(child) {
+        // Adding inode and/or fs if it's missing
+        if(!child->data.inode && inode) child->data.inode = inode;
+        if(!child->data.fs && fs) child->data.fs = fs; 
+        return;
+    }
+
+    // Adding the node
+    vfs_tree.add_child(parent, vfs_tree.create({name, path, inode ? INODE_IS_DIR(inode) : false, inode, fs}));
+}
+
+/// @brief Gets a VFS node with a given path
+/// @param path Path of node
+/// @return Tree node of path
+treeNode* vfs::get_node(const data::string path) {
+    if(path.empty()) return nullptr;
+
+    // Spliting path into individual tokens
     int count;
     data::string* tokens = split_path_tokens(path, count);
-    
-    // Checking if path starts with root
-    if(tokens[0][0] != '/') {
-        vga::warning("Illegal path (%S) given to get_node!\n", path);
-        
-        // Free tokens before returning
-        for (int i = 0; i < count; i++) tokens[i].~string();
-        kfree(tokens);
-        
-        return nullptr;
-    }
-    
-    // Traversing VFS tree
+    if(!tokens || count == 0 || !tokens[0].equals("/")) return nullptr;
+
     treeNode* curr = vfs_tree.get_root();
     for(int i = 1; i < count; i++) {
-        // Node name to find
-        data::string token = tokens[i];
-        
-        // Getting node by comparing the names of the current node's children to the target(tokens[i])
-        curr = vfs_tree.find_child_by_predicate(curr, [token](const vfsNode& node) { return node.name == token; });
-        
-        if (!curr) {
-            vga::warning("Path component (%S) not found!\n", token);
-            
-            // Free tokens before returning
-            for (int j = 0; j < count; j++) tokens[j].~string();
+        data::string name_to_find = tokens[i];
+        curr = vfs_tree.find_child_by_predicate(curr, [name_to_find](vfsNode node){return node.name == name_to_find;});
+        if(!curr) {
+            // Freeing memory
+            name_to_find.~string();
             kfree(tokens);
-            
-            return nullptr;
         }
     }
-
-    // Free tokens after done
-    for (int i = 0; i < count; i++) tokens[i].~string();
-    kfree(tokens);
 
     return curr;
 }
 
-// Adds a dir/file
-void vfs::add_node(data::string path, inode_t* inode) {
-    if(!path || !inode) return;
-    // vga::error(" add here1\n");
-
-    // Splitting path to tokens
-    int count;
-    data::string* tokens = split_path_tokens(path, count);
-    if(!tokens || !tokens[0].equals("/")) return; // If the path doesn't start with the root dir
-    // vga::error(" add here2\n");
-
-    // Checking if path leading to the final node exists
-    treeNode* curr = vfs_tree.get_root();
-    for(int i = 1; i < count - 1; i++) {
-        data::string node_name_to_find = tokens[i];
-        treeNode* node_to_find = vfs_tree.find_child_by_predicate(curr, [node_name_to_find](vfsNode& node){
-            return node.name == node_name_to_find;
-        });
-
-        // If we can't find the next node as a child, we'll add it without its inode
-        if(!node_to_find) {
-            // Creating path for this node
-            data::string path = curr->data.path;
-            path.append(node_name_to_find);
-
-            treeNode* new_node = vfs_tree.create({data::string(node_name_to_find), path, true, nullptr});
-
-            vfs_tree.add_child(curr, new_node);
-            curr = new_node;
-        }
-        else curr = node_to_find;
-    }
-    // vga::error(" add here3\n");
-
-    // Adding node to the actual destination (or add the inode if it exists)
-    data::string node_name_to_find = tokens[count - 1];
-    treeNode* node_to_find = vfs_tree.find_child_by_predicate(curr, [node_name_to_find](vfsNode& node){
-        return node.name == node_name_to_find;
-    });
-    // vga::error(" add here4\n");
-
-    // If node exists and inode is not there we'll add the inode
-    if(node_to_find && !node_to_find->data.inode) {
-        node_to_find->data.inode = inode;
-        return;
-    }
-    
-    // If the node doesn't exist in tree at all we'll add the node
-    else if(!node_to_find) {
-        // vga::error(" add here5\n");
-        // Creating path for this node
-        data::string path = curr->data.path;
-        path.append(node_name_to_find);
-
-        vfs_tree.add_child(curr, vfs_tree.create({data::string{node_name_to_find}, path, (bool)INODE_IS_DIR(inode), inode}));
-        return;
-    }
+/// @brief Mounts a device to VFS
+/// @param root_inode Inode #2 of Ext2 device
+/// @param fs File System of device
+void vfs::mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs) {
+    // Getting mount dir
+    treeNode* mntNode = vfs::get_node("/mnt/");
+    if(!mntNode) return;
+    // Adding node
+    vfs::add_node(mntNode, name, root_inode, fs);
 }

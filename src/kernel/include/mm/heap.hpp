@@ -34,4 +34,9 @@ void kfree(void* ptr);
 // Allocates space for an array
 void* kcalloc(const size_t num, const size_t size);
 
+// Placement new: required for constructing objects in preallocated memory
+inline void* operator new(size_t, void* ptr) noexcept { return ptr; }
+inline void operator delete(void*, void*) noexcept {} // Matching delete (unused but required by standard)
+
+
 #endif // HEAP_HPP

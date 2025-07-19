@@ -63,7 +63,7 @@ void* kmalloc(const size_t size) {
         current = current->next;
     }
 
-    vga::error("Not enough heap memory!\n");
+    vga::error("Not enough heap memory for %u bytes!\n", size);
     return nullptr;
 }
 
