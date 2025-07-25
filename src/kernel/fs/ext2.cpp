@@ -15,6 +15,7 @@
 #include <lib/mem_util.hpp>
 #include <lib/data/string.hpp>
 #include <lib/string_util.hpp>
+#include <lib/path_util.hpp>
 
 // Loads an inode with a given inode number
 inode_t* ext2::load_inode(ext2_fs_t* fs, const uint32_t inode_num) {
@@ -205,15 +206,9 @@ void ext2::ls(void) {
     vga::printf("\n");
 }
 
-/// @brief Changes directory
-void ext2::cd(void) {
-    // Getting directory to change to
-    data::string dir = get_remaining_string(cmd::currentInput);
-    if(dir.empty()) {
-        vga::warning("Syntax: cd <dir>\n");
-        return;
-    }
-
+/// @brief cd (Change directory) logic
+/// @param dir Dir to change to
+void change_dir(data::string dir) {
     // Current dir
     if(dir.equals(".")) return;
     
@@ -265,6 +260,38 @@ void ext2::cd(void) {
 
     vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, cmd::currentDir);
     return;
+}
+
+/// @brief Changes directory
+void ext2::cd(void) {
+    // Getting directory to change to
+    data::string input = get_remaining_string(cmd::currentInput);
+    if(input.empty()) {
+        vga::warning("Syntax: cd <dir>\n");
+        return;
+    }
+
+    int count;
+    data::string* dirs = split_path_tokens(input, count);
+    // Calling logic for all dirs
+    for(int i = 0; i < count; i++)
+        change_dir(dirs[i]);
+}
+
+/// @brief Created a directory in a FS 
+void ext2::mkdir(void) {
+    // Getting directory to create
+    data::string input = get_remaining_string(cmd::currentInput);
+    if(input.empty()) {
+        vga::warning("Syntax: mkdir <dir>\n");
+        return;
+    }
+
+    // Checking if we're in a Ext2 FS to create a dir
+    if(!vfs::get_node(cmd::currentDir)->data.fs) {
+        vga::warning("Can't create directory in \"%S\", because it's not in an Ext2 File System!\n", cmd::currentDir);
+        return;
+    }
 }
 
 #pragma endregion

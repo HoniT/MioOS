@@ -12,7 +12,18 @@
 
 #define KBD_DATA_PORT 0x60 // Keyboard data port
 
-namespace keyboard {
+// Key events
+
+#define KEYBOARD_BUFFER_SIZE 128
+
+// Single key event
+struct KeyEvent {
+    uint32_t character;
+    uint8_t scancode;
+    bool pressed;
+};
+
+namespace kbrd {
 
     void init(); // Initializes keyboard driver
 
@@ -80,6 +91,9 @@ const uint32_t uppercase[128] = {
 
 #pragma endregion
 
-} // Namespace keyboard
+void push_key_event(KeyEvent ev);
+bool pop_key_event(KeyEvent& out);
+
+} // Namespace kbrd
 
 #endif // KEYBOARD_HPP

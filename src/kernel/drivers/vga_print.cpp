@@ -61,30 +61,13 @@ void vga::clear_region(const size_t _row, const size_t _col, const uint32_t len)
 // Inserts a string at a given coordinate
 void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor) {
     Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // VGA buffer
-
-    // Copying the string into the VGA buffer
-    for (uint32_t i = 0; str[i] != '\0'; i++) {
-        vga[_col + _row * NUM_COLS + i].character = str[i];
-        vga[_col + _row * NUM_COLS + i].color = color;
-    }
-
-    // If we need to update the cursor, increment column
-    for (uint32_t i = 0; str[i] != '\0'; i++) {
-        if (_update_cursor) {
-            _col++;
-            if (_col >= NUM_COLS) {  // If we reach the end of the row
-                _col = 0;
-                _row++;
-                if (_row >= NUM_ROWS)  // Prevent overflow beyond VGA screen
-                    _row = NUM_ROWS - 1;
-            }
-        }
-    }
-
+    
     // Set global cursor position (if applicable)
     row = _row;
     col = _col;
 
+    vga::printf(str);
+    
     // Update cursor to final position
     update_cursor(row, col);
 }

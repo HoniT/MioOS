@@ -8,6 +8,7 @@
 
 #include <kterminal.hpp>
 #include <drivers/vga_print.hpp>
+#include <drivers/keyboard.hpp>
 #include <mm/heap.hpp>
 #include <mm/pmm.hpp>
 #include <mm/vmm.hpp>
@@ -20,6 +21,8 @@
 #include <lib/string_util.hpp>
 #include <lib/math.hpp>
 
+using namespace kbrd;
+
 // Tells us if were on the terminal mode
 bool cmd::onTerminal = false;
 // Current input
@@ -29,7 +32,6 @@ char* cmd::currentInput;
 void help();
 void clear();
 void echo();
-void print_inputs();
 // System info commands
 void getsysinfo();
 // Memory debugging commands
@@ -41,7 +43,6 @@ Command commands[] = {
     {"help", help, " - Prints available commands"},
     {"clear", clear, " - Clears the screen"},
     {"echo", echo, " <message> - Writes a given message back to the terminal"},
-    {"printinputs", print_inputs, " - Writes the list of old inputs"},
     // For system information
     {"getsysinfo", getsysinfo, " - Prints system software and hardware information"},
     {"getmeminfo", pmm::getmeminfo, " - Prints system memory info"},
@@ -54,7 +55,8 @@ Command commands[] = {
     {"read_ata", ata::read_ata, " -dev <device_index> -sect <sector_index> - Prints a given sector of a given ATA device"},
     {"list_ata", ata::list_ata, " - Lists available ATA devices"},
     {"ls", ext2::ls, " - Lists entries of the current directory"},
-    {"cd", ext2::cd, " <dir> - Changes directory to given dir"}
+    {"cd", ext2::cd, " <dir> - Changes directory to given dir"},
+    {"mkdir", ext2::mkdir, " <dir> - Creates a directory in the current dir"}
 };
 
 // Saving inputs
@@ -68,6 +70,50 @@ size_t input_row, input_col;
 
 data::string cmd::currentDir; // Current directory in fs to display in terminal
 char* cmd::currentUser = "root"; // Current user using the terminal
+
+// Handles keyboard input
+void kterminal_handle_input() {
+    KeyEvent ev;
+    while (kbrd::pop_key_event(ev)) {
+        if (!ev.pressed)
+            continue; // Ignore key releases
+
+        switch (ev.character) {
+            case '\n':
+                cmd::save_cmd();
+                cmd::run_cmd();
+                break;
+
+            case '\b':
+                if (strlen(cmd::currentInput) > 0) {
+                    vga::backspace();
+                    cmd::currentInput[strlen(cmd::currentInput) - 1] = '\0';
+                }
+                break;
+
+            case UP:
+                cmd::cmd_up();
+                break;
+
+            case DOWN:
+                cmd::cmd_down();
+                break;
+
+            case UNKNOWN:
+                break;
+
+            default:
+                if (cmd::onTerminal && strlen(cmd::currentInput) < 256) {
+                    size_t len = strlen(cmd::currentInput);
+                    cmd::currentInput[len] = (char)ev.character;
+                    cmd::currentInput[len + 1] = '\0';
+                    vga::printf("%c", ev.character);
+                }
+                break;
+        }
+    }
+}
+
 
 // Initializes the terminal
 void cmd::init(void) {
@@ -88,6 +134,10 @@ void cmd::init(void) {
         saved_inputs[i] = (char*)kmalloc(255);
 
     onTerminal = true;
+
+    while (true) {
+        kterminal_handle_input();
+    }
 }
 
 // Runs a command
@@ -197,15 +247,6 @@ void cmd::cmd_down(void) {
     }
 }
 
-void print_inputs(void) {
-    // Itterating through the saved inputs
-    for(uint8_t i = 0; i < INPUTS_TO_SAVE; i++) {
-        // Only printing if theres something written
-        if(saved_inputs[i] && strcmp(saved_inputs[i], "") != 0) {
-            vga::printf("%u: %s\n", i + 1, saved_inputs[i]);
-        }
-    }
-}
 
 // ====================
 // Commands

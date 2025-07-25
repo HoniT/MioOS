@@ -59,7 +59,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
 
     // Drivers
     pit::init(); // Programmable Interval Timer
-    keyboard::init(); // Keyboard drivers
+    kbrd::init(); // Keyboard drivers
 
     // Initializing File System, storage drivers...
     device_init();

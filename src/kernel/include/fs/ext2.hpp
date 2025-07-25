@@ -155,6 +155,7 @@ namespace ext2 {
     // Terminal functions
     void ls(void);
     void cd(void);
+    void mkdir(void);
 } // namespace ext2
 
 #endif // EXT2_HPP

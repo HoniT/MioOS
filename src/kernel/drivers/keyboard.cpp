@@ -9,100 +9,109 @@
 #include <drivers/keyboard.hpp>
 #include <io.hpp>
 #include <drivers/vga_print.hpp>
-#include <kterminal.hpp>
 #include <interrupts/idt.hpp>
 #include <lib/string_util.hpp>
 
-using namespace keyboard;
+using namespace kbrd;
 
-bool capsOn, capsLock; // Two bool variables to manage lowercase and uppercase
-    // Flag to track extended scancode
-    static bool is_extended = false;
+bool shift, capsLock; // Two bool variables to manage lowercase and uppercase
+// Flag to track extended scancode
+static bool is_extended = false;
 
-// Handles input
-void keyboardHandler(InterruptRegisters* regs) {
-    // Getting scancode and press state
-    uint8_t raw_scancode = io::inPortB(KBD_DATA_PORT);
-    uint8_t scancode = raw_scancode & 0x7F;  // Mask out the "pressed/released" bit
-    uint8_t press_state = raw_scancode & 0x80; // Pressed down or released
+/// @brief Translates a raw scancode to a character / key
+/// @param scancode Raw scancode gotten from inb
+/// @param shift If we're pressing shift
+/// @param capsLock If caps lock is on
+/// @return Key base / character gotten from scancode
+uint32_t get_terminal_key(uint8_t scancode, bool shift, bool capsLock) {
+    if (scancode >= 128)
+        return UNKNOWN;
 
-    // Check for extended scancode
-    if (raw_scancode == 0xE0) {
-        is_extended = true;
-        return; // Wait for the next byte of the extended scancode
+    uint32_t base = shift ? uppercase[scancode] : lowercase[scancode];
+
+    // Handle alphabetic caps lock behavior
+    if (lowercase[scancode] < 0xF0000000 || uppercase[scancode] < 0xF0000000) {
+        bool useUpper = capsLock ^ shift;
+        return useUpper ? uppercase[scancode] : lowercase[scancode];
     }
 
-    // Handle scancode
-    if (is_extended) {
-        switch (scancode) {
-            case 0x1C:  // Numpad Enter (extended)
-                if (press_state == 0) {
-                    cmd::save_cmd();
-                    cmd::run_cmd(); // Same as regular Enter
-                }
-                break;
+    return base;
+}
 
-            case 72: // Up arrow
-                if (press_state == 0) 
-                    cmd::cmd_up();
-                break;
-            
-            case 80: // Down arrow
-                if (press_state == 0) 
-                    cmd::cmd_down();
-                break;
+KeyEvent keyboardBuffer[KEYBOARD_BUFFER_SIZE];
+int kb_buf_head = 0; // Where the next event will be inserted
+int kb_buf_tail = 0; // Where the next event will be read from
 
-            default:
-                break; // Ignore other extended keys for now
-        }
-        is_extended = false; // Reset the flag
-    } else {
-        switch (scancode) {
-            case 0x1C:  // Regular Enter
-                if (press_state == 0) {
-                    cmd::save_cmd();
-                    cmd::run_cmd();
-                }
-                break;
-
-            case 0x2A:  // Shift key
-                capsOn = (press_state == 0);
-                break;
-
-            case 0x3A:  // Caps Lock key
-                if (press_state == 0) {
-                    capsLock = !capsLock;
-                }
-                break;
-
-            case 0x0E:  // Backspace
-                if (press_state == 0 && strlen(cmd::currentInput) > 0) {
-                    vga::backspace();
-                    cmd::currentInput[strlen(cmd::currentInput) - 1] = '\0';
-                }
-                break;
-
-            default:  // Handle printable characters
-                if (press_state == 0 && cmd::onTerminal && strlen(cmd::currentInput) < 256) {
-                    size_t len = strlen(cmd::currentInput);
-                    if (capsOn || capsLock) {
-                        vga::printf("%c", (char)(uppercase[scancode]));
-                        cmd::currentInput[len] = (char)(uppercase[scancode]);
-                    } else {
-                        vga::printf("%c", (char)(lowercase[scancode]));
-                        cmd::currentInput[len] = (char)(lowercase[scancode]);
-                    }
-                    cmd::currentInput[len + 1] = '\0';
-                }
-                break;
-        }
+// Adds a key event to the buffer (called by the keyboard driver / ISR)
+void kbrd::push_key_event(KeyEvent ev) {
+    int next = (kb_buf_head + 1) % KEYBOARD_BUFFER_SIZE;
+    if (next != kb_buf_tail) {  // Not full
+        keyboardBuffer[kb_buf_head] = ev;
+        kb_buf_head = next;
     }
 }
 
+// Removes a key event from the buffer and returns it in 'out'
+// Returns true if successful, false if buffer was empty
+bool kbrd::pop_key_event(KeyEvent& out) {
+    if (kb_buf_head == kb_buf_tail)
+        return false; // Empty
+
+    out = keyboardBuffer[kb_buf_tail];
+    kb_buf_tail = (kb_buf_tail + 1) % KEYBOARD_BUFFER_SIZE;
+    return true;
+}
+
+// Handles input
+void keyboardHandler(InterruptRegisters* regs) {
+    // Getting data
+    uint8_t raw_scancode = io::inPortB(KBD_DATA_PORT);
+    uint8_t scancode = raw_scancode & 0x7F;
+    uint8_t press_state = raw_scancode & 0x80;
+
+    if (raw_scancode == 0xE0) {
+        is_extended = true;
+        return;
+    }
+
+    KeyEvent event{};
+    event.scancode = scancode;
+    event.pressed = (press_state == 0);
+
+    if (is_extended) {
+        switch (scancode) {
+            case 0x1C: event.character = '\n'; break; // Numpad Enter
+            case 72:   event.character = UP;   break;
+            case 80:   event.character = DOWN; break;
+            default:   event.character = UNKNOWN; break;
+        }
+        is_extended = false;
+    } else {
+        switch (scancode) {
+            case 0x2A: // LShift
+            case 0x36: // RShift
+                shift = (press_state == 0);
+                return;
+
+            case 0x3A: // Caps Lock
+                if (!press_state)
+                    capsLock = !capsLock;
+                return;
+
+            default:
+                event.character = get_terminal_key(scancode, shift, capsLock);
+                break;
+        }
+    }
+
+    // Calling event
+    push_key_event(event);
+}
+
 // Sets IRQ1 to the keyboard handler
-void keyboard::init(void) {
+void kbrd::init(void) {
     // Setting to lowercase originally
-    capsOn = false; capsLock = false;
+    shift = false; capsLock = false;
 
     // Setting up IRQ handler
     idt::irq_install_handler(1, &keyboardHandler);
