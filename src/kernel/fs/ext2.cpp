@@ -201,16 +201,17 @@ void ext2::ls(void) {
 
     // Printing
     for(int i = 0; i < count; i++) {
-        vga::printf("%S ", nodes[i].name);
+        // Printing all entries instead of parent and same dir
+        if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) vga::printf("%S ", nodes[i].name);
     }
     vga::printf("\n");
 }
 
 /// @brief cd (Change directory) logic
 /// @param dir Dir to change to
-void change_dir(data::string dir) {
-    // Current dir
-    if(dir.equals(".")) return;
+bool change_dir(data::string dir) {
+    // Current dir, no need to change anything
+    if(dir.equals(".")) return true;
     
     // Finding child (dir to find) from current node (VFS tree)
     treeNode* currNode = vfs::get_node(cmd::currentDir);
@@ -219,47 +220,50 @@ void change_dir(data::string dir) {
         // If we're in root
         if(!currNode->parent) {
             vga::warning("No parent for root dir!\n");
-            return;
+            return false;
         }
 
+        // Changing FS if possible
+        if(curr_fs != currNode->parent->data.fs) curr_fs = currNode->parent->data.fs;
+
         cmd::currentDir = currNode->parent->data.path;
-        return;
+        return true;
     }
     
     treeNode* found_dir = vfs_tree.find_child_by_predicate(currNode, [dir](vfsNode node){return node.name == dir;});
     // If we found in tree
     if(found_dir) {
         cmd::currentDir = found_dir->data.path;
-        // Setting FS if possible
+        // Changing FS if possible
         if(curr_fs != found_dir->data.fs) curr_fs = found_dir->data.fs;
-        return;
+        return true;
     }
 
     // If we're in virtual dirs, it's pointless to check again physically
     if (!curr_fs) {
         vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, cmd::currentDir);
-        return;
+        return false;
     }
     
     // If we couldnt find the dir in the virtual tree, we'll check physically
     int count;
     vfsNode* nodes = ext2::read_dir(currNode, count);
-    if(!nodes) return;
+    if(!nodes) return false;
     for(int i = 0; i < count; i++) {
         // If we found it here
         if(nodes[i].name == dir) {
             cmd::currentDir = nodes[i].path;
-            // Setting FS if possible
+            // Changing FS if possible
             if(curr_fs != nodes[i].fs) curr_fs = nodes[i].fs;
             
             // Adding to VFS tree
             vfs::add_node(currNode, nodes[i].name, nodes[i].inode, nodes[i].fs);
-            return;
+            return true;
         }
     }
 
     vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, cmd::currentDir);
-    return;
+    return false;
 }
 
 /// @brief Changes directory
@@ -275,7 +279,7 @@ void ext2::cd(void) {
     data::string* dirs = split_path_tokens(input, count);
     // Calling logic for all dirs
     for(int i = 0; i < count; i++)
-        change_dir(dirs[i]);
+        if(!change_dir(dirs[i])) return;
 }
 
 /// @brief Created a directory in a FS 
