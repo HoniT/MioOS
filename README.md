@@ -60,6 +60,7 @@ To use this project simply use the bash script located in tools. To do so:
 - 28-bit PIO ATA driver (IRQ mode)
 - Ext2 file system
 - Virtual File System
+- Up to ~4 TiB file size support
 (More will come in future)
 
 

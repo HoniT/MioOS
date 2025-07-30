@@ -18,10 +18,11 @@
 #define SUPERBLOCK_SIZE 1024
 #define EXT2_MAGIC 0xEF53
 
-// For inodes
 #define ROOT_INODE_NUM 2
 #define EXT2_S_IFDIR 0x4000
+#define EXT2_FT_DIR  2
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)
+#define DEFAULT_DIR_PERMS 755 // rwxr-xr-x
 
 // Structure of Ext2 Superblock
 struct superblock_t {
@@ -142,6 +143,8 @@ struct vfsNode;
 namespace ext2 {
     // Initialization functions
     bool init_ext2_device(ata::device_t* dev);
+    // Finds all Ext2 File Systems
+    void find_ext2_fs(void);
 
     // Read / Write functions
     void read_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_read = 1);
@@ -151,6 +154,17 @@ namespace ext2 {
     
     // Loads an inode with a given inode number
     inode_t* load_inode(ext2_fs_t* fs, const uint32_t inode_num);
+    // Allocates inode
+    uint32_t alloc_inode(ext2_fs_t* fs);   
+    // Writes inode info to disk
+    void write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode);
+    // Allocates block
+    uint32_t alloc_block(ext2_fs_t* fs);
+
+    // Rewrites block group descriptors of a FS
+    void rewrite_bgds(ext2_fs_t* fs);
+    // Rewrites superblock of a FS
+    void rewrite_sb(ext2_fs_t* fs);
 
     // Terminal functions
     void ls(void);

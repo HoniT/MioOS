@@ -36,8 +36,6 @@ uint32_t hex_to_uint32(const char* hexStr) {
 }
 
 // Turns a char* hex number to a uint64_t
-#include <stdint.h>
-
 uint64_t hex_to_uint64(const char* hexStr) {
     uint64_t result = 0;
 
@@ -64,6 +62,22 @@ uint64_t hex_to_uint64(const char* hexStr) {
     return result;
 }
 
+// Converts a char* decimal number to a uint32_t
+uint32_t dec_to_uint32(const char* decStr) {
+    uint32_t result = 0;
+
+    while (*decStr) {
+        if (*decStr >= '0' && *decStr <= '9') {
+            result = result * 10 + (*decStr - '0');
+        } else {
+            // Invalid character encountered
+            return 0;
+        }
+        decStr++;
+    }
+
+    return result;
+}
 
 // Perform 64-bit unsigned division
 uint64_t udiv64(uint64_t dividend, uint64_t divisor) {
