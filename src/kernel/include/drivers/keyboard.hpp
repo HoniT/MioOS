@@ -19,7 +19,6 @@
 // Single key event
 struct KeyEvent {
     uint32_t character;
-    uint8_t scancode;
     bool pressed;
 };
 

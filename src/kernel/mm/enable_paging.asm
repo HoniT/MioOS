@@ -30,6 +30,7 @@ enable_paging:
 
     ; Enabling PSE
     mov eax, cr4
+    xor eax, eax
     or eax, 0x10
     mov cr4, eax
 

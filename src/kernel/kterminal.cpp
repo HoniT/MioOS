@@ -18,6 +18,7 @@
 #include <fs/ext2.hpp>
 #include <device.hpp>
 #include <kernel_main.hpp>
+#include <rtc.hpp>
 #include <lib/string_util.hpp>
 #include <lib/math.hpp>
 
@@ -47,6 +48,7 @@ Command commands[] = {
     {"getsysinfo", getsysinfo, " - Prints system software and hardware information"},
     {"getmeminfo", pmm::getmeminfo, " - Prints system memory info"},
     {"getuptime", pit::getuptime, " - Prints how much time the systems been on since booting"},
+    {"gettime", rtc::print_time, " - Prints current time"},
     // Memory debugging commands
     {"peek", peek, " <address> - Prints a value at a given physical address"},
     {"poke", poke, " <address> <value> - Writes to a given address a given value"},

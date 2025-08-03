@@ -26,8 +26,8 @@ The physical memory manager in MioOS retreives a memory map wich is given by GRU
 The lower usable memory region usually starts at the kernels physical base, while the higher region usually starts at the 4GiB mark. alloc_frame uses a first fit allocation method and also merges/splits neighbor blocks for minimal waisted memory like the heap manager. At this point there is one allocating and one deallocating function in the PMM:
 
 ### Allocating Functions in the PMM
-1. pmm::alloc_frame(const uint64_t num_blocks)
-    Allocates a frame in RAM with a size of a give number of "num_blocks" 4KiB blocks
+1. pmm::alloc_frame(const uint64_t num_blocks, bool identity_map = true)
+    Allocates a frame in RAM with a size of a give number of "num_blocks" 4KiB blocks, identity maps it if identity_map == true.
 
 ### Deallocatin Functions in thr PMM
 1. pmm::free_frame(void* ptr)

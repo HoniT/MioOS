@@ -180,8 +180,8 @@ void* pmm::alloc_frame(const uint64_t num_blocks, bool identity_map) {
 
     #ifdef VMM_HPP
     // Checks if the list head is mapped
-    if (vmm::enabled_paging && !vmm::is_mapped(uint64_t(low_alloc_mem_head))) {
-        vga::error("Page fault: heap_head is not mapped!\n");
+    if (vmm::enabled_paging && !vmm::is_mapped(uint32_t(low_alloc_mem_head))) {
+        vga::error("Page fault: pmm_head is not mapped!\n");
         return nullptr;
     }
     #endif

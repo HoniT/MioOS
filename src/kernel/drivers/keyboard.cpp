@@ -75,7 +75,6 @@ void keyboardHandler(InterruptRegisters* regs) {
     }
 
     KeyEvent event{};
-    event.scancode = scancode;
     event.pressed = (press_state == 0);
 
     if (is_extended) {

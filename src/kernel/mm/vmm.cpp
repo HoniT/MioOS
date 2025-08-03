@@ -27,6 +27,8 @@ namespace vmm {
 
         // Identity mapping kernel + heap + first metadata block
         identity_map_region(0x0, METADATA_ADDR + PAGE_SIZE, PRESENT | WRITABLE);
+        // Mapping PMM's low_alloc_mem_head
+        vmm::alloc_page((uint32_t)pmm::low_alloc_mem_head, (uint32_t)pmm::low_alloc_mem_head, PRESENT | WRITABLE);
         // Identity mapping for paging structures
         identity_map_region((uint32_t)active_pd, (uint32_t)active_pd + PAGE_SIZE * 5, PRESENT | WRITABLE);
 
@@ -39,7 +41,7 @@ namespace vmm {
         //     alloc_page(page, addr, PRESENT | WRITABLE);
         // jump_to_hhk();
 
-        vga::printf("Paging enabled with Higher Half Kernel set up!\n");
+        vga::printf("32-bit Paging enabled!\n");
         enabled_paging = true;
         return;
     }
