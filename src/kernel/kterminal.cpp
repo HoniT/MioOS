@@ -304,8 +304,14 @@ void peek() {
 }
 
 void poke() {
+    int count; data::string* params = split_string_tokens(cmd::currentInput, count);
+    if(count != 3) {
+        vga::warning("Syntax: poke <address> <value>\n");
+        return;
+    }
+
     // Getting address and value from the input
-    const char* strAddress = get_first_word(get_remaining_string(cmd::currentInput));
+    const char* strAddress = params[1];
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
@@ -313,7 +319,7 @@ void poke() {
         return;
     }
     #endif
-    const char* strVal = get_remaining_string(get_remaining_string(cmd::currentInput));
+    const char* strVal = params[2];
     uint8_t val = hex_to_uint32(strVal);
 
     // Writing the value to the address

@@ -7,6 +7,7 @@
 // ========================================
 
 #include <lib/string_util.hpp>
+#include <lib/data/string.hpp>
 
 // Compares to strings together and returns the difference
 int32_t strcmp(const char *str1, const char *str2) {
@@ -184,4 +185,46 @@ char* strcat(char* dest, const char* src) {
 
     *d = '\0'; // Null-terminate
     return dest;
+}
+
+// Splits a string into tokens
+data::string* split_string_tokens(data::string str, int& count) {
+    if (str.empty()) {
+        count = 0;
+        return nullptr;
+    }
+
+    const int max_tokens = 16;
+    void* raw = kmalloc(sizeof(data::string) * max_tokens);
+    if (!raw) {
+        count = 0;
+        return nullptr;
+    }
+
+    data::string* tokens = static_cast<data::string*>(raw);
+
+    int token_index = 0;
+    uint32_t i = 0;
+
+    while (i < str.size() && token_index < max_tokens) {
+        // Skip repeated slashes
+        while (i < str.size() && str[i] == ' ') i++;
+
+        uint32_t start = i;
+        while (i < str.size() && str[i] != ' ') i++;
+        uint32_t len = i - start;
+
+        if (len > 0) {
+            new (&tokens[token_index++]) data::string(str.data + start, len);
+        }
+    }
+
+    count = token_index;
+
+    if (token_index == 0) {
+        kfree(tokens);
+        return nullptr;
+    }
+
+    return tokens;
 }

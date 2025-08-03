@@ -169,4 +169,6 @@ namespace data{
     };
 } // namespace data
 
+data::string* split_string_tokens(data::string str, int& count);
+
 #endif // STRING_HPP

@@ -271,19 +271,19 @@ namespace pio_28 {
 // Reads a given sector on a given ATA device 
 void ata::read_ata(void) {
     // Getting arguments from string
-    const char* args = get_remaining_string(cmd::currentInput);
-    if(strlen(args) == 0 || get_words(args) != 4 || strcmp(get_word_at_index(args, 0), "-dev") != 0 || strcmp(get_word_at_index(args, 2), "-sect") != 0) {
-        vga::warning("Syntax: read_mbr -dev <device_index> -sect <sector_index>\n");
+    int count; data::string* params = split_string_tokens(cmd::currentInput, count);
+    if(count != 5 || !params[1].equals("-dev") || !params[3].equals("-sect")) {
+        vga::warning("Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
         return;
     }
 
-    int device_index = str_to_int(get_word_at_index(args, 1));
+    int device_index = str_to_int(params[2]);
     if(device_index < 0 || device_index >= 4) {
         vga::warning("Please use an integer (0-3) as the device index in decimal format.\n");
         return;
     }
 
-    int sector_index = str_to_int(get_word_at_index(args, 3));
+    int sector_index = str_to_int(params[4]);
     if(sector_index < 0 || sector_index >= ata_devices[device_index].total_sectors) {
         vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index].total_sectors);
         return;
