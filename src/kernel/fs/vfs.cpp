@@ -42,7 +42,7 @@ void vfs::init(void) {
     kmalloc(sizeof(ext2_fs_t)); // Reserving memory
     vfs_tree.set_root(vfs_tree.create({"/", "/", true, 0, nullptr, nullptr}));
     // Adding mount directory
-    vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"mnt", "/mnt/", true, 0, nullptr, nullptr}));
+    vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"dev", "/dev/", true, 0, nullptr, nullptr}));
 }
 
 /// @brief Adds a virtual node (dir, file...) to the VFS
@@ -111,7 +111,7 @@ treeNode* vfs::get_node(const data::string path) {
 /// @param fs File System of device
 void vfs::mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs) {
     // Getting mount dir
-    treeNode* mntNode = vfs::get_node("/mnt/");
+    treeNode* mntNode = vfs::get_node("/dev/");
     if(!mntNode) return;
     // Adding node
     vfs::add_node(mntNode, name, ROOT_INODE_NUM, root_inode, fs);

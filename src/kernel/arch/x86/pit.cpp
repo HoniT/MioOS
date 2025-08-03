@@ -22,6 +22,7 @@ void onIrq0(InterruptRegisters* regs) {
 }
 
 void pit::init(void) {
+    vga_coords coords = vga::set_init_text("Implementing Programmable Interval Timer");
     ticks = 0; // Zeroing ticks
     // Installing handler
     idt::irq_install_handler(0, &onIrq0);
@@ -33,7 +34,7 @@ void pit::init(void) {
     io::outPortB(0x40,(uint8_t)(divisor & 0xFF));
     io::outPortB(0x40,(uint8_t)((divisor >> 8) & 0xFF));
 
-    vga::printf("PIT initialized!\n");
+    vga::set_init_text_answer(coords, divisor == 11931);
 }
 
 void pit::delay(const uint64_t ms) {

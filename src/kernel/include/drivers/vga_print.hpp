@@ -15,6 +15,10 @@
 #define NUM_COLS 80
 #define NUM_ROWS 25
 
+// Default colors
+#define DEFAULT_FG_COLOR PRINT_COLOR_WHITE
+#define DEFAULT_BG_COLOR PRINT_COLOR_BLACK
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -44,24 +48,32 @@ enum VGA_PrintColors {
 extern size_t col;
 extern size_t row;
 
+struct vga_coords {
+	size_t col;
+	size_t row;
+};
+
 namespace vga {
 
 	void init(void); // Initializes main VGA text
 
+	vga_coords set_init_text(const char* text);
+	void set_init_text_answer(vga_coords coords, bool passed);
+
 	// Helper functions
 
 	void clear_region(const size_t _row, const size_t _col, const uint32_t len);
-	void insert(size_t _row, size_t _col, const char* str, bool _update_cursor = false);
+	void insert(size_t _row, size_t _col, const char* str, bool _update_cursor = false, uint8_t color = DEFAULT_FG_COLOR | (DEFAULT_BG_COLOR << 4));
 
 	// VGA printing functions
 
 	// Print formatted
-	void printf(const char* format, ...);
+	vga_coords printf(const char* format, ...);
 
 	// Error messages
-	void error(const char* format, ...);
+	vga_coords error(const char* format, ...);
 	// Warnings
-	void warning(const char* format, ...);
+	vga_coords warning(const char* format, ...);
 
 	void print_clear(void); // Clearing screen
 	void backspace(void);

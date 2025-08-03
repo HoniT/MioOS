@@ -6,8 +6,9 @@
 // In charge of setting up the Global Descriptor Table
 // ========================================
 
-#include <drivers/vga_print.hpp>
 #include <gdt.hpp>
+#include <interrupts/kernel_panic.hpp>
+#include <drivers/vga_print.hpp>
 #include <lib/mem_util.hpp>
 
 // Arrays and variables
@@ -16,6 +17,7 @@ gdt_ptr _gdt_ptr;
 tss_entry _tss_entry;
 
 void gdt::init(void) {
+    vga_coords coords = vga::set_init_text("Implementing Global Descriptor Table");
     // Set up GDT pointer
     _gdt_ptr.limit = (sizeof(struct gdt_entry) * GDT_SEGMENT_QUANTITY) - 1;
     _gdt_ptr.base = uint32_t(&gdt_entries); // Address of gdt_entries[0]
@@ -30,10 +32,16 @@ void gdt::init(void) {
 
     // Flushing GDT and TSS
     gdt_flush((uint32_t)&_gdt_ptr);
-    vga::printf("Implemented GDT at %x!\n", _gdt_ptr.base);
+    // Checking DS to confirm GDT flush
+    uint8_t value;
+    asm volatile ("mov %%ds, %0" : "=m"(value));
+    vga::set_init_text_answer(coords, value == 0x10);
+    if(value != 0x10) kernel_panic("Failed to initialize GDT! (Reason: Invalid value for Data Segment)");
 
-    tss_flush();
-    vga::printf("Implemented TSS!\n");
+    // coords = vga::printf("[ ");
+    // vga::printf(" ]    Implementing Task State Segment\n");
+    // tss_flush();
+    // vga::insert(coords.row, coords.col, " OK ", false, PRINT_COLOR_GREEN | (PRINT_COLOR_BLACK << 4));
 }
 
 void gdt::set_gdt_gate(const uint32_t num, const uint32_t base, const uint32_t limit, const uint8_t access, const uint8_t gran) {

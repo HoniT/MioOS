@@ -16,6 +16,7 @@ static HeapBlock* heap_head = nullptr;
 
 // Heap initialization function
 void heap::init(void) {
+    vga_coords coords = vga::set_init_text("Setting up kernel Heap Memory Manager");
     // Gets the start of the heap
     heap_head = (HeapBlock*)HEAP_START;
 
@@ -26,7 +27,7 @@ void heap::init(void) {
     heap_head->free = true;
     heap_head->next = nullptr;
 
-    vga::printf("Heap initialized!\n");
+    vga::set_init_text_answer(coords, heap_head && heap_head->free);
 }
 
 // Heap memory allocating / deallocating functions

@@ -11,6 +11,7 @@
 #include <mm/vmm.hpp>
 #include <drivers/vga_print.hpp>
 #include <kterminal.hpp>
+#include <interrupts/kernel_panic.hpp>
 #include <lib/math.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/string_util.hpp>
@@ -144,15 +145,13 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
     metadata_reserved = vmm::pae_paging ? pmm::total_usable_ram : 0x100000000 / FRAME_SIZE * sizeof(MetadataNode);
     // Keeping the address in where the actual data will be placed and aligning it to ensore page-alignment
     LOW_DATA_START_ADDR = align_up(METADATA_ADDR + metadata_reserved, PAGE_SIZE);
-
-    // Printing the total amount of RAM
-    vga::printf("Total amount of usable RAM: ~%u GiB\n", uint32_t(pmm::total_usable_ram / BYTES_IN_GIB));
 }
 
 #pragma endregion
 
 // Initializes any additional info for the PMM
 void pmm::init(struct multiboot_info* _mb_info) {
+    vga_coords coords = vga::set_init_text("Setting up the Physical Memory Manager");
     // Saving multiboot info globally
     mb_info = _mb_info;
     // Calling needed functions
@@ -163,7 +162,8 @@ void pmm::init(struct multiboot_info* _mb_info) {
     low_alloc_mem_head->size -= LOW_DATA_START_ADDR; /* We previosly set this as the mmap entry's address + size, 
                                                       * now we'll just subtract the actual data starting address to just get the size */
 
-    vga::printf("PMM initialized!\n");
+    vga::set_init_text_answer(coords, low_alloc_mem_head);
+    if(!low_alloc_mem_head) kernel_panic("Failed to set up PMM! (Reason: Low allocable memory not defined)");
 }
 
 // Alloc and dealloc

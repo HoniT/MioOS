@@ -21,13 +21,14 @@ struct idt_ptr idt_ptr;
 
 // Initializing IDT
 void idt::init() {
+    vga_coords coords = vga::set_init_text("Implementing Interrupt Descriptor Table");
     idt_ptr.limit = sizeof(idt_entry) * 256 - 1; // Same operation as gdt_descriptor in boot.asm
     idt_ptr.base = (uint32_t)&idt_entries;
 
     // Initialize everything to 0
     memset(&idt_entries, 0, sizeof(idt_entry) * 256);
 
-    // Sending data to chips using outPortB defined in util.cpp
+    // Sending data to chips using outPortB
     // Configuring the Programmable Interrupt Controller (PIC)
 
     outPortB(PIC_MASTER_COMMAND, ICW1_INIT);
@@ -100,7 +101,8 @@ void idt::init() {
 
     // Flushing IDT
     idt_flush((uint32_t)&idt_ptr);
-    vga::printf("Implemented IDT at %x!\n", idt_ptr.base);
+    vga::set_init_text_answer(coords, idt_entries[0].selector == 0x8);
+    if(idt_entries[0].selector != 0x8) kernel_panic("Failed to initialize IDT! (Reason: Invalid selector on IDT Gate)");
 }
 
 // Sets an IDT gate
@@ -170,6 +172,11 @@ void* irq_routines[IRQ_QUANTITY] = {
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0
 };
+
+// Checks if an IRQ is installed
+bool idt::check_irq(int irq_num, void (*handler)(InterruptRegisters* regs)) {
+    return irq_routines[irq_num] == (void*)handler;
+}
 
 // IRQ handler functions
 

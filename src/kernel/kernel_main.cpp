@@ -47,15 +47,13 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     pmm::init(mbi);
     vmm::init();
     
-    cpu::get_processor_info(); // Printing CPU vendor and model
-
     // Testing heap
     unittsts::test_heap();
     // Testing PMM
     unittsts::test_pmm();
     // Testing VMM
     unittsts::test_vmm();
-
+    
     // Drivers
     pit::init(); // Programmable Interval Timer
     kbrd::init(); // Keyboard drivers

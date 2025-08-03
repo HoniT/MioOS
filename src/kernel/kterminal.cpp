@@ -126,7 +126,7 @@ void cmd::init(void) {
     vga::printf("\n ===========Type \"help\" to get available commands\n");
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
     vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
-    vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
+    vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
 
     // Saving the current screen coordinates
     input_col = col;
@@ -144,6 +144,11 @@ void cmd::init(void) {
 
 // Runs a command
 void cmd::run_cmd(void) {
+    if(strcmp(get_first_word(cmd::currentInput), "") == 0) {
+        vga::printf("\n");
+        goto new_cmd;
+    }
+
     // Reseting the read index
     input_read_index = saved_inputs_num;
 
@@ -156,7 +161,7 @@ void cmd::run_cmd(void) {
             
             vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
             vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
-            vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
+            vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
             
             // Saving the current screen coordinates
             input_col = col;
@@ -171,9 +176,10 @@ void cmd::run_cmd(void) {
 
     // If we made it to here that means that the inputted command could not be found
     vga::warning("\n%s isn't a valid command!\n", get_first_word(currentInput));
+    new_cmd:
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
     vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
-    vga::print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
+    vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
 
     // Saving the current screen coordinates
     input_col = col;

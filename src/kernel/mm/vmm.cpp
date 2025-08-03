@@ -20,34 +20,41 @@ namespace vmm {
     bool enabled_paging = false;
     bool pae_paging = false;
 
+    // Enables mapping before paging is enabled
+    bool legacy_map = false;
     // Initializes the VMM with 32-bit paging
     void init(void) {
+        vga_coords coords = vga::set_init_text("Setting up Virtual Memory Manager");
         // Allocating memory for PD
         active_pd = (pd_t*)pmm::alloc_frame(2);
 
+        legacy_map = true;
         // Identity mapping kernel + heap + first metadata block
         identity_map_region(0x0, METADATA_ADDR + PAGE_SIZE, PRESENT | WRITABLE);
         // Mapping PMM's low_alloc_mem_head
         vmm::alloc_page((uint32_t)pmm::low_alloc_mem_head, (uint32_t)pmm::low_alloc_mem_head, PRESENT | WRITABLE);
         // Identity mapping for paging structures
         identity_map_region((uint32_t)active_pd, (uint32_t)active_pd + PAGE_SIZE * 5, PRESENT | WRITABLE);
-
+        legacy_map = false;
+        
         set_pd((uint32_t)active_pd);
         enable_paging();
         reload_cr3();
-
+        
         // Setting up HHK (Mapping kernel to 3GiB)
         // for(uint32_t addr = (uint32_t)&__kernel_phys_base, page = KERNEL_LOAD_ADDRESS; addr < (uint32_t)&__kernel_phys_base + 0x100000; addr += PAGE_SIZE, page += PAGE_SIZE)
         //     alloc_page(page, addr, PRESENT | WRITABLE);
         // jump_to_hhk();
-
-        vga::printf("32-bit Paging enabled!\n");
+        
         enabled_paging = true;
+        vga::set_init_text_answer(coords, vmm::is_mapped((uint32_t)active_pd));
+        if(!is_mapped((uint32_t)active_pd)) enabled_paging = false;
         return;
     }
 
     // Allocates a 4 KiB page
     void alloc_page(const uint32_t virt_addr, const uint32_t phys_addr, const uint32_t flags) {
+        if(!enabled_paging && !legacy_map) return;
         if(!active_pd) kernel_panic("PD inactive!");
 
         // Getting indexes from address
@@ -103,6 +110,7 @@ namespace vmm {
 
     // Allocates a 4 MiB page
     void alloc_page_4mib(const uint32_t virt_addr, const uint32_t phys_addr, const uint32_t flags) {
+        if(!enabled_paging && !legacy_map) return;
         if(!active_pd) kernel_panic("PD inactive!");
 
         // Getting indexes from address
@@ -138,6 +146,7 @@ namespace vmm {
 
     // Frees a page at a give virtual address
     bool free_page(const uint32_t virt_addr) {
+        if(!enabled_paging && !legacy_map) return true;
         if(!active_pd) kernel_panic("PD inactive!");
 
         // Getting indexes from address
@@ -168,6 +177,7 @@ namespace vmm {
 
     // Returns the corresponding physical address for a virtual address
     void* virtual_to_physical(const uint32_t virt_addr) {
+        if(!enabled_paging && !legacy_map) return (void*)virt_addr;
         if(!active_pd) kernel_panic("PD inactive!");
 
         // Getting indexes from address
@@ -190,6 +200,7 @@ namespace vmm {
 
     // Returns if a page at the given virtual address is mapped or not
     bool is_mapped(const uint32_t virt_addr) {
+        if(!enabled_paging && !legacy_map) return false;
         if(!active_pd) kernel_panic("PD inactive!");
 
         // Getting indexes from address

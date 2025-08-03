@@ -51,6 +51,9 @@ extern "C" void irq_uninstall_handler(const int irq_num);
 
 extern const char* exception_messages[];
 
+// Checks if an IRQ is installed
+bool check_irq(int irq_num, void (*handler)(InterruptRegisters* regs));
+
 } // Namespace idt
 
 // Handlers

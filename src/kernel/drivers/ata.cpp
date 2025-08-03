@@ -40,6 +40,7 @@ void ata_irq_wait(const bool secondary) {
     int timeout = 5000000;
     while (!*irq_ptr && --timeout);
     if (timeout <= 0) {
+        vga::error("Timeout waiting for IRQ %u\n", secondary ? 15 : 14);
         return;
     }
 
@@ -48,18 +49,23 @@ void ata_irq_wait(const bool secondary) {
 
 // Initializes ATA driver for 28-bit PIO mode
 void ata::init(void) {
+    vga_coords coords1 = vga::set_init_text("Setting up ATA driver to IRQ mode");
+    vga_coords coords2 = vga::set_init_text("Searching for ATA devices");
+
     // Switching to IRQ mode and subscribing handlers
     idt::irq_install_handler(PRIMARY_IDE_IRQ, &primary_ata_handler);
     outPortW(PRIMARY_DEVICE_CONTROL, 0x00);
     idt::irq_install_handler(SECONDARY_IDE_IRQ, &secondary_ata_handler);
     outPortW(SECONDARY_DEVICE_CONTROL, 0x00);
+    vga::set_init_text_answer(coords1, idt::check_irq(PRIMARY_IDE_IRQ, &primary_ata_handler) && idt::check_irq(SECONDARY_IDE_IRQ, &secondary_ata_handler));
 
     // Unmasking IRQs
     pic::unmask_irq(PRIMARY_IDE_IRQ);
     pic::unmask_irq(SECONDARY_IDE_IRQ);
 
     // Probing ATA
-    ata::probe();
+    bool found_dev = ata::probe();
+    vga::set_init_text_answer(coords2, found_dev);
 }
 
 // Checks all 4 devices
@@ -104,7 +110,7 @@ bool ata::identify(Bus bus, Drive drive) {
     outPortB(command_port, IDENTIFY_COMMAND);
     ata::delay_400ns(secondary);
 
-    vga::printf("Checking %s bus, %s drive: ", secondary ? "Secondary" : "Primary", slave ? "Slave" : "Master");
+    vga::printf("           %s bus, %s drive: ", secondary ? "Secondary" : "Primary", slave ? "Slave" : "Master");
     // If we couldn't find an ATA device
     if (inPortB(status_port) == 0) {
         vga::warning("ATA device couldn't be found!\n");

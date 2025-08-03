@@ -29,7 +29,7 @@ struct Char {
 size_t col = 0;
 size_t row = 0;
 
-uint8_t color = PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4); // Standard white on black
+uint8_t color = DEFAULT_FG_COLOR | (DEFAULT_BG_COLOR << 4); // Default colors
 
 bool printingString = false;
 
@@ -59,17 +59,31 @@ void vga::clear_region(const size_t _row, const size_t _col, const uint32_t len)
 }
 
 // Inserts a string at a given coordinate
-void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor) {
+void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor, uint8_t _color) {
     Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // VGA buffer
+
+    // Saving coords
+    size_t original_row = _update_cursor ? _row : row;
+    size_t original_col = _update_cursor ? _col : col;
     
-    // Set global cursor position (if applicable)
+    // Set global cursor position
     row = _row;
     col = _col;
 
+    // Setting to given color
+    uint8_t original_color = color;
+    color = _color;
+
     vga::printf(str);
     
+    // Returning to old color
+    color = original_color;
+
+    row = original_row;
+    col = original_col;
+
     // Update cursor to final position
-    update_cursor(row, col);
+    update_cursor(original_row, original_col);
 }
 
 
@@ -97,7 +111,7 @@ void print_newline(void) {
         ++row;
     } else {
         // Scrolling the screen up and also keeping the title in screen
-        for(size_t r = 2; r < NUM_ROWS; ++r) {
+        for(size_t r = 1; r < NUM_ROWS; ++r) {
             for(size_t c = 0; c < NUM_COLS; ++c) {
                 // Copying this row to the one above
                 buffer[c + NUM_COLS * (r - 1)] = buffer[c + NUM_COLS * r];
@@ -146,9 +160,6 @@ void update_cursor(const int row, const int col) {
 void print_char(const char character) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
 
-    // This keeps the title in one place
-    if(initialized_title && row == 0) row++;
-    
     // Handeling new line character input
     if(character == '\n') {
         print_newline();
@@ -221,13 +232,24 @@ void print_hex(const int64_t num) {
 // ====================
 namespace vga{
 
+// Sets an initialization text (e.g. "[OK] Initializing GDT")
+vga_coords set_init_text(const char* text) {
+    vga_coords coords = vga::printf("[ ");
+    vga::printf("       ]               %s\n", text);
+    return coords;
+}
+
+// Sets the answer for an initialization text (OK / FAILED)
+void set_init_text_answer(vga_coords coords, bool passed) {
+    if(passed)
+        vga::insert(coords.row, coords.col, "  OK", false, PRINT_COLOR_GREEN | (DEFAULT_BG_COLOR << 4));
+    else {
+        vga::insert(coords.row, coords.col, "FAILED", false, PRINT_COLOR_RED | (DEFAULT_BG_COLOR << 4));
+    }
+}
+
 void init(void) {
-    print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
     print_clear();
-    
-    print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-    printf(" =================================== MioOS ==================================== \n");
-    print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
 }
 
 // Print formatted overloads
@@ -410,38 +432,44 @@ void vprintf(const char* format, va_list args) {
 }
 
 // Main printf function
-void printf(const char* format, ...) {
+vga_coords printf(const char* format, ...) {
     va_list args;  // Declare a variable argument list
     va_start(args, format);  // Initialize the argument list with the last fixed parameter
 
     vprintf(format, args);
 
     va_end(args);  // Clean up the argument list
+
+    // Returning current coordinates
+    return {col, row};
 }
 
 // Main error function
-void error(const char* format, ...) {
+vga_coords error(const char* format, ...) {
     // Saving current color
     uint8_t original_color = color;
 
     // Changing print color to make it more visible
     print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
-
+    
+    
     // Retreiving arguments
     va_list args;
     va_start(args, format);
-
+    
     // Calling print
     vprintf(format, args);
-
+    
     va_end(args);
-
     // Returning to original color
     color = original_color;
+
+    // Returning current coordinates
+    return {col, row};
 }
 
 // Main warning function
-void warning(const char* format, ...) {
+vga_coords warning(const char* format, ...) {
     // Saving current color
     uint8_t original_color = color;
 
@@ -459,6 +487,9 @@ void warning(const char* format, ...) {
 
     // Returning to original color
     color = original_color;
+
+    // Returning current coordinates
+    return {col, row};
 }
 
 // Clears whole screen

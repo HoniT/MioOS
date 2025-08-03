@@ -198,6 +198,8 @@ void ext2::rewrite_bgds(ext2_fs_t* fs) {
 
 // Rewrites superblock of a FS
 void ext2::rewrite_sb(ext2_fs_t* fs) {
+    if(!fs) return;
+
     // Allocate a temporary block-sized buffer
     uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
     // Superblock is in block #1 if block size is 1024, otherwise block #0
@@ -393,7 +395,7 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
     pio_28::read_sector(dev, 2, (uint16_t*)ext2fs->sb, 2);
     // Verifying superblock
     if(ext2fs->sb->ext2_magic != EXT2_MAGIC) {
-        vga::error("Superblock not found for ATA device: %s!\n", dev->serial);
+        // vga::error("Superblock not found for ATA device: %s!\n", dev->serial);
         return false;
     }
     // Saving information about device
@@ -417,14 +419,14 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
     inode_t* root_inode = load_inode(ext2fs, ROOT_INODE_NUM);
     if (root_inode->type_and_perm & 0xF000 == 0x4000) {
         // Not a directory, something went wrong
-        vga::error("The root inode wasn't a directory!\n");
+        vga::error("The root inode wasn't a directory for ATA device %S (Serial: %S)!\n", dev->drive, dev->serial);
         return false;
     }
 
     // Mounting to VFS
     vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], root_inode, ext2fs);
 
-    vga::printf("Successfully initialized Ext2 file system on ATA device %s!\n", dev->serial);
+    // vga::printf("Successfully initialized Ext2 file system on ATA device %s!\n", dev->serial);
     return true;
 }
 
@@ -464,7 +466,7 @@ bool change_dir(data::string dir) {
     
     treeNode* found_dir = vfs_tree.find_child_by_predicate(currNode, [dir](vfsNode node){return node.name == dir;});
     // If we found in tree
-    if(found_dir) {
+    if(found_dir && found_dir->data.is_dir) {
         cmd::currentDir = found_dir->data.path;
         // Changing FS if possible
         if(curr_fs != found_dir->data.fs) curr_fs = found_dir->data.fs;
@@ -483,7 +485,7 @@ bool change_dir(data::string dir) {
     if(!nodes) return false;
     for(int i = 0; i < count; i++) {
         // If we found it here
-        if(nodes[i].name == dir) {
+        if(nodes[i].name == dir && nodes[i].is_dir) {
             cmd::currentDir = nodes[i].path;
             // Changing FS if possible
             if(curr_fs != nodes[i].fs) curr_fs = nodes[i].fs;
@@ -695,6 +697,8 @@ void ext2::ls(void) {
         if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) vga::printf("%S ", nodes[i].name);
     }
     vga::printf("\n");
+
+    ext2::rewrite_sb(curr_fs);
 }
 
 

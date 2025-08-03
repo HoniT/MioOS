@@ -33,9 +33,9 @@ gdt_flush:
         ret ; Returning
 
 ; Legacy TSS flush, before userland
-tss_flush:
-    mov ax, 0x28 ; TSS segment in GDT (6th segment)
-    ltr ax
+; tss_flush:
+;     mov ax, 0x28 ; TSS segment in GDT (6th segment)
+;     ltr ax
 
-    ret
+;     ret
     
