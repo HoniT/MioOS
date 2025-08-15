@@ -6,8 +6,8 @@
 // Sets up the Ext2 file system
 // ========================================
 
-#include <fs/ext2.hpp>
-#include <fs/vfs.hpp>
+#include <fs/ext/ext2.hpp>
+#include <fs/ext/vfs.hpp>
 #include <mm/heap.hpp>
 #include <drivers/ata.hpp>
 #include <drivers/vga_print.hpp>
@@ -396,6 +396,8 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
     // Verifying superblock
     if(ext2fs->sb->ext2_magic != EXT2_MAGIC) {
         // vga::error("Superblock not found for ATA device: %s!\n", dev->serial);
+        // Mounting to VFS
+        // vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
         return false;
     }
     // Saving information about device
@@ -420,13 +422,14 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
     if (root_inode->type_and_perm & 0xF000 == 0x4000) {
         // Not a directory, something went wrong
         vga::error("The root inode wasn't a directory for ATA device %S (Serial: %S)!\n", dev->drive, dev->serial);
+        // Mounting to VFS
+        // vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
         return false;
     }
 
     // Mounting to VFS
     vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], root_inode, ext2fs);
 
-    // vga::printf("Successfully initialized Ext2 file system on ATA device %s!\n", dev->serial);
     return true;
 }
 
@@ -694,11 +697,12 @@ void ext2::ls(void) {
     // Printing
     for(int i = 0; i < count; i++) {
         // Printing all entries instead of parent and same dir
-        if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) vga::printf("%S ", nodes[i].name);
+        if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) {
+            vga::printf(nodes[i].is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S", nodes[i].name); 
+            vga::printf(" ");
+        }
     }
     vga::printf("\n");
-
-    ext2::rewrite_sb(curr_fs);
 }
 
 

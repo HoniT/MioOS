@@ -26,8 +26,8 @@ struct Char {
 };
 
 // Current address/location
-size_t col = 0;
-size_t row = 0;
+size_t vga::col = 0;
+size_t vga::row = 0;
 
 uint8_t color = DEFAULT_FG_COLOR | (DEFAULT_BG_COLOR << 4); // Default colors
 
@@ -63,12 +63,12 @@ void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor,
     Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // VGA buffer
 
     // Saving coords
-    size_t original_row = _update_cursor ? _row : row;
-    size_t original_col = _update_cursor ? _col : col;
+    size_t original_row = _update_cursor ? _row : vga::row;
+    size_t original_col = _update_cursor ? _col : vga::col;
     
     // Set global cursor position
-    row = _row;
-    col = _col;
+    vga::row = _row;
+    vga::col = _col;
 
     // Setting to given color
     uint8_t original_color = color;
@@ -79,8 +79,8 @@ void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor,
     // Returning to old color
     color = original_color;
 
-    row = original_row;
-    col = original_col;
+    vga::row = original_row;
+    vga::col = original_col;
 
     // Update cursor to final position
     update_cursor(original_row, original_col);
@@ -104,11 +104,11 @@ void clear_row(const size_t row) {
 void print_newline(void) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
 
-    col = 0;
+    vga::col = 0;
 
     // Only adding new line if possible
-    if(row < NUM_ROWS - 1) {
-        ++row;
+    if(vga::row < NUM_ROWS - 1) {
+        ++vga::row;
     } else {
         // Scrolling the screen up and also keeping the title in screen
         for(size_t r = 1; r < NUM_ROWS; ++r) {
@@ -120,7 +120,7 @@ void print_newline(void) {
 
         clear_row(NUM_ROWS - 1);
     }
-    update_cursor(row, col);
+    update_cursor(vga::row, vga::col);
 
 }
 
@@ -167,17 +167,17 @@ void print_char(const char character) {
         return;
     }
 
-    if(col >= NUM_COLS) {
+    if(vga::col >= NUM_COLS) {
         print_newline();
     }
 
-    buffer[col + NUM_COLS * row] = {static_cast<uint8_t>(character), color};
-    col++; // Incrementing character number on this line
+    buffer[vga::col + NUM_COLS * vga::row] = {static_cast<uint8_t>(character), color};
+    vga::col++; // Incrementing character number on this line
 
     /* If its printing a string we will update the cursor at the end of the string 
     // for performance reasons */
     if(!printingString)
-        update_cursor(row, col); 
+        update_cursor(vga::row, vga::col); 
 }
 
 // Printing string to the screen
@@ -189,7 +189,7 @@ void print_str(const char* str) {
         print_char(str[i]);
     }
 
-    update_cursor(row, col); 
+    update_cursor(vga::row, vga::col); 
     printingString = false;
 }
 
@@ -444,6 +444,26 @@ vga_coords printf(const char* format, ...) {
     return {col, row};
 }
 
+vga_coords printf(const uint8_t color, const char* format, ...) {
+    // Saving color and swtching to given color
+    uint8_t original_color = ::color;
+    ::color = color;
+
+    va_list args;  // Declare a variable argument list
+    va_start(args, format);  // Initialize the argument list with the last fixed parameter
+
+    vprintf(format, args);
+
+    va_end(args);  // Clean up the argument list
+
+    // Returning to original color
+    ::color = original_color;
+
+    // Returning current coordinates
+    return {col, row};
+}
+
+
 // Main error function
 vga_coords error(const char* format, ...) {
     // Saving current color
@@ -495,7 +515,7 @@ vga_coords warning(const char* format, ...) {
 // Clears whole screen
 void print_clear(void) {
     // Iterating through all of the rows, and using clear_row
-    for(size_t row = 1; row < NUM_ROWS; ++row) {
+    for(size_t row = 0; row < NUM_ROWS; ++row) {
         clear_row(row);
     }
 }

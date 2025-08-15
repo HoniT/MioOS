@@ -24,8 +24,8 @@
 #include <mm/vmm.hpp>
 #endif // PMM_HPP
 #include <drivers/ata.hpp>
-#include <fs/ext2.hpp>
-#include <fs/vfs.hpp>
+#include <fs/ext/ext2.hpp>
+#include <fs/ext/vfs.hpp>
 #include <tests/unit_tests.hpp>
 
 extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
@@ -41,6 +41,8 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Descriptor tables
     gdt::init(); // Global Descriptor Table (GDT)
     idt::init(); // Interrupts Descriptor Table (IDT)
+
+    cpu::get_processor_info();
     
     // Initializing memory managers
     heap::init();

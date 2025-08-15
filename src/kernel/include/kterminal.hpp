@@ -18,6 +18,7 @@ typedef void (*CommandFunc)();
 struct Command {
     const char* name;
     const CommandFunc function;
+    const char* params;
     const char* description;
 };
 

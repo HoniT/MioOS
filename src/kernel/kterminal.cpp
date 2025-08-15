@@ -15,7 +15,7 @@
 #include <cpuid.hpp>
 #include <pit.hpp>
 #include <drivers/ata.hpp>
-#include <fs/ext2.hpp>
+#include <fs/ext/ext2.hpp>
 #include <device.hpp>
 #include <kernel_main.hpp>
 #include <rtc.hpp>
@@ -41,24 +41,24 @@ void poke();
 
 // List of commands
 Command commands[] = {
-    {"help", help, " - Prints available commands"},
-    {"clear", clear, " - Clears the screen"},
-    {"echo", echo, " <message> - Writes a given message back to the terminal"},
+    {"help", help, "", " - Prints available commands"},
+    {"clear", clear, "", " - Clears the screen"},
+    {"echo", echo, " <message>", " - Writes a given message back to the terminal"},
     // For system information
-    {"getsysinfo", getsysinfo, " - Prints system software and hardware information"},
-    {"getmeminfo", pmm::getmeminfo, " - Prints system memory info"},
-    {"getuptime", pit::getuptime, " - Prints how much time the systems been on since booting"},
-    {"gettime", rtc::print_time, " - Prints current time"},
+    {"getsysinfo", getsysinfo, "", " - Prints system software and hardware information"},
+    {"getmeminfo", pmm::getmeminfo, "", " - Prints system memory info"},
+    {"getuptime", pit::getuptime, "", " - Prints how much time the systems been on since booting"},
+    {"gettime", rtc::print_time, "", " - Prints current time"},
     // Memory debugging commands
-    {"peek", peek, " <address> - Prints a value at a given physical address"},
-    {"poke", poke, " <address> <value> - Writes to a given address a given value"},
-    {"heapdump", heap::heap_dump, " - Prints the allocation status of blocks in the heap"},
+    {"peek", peek, " <address>", " - Prints a value at a given physical address"},
+    {"poke", poke, " <address> <value>", " - Writes to a given address a given value"},
+    {"heapdump", heap::heap_dump, "", " - Prints the allocation status of blocks in the heap"},
     // Storage commands
-    {"read_ata", ata::read_ata, " -dev <device_index> -sect <sector_index> - Prints a given sector of a given ATA device"},
-    {"list_ata", ata::list_ata, " - Lists available ATA devices"},
-    {"ls", ext2::ls, " - Lists entries of the current directory"},
-    {"cd", ext2::cd, " <dir> - Changes directory to given dir"},
-    {"mkdir", ext2::mkdir, " <dir> - Creates a directory in the current dir"}
+    {"read_ata", ata::read_ata, " -dev <device_index> -sect <sector_index>", " - Prints a given sector of a given ATA device"},
+    {"list_ata", ata::list_ata, "", " - Lists available ATA devices"},
+    {"ls", ext2::ls, "", " - Lists entries of the current directory"},
+    {"cd", ext2::cd, " <dir>", " - Changes directory to given dir"},
+    {"mkdir", ext2::mkdir, " <dir>", " - Creates a directory in the current dir"}
 };
 
 // Saving inputs
@@ -123,14 +123,15 @@ void cmd::init(void) {
     currentDir = "/";
 
     // Setting up VGA enviorment for terminal
-    vga::printf("\n ===========Type \"help\" to get available commands\n");
+    vga::printf("\n =====================Type \"help\" to get available commands==================== \n");
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
     vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
     vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
 
+
     // Saving the current screen coordinates
-    input_col = col;
-    input_row = row;
+    input_col = vga::col;
+    input_row = vga::row;
 
     for(uint8_t i = 0; i < INPUTS_TO_SAVE; i++) 
         saved_inputs[i] = (char*)kmalloc(255);
@@ -164,8 +165,8 @@ void cmd::run_cmd(void) {
             vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
             
             // Saving the current screen coordinates
-            input_col = col;
-            input_row = row;
+            input_col = vga::col;
+            input_row = vga::row;
 
             // Clearing the input
             kfree(currentInput);
@@ -182,8 +183,8 @@ void cmd::run_cmd(void) {
     vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
 
     // Saving the current screen coordinates
-    input_col = col;
-    input_row = row;
+    input_col = vga::col;
+    input_row = vga::row;
 
     // Clearing the input
     kfree(currentInput);
@@ -265,7 +266,9 @@ void cmd::cmd_down(void) {
 void help() {
     // Itterating through the commands
     for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
-        vga::printf("%s%s\n", commands[i].name, commands[i].description);
+        vga::printf(PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4), "%s", commands[i].name);
+        vga::printf(PRINT_COLOR_BLUE | (PRINT_COLOR_BLACK << 4), "%s", commands[i].params);
+        vga::printf("%s\n", commands[i].description);
     }
 
     return;
@@ -282,11 +285,18 @@ void getsysinfo() {
     // Kernel
     vga::printf("\n---Software---\nKernel Version: %u\n", kernel_version);
 
+    // Printing colors (vga color test)
+    for (int i = PRINT_COLOR_BLACK; i <= PRINT_COLOR_WHITE; ++i) {
+        VGA_PrintColors color = static_cast<VGA_PrintColors>(i);
+        vga::printf(color | (color << 4), "  ");
+        if((i + 1) % 8 == 0) vga::printf("\n");
+    }
+
     return;
 }
 
 void clear() {
-    col = 0; row = 1;
+    vga::col = 0; vga::row = 0;
     vga::print_clear();
     vga::printf(" =====================Type \"help\" to get available commands==================== ");
 }

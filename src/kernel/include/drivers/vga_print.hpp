@@ -44,16 +44,15 @@ enum VGA_PrintColors {
 
 };
 
-// Current coordinates/address
-extern size_t col;
-extern size_t row;
-
 struct vga_coords {
 	size_t col;
 	size_t row;
 };
 
 namespace vga {
+	// Current coordinates/address
+	extern size_t col;
+	extern size_t row;
 
 	void init(void); // Initializes main VGA text
 
@@ -69,6 +68,7 @@ namespace vga {
 
 	// Print formatted
 	vga_coords printf(const char* format, ...);
+	vga_coords printf(const uint8_t color, const char* format, ...);
 
 	// Error messages
 	vga_coords error(const char* format, ...);

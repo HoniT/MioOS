@@ -40,7 +40,6 @@ void ata_irq_wait(const bool secondary) {
     int timeout = 5000000;
     while (!*irq_ptr && --timeout);
     if (timeout <= 0) {
-        vga::error("Timeout waiting for IRQ %u\n", secondary ? 15 : 14);
         return;
     }
 

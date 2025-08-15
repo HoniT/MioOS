@@ -10,7 +10,7 @@
 
 #include <lib/data/tree.hpp>
 #include <lib/data/string.hpp>
-#include <fs/ext2.hpp>
+#include <fs/ext/ext2.hpp>
 
 typedef data::tree<vfsNode>::Node treeNode;
 

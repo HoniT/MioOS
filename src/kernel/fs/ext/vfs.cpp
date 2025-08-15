@@ -6,8 +6,8 @@
 // Sets up the virtual file system
 // ========================================
 
-#include <fs/vfs.hpp>
-#include <fs/ext2.hpp>
+#include <fs/ext/vfs.hpp>
+#include <fs/ext/ext2.hpp>
 #include <drivers/vga_print.hpp>
 #include <kterminal.hpp>
 #include <lib/data/tree.hpp>
@@ -43,6 +43,8 @@ void vfs::init(void) {
     vfs_tree.set_root(vfs_tree.create({"/", "/", true, 0, nullptr, nullptr}));
     // Adding mount directory
     vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"dev", "/dev/", true, 0, nullptr, nullptr}));
+    // Adding user directory
+    vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"usr", "/usr/", true, 0, nullptr, nullptr}));
 }
 
 /// @brief Adds a virtual node (dir, file...) to the VFS

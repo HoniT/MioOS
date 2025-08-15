@@ -15,7 +15,7 @@
 
 // Heap manager unit test
 void unittsts::test_heap(void) {
-    vga_coords coords = vga::set_init_text("Testing kernel Heap Memory Manager");
+    vga_coords coords = vga::set_init_text("Testing Kernel Heap Memory Manager");
     // Final status (passed or failed)
     bool passed = true;
 

@@ -53,11 +53,8 @@ char cpu_model_name[49];  // Model name
 void cpu::get_processor_info(void) {
     // Getting vender
     get_vendor(cpu_vendor);
-    vga::printf("CPU Vendor: %s\n", cpu_vendor);
-
+    // Getting model
     get_processor_model(cpu_model_name);
-    vga::printf("CPU model: %s\n", cpu_model_name);
-
     return;
 }
 
