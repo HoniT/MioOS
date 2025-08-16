@@ -63,8 +63,8 @@ void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor,
     Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // VGA buffer
 
     // Saving coords
-    size_t original_row = _update_cursor ? _row : vga::row;
-    size_t original_col = _update_cursor ? _col : vga::col;
+    size_t original_row = vga::row;
+    size_t original_col = vga::col;
     
     // Set global cursor position
     vga::row = _row;
@@ -79,11 +79,13 @@ void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor,
     // Returning to old color
     color = original_color;
 
-    vga::row = original_row;
-    vga::col = original_col;
+    if(!_update_cursor) {
+        vga::row = original_row;
+        vga::col = original_col;
+    }
 
     // Update cursor to final position
-    update_cursor(original_row, original_col);
+    update_cursor(vga::row, vga::col);
 }
 
 
