@@ -147,8 +147,8 @@ namespace ext2 {
     void find_ext2_fs(void);
 
     // Read / Write functions
-    void read_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_read = 1);
-    void write_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_write = 1);
+    void read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read = 1);
+    void write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write = 1);
     // Returns a list of VFS nodes of entries in the given dir
     vfsNode* read_dir(data::tree<vfsNode>::Node* node, int& count);
     

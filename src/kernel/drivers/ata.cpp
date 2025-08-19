@@ -217,42 +217,55 @@ namespace pio_28 {
     void write_one_sector(ata::Bus bus, ata::Drive drive, uint32_t lba, uint16_t* buffer) {
         bool secondary = (bus == ata::Bus::Secondary);
         bool slave = (drive == ata::Drive::Slave);
-        
+
         // Getting corresponding ports for the bus and drive fields given
-        uint16_t data_port = secondary ? SECONDARY_DATA : PRIMARY_DATA;
-        uint16_t sector_count_port = secondary ? SECONDARY_SECTOR_COUNT : PRIMARY_SECTOR_COUNT;
-        uint16_t sector_num_port = secondary ? SECONDARY_SECTOR_NUM : PRIMARY_SECTOR_NUM;
-        uint16_t lba_low_port = secondary ? SECONDARY_LBA_LOW : PRIMARY_LBA_LOW;
-        uint16_t lba_high_port = secondary ? SECONDARY_LBA_HIGH : PRIMARY_LBA_HIGH;
-        uint16_t drive_head_port = secondary ? SECONDARY_DRIVE_HEAD : PRIMARY_DRIVE_HEAD;
-        uint16_t command_port = secondary ? SECONDARY_COMMAND : PRIMARY_COMMAND;
-        uint16_t status_port = secondary ? SECONDARY_STATUS : PRIMARY_STATUS;
-        
-        // Send drive/head: 0xE0 = master, LBA mode
+        uint16_t data_port        = secondary ? SECONDARY_DATA        : PRIMARY_DATA;
+        uint16_t sector_count_port= secondary ? SECONDARY_SECTOR_COUNT: PRIMARY_SECTOR_COUNT;
+        uint16_t sector_num_port  = secondary ? SECONDARY_SECTOR_NUM  : PRIMARY_SECTOR_NUM; // aka LBA[7:0]
+        uint16_t lba_mid_port     = secondary ? SECONDARY_LBA_LOW     : PRIMARY_LBA_LOW;   // aka LBA[15:8]
+        uint16_t lba_high_port    = secondary ? SECONDARY_LBA_HIGH    : PRIMARY_LBA_HIGH;  // aka LBA[23:16]
+        uint16_t drive_head_port  = secondary ? SECONDARY_DRIVE_HEAD  : PRIMARY_DRIVE_HEAD;
+        uint16_t command_port     = secondary ? SECONDARY_COMMAND     : PRIMARY_COMMAND;
+        uint16_t status_port      = secondary ? SECONDARY_STATUS      : PRIMARY_STATUS;
+
+        // Send drive/head: 0xE0 = master, LBA mode; 0xF0 = slave, LBA mode
+        // LBA[27:24] goes into the low 4 bits of this register
         uint8_t drive_head = (slave ? 0xF0 : 0xE0) | ((lba >> 24) & 0x0F);
         outPortB(drive_head_port, drive_head);
-        
+
+        // Required 400ns delay after drive select (spec says 4 status reads)
+        inPortB(status_port); inPortB(status_port);
+        inPortB(status_port); inPortB(status_port);
+
         // Selecting one sector
         outPortB(sector_count_port, 1);
-        outPortB(sector_num_port, (uint8_t)(lba));
-        outPortB(lba_low_port, (uint8_t)((lba) >> 8));
-        outPortB(lba_high_port, (uint8_t)((lba) >> 16));
-        
+        outPortB(sector_num_port, (uint8_t)(lba & 0xFF));        // LBA[7:0]
+        outPortB(lba_mid_port,    (uint8_t)((lba >> 8) & 0xFF)); // LBA[15:8]
+        outPortB(lba_high_port,   (uint8_t)((lba >> 16) & 0xFF));// LBA[23:16]
+
         // Send WRITE SECTORS command (0x30)
         outPortB(command_port, WRITE_SECTOR_COMMAND);
 
-        // Waiting for BSY to clear
-        while(inPortB(status_port) & 0x80);
-        // Waiting for DRQ to set
-        while(!(inPortB(status_port) & 0x8));
-        
+        // Waiting for BSY to clear and DRQ to set (with error checks)
+        uint8_t status;
+        do {
+            status = inPortB(status_port);
+            if (status & 0x01) return; // ERR bit set -> error
+            if (status & 0x20) return; // DF bit set -> device fault
+        } while ((status & 0x80) || !(status & 0x08));
+
         // Write 256 words (512 bytes) to the data port
         for (int j = 0; j < 256; j++) {
             outPortW(data_port, buffer[j]);
         }
 
-        // Wait for IRQ
+        // Wait for IRQ (if your driver uses interrupts)
         ata_irq_wait(secondary);
+
+        // Optional: flush cache to ensure data really hits disk (0xE7)
+        outPortB(command_port, 0xE7);
+        // Wait for BSY clear again
+        while(inPortB(status_port) & 0x80);
     }
 
     // Writes a value to a given amount of sectors starting at a given LBA from a given device

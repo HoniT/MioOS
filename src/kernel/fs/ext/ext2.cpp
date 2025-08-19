@@ -36,7 +36,7 @@ inode_t* ext2::load_inode(ext2_fs_t* fs, const uint32_t inode_num) {
     uint32_t offset_in_block = offset % fs->block_size;
 
     uint8_t* buffer = (uint8_t*)kmalloc(fs->block_size);
-    ext2::read_block(fs, block_num, (uint16_t*)buffer, 1);
+    ext2::read_block(fs, block_num, buffer);
     return (inode_t*)(buffer + offset_in_block);
 }
 
@@ -54,7 +54,7 @@ uint32_t ext2::alloc_inode(ext2_fs_t* fs) {
 
         // Retrieving inode bitmap
         uint32_t i_bitmap = fs->blk_grp_descs[group].blk_addr_inode_usage_bitmap;
-        ext2::read_block(fs, i_bitmap, (uint16_t*)buf);
+        ext2::read_block(fs, i_bitmap, buf);
 
         // Itterating through bytes of the bitmap
         for (uint32_t byte = 0; byte < fs->inodes_per_group / 8; byte++) {
@@ -67,21 +67,17 @@ uint32_t ext2::alloc_inode(ext2_fs_t* fs) {
 
                 // If we found a free inode
                 if ((buf[byte] & mask) == 0) {
-                    vga::warning(" Found free inode!\n");
                     // Marking as allocated/used
                     buf[byte] |= mask;
                     
                     // Rewriting bitmap with new value
-                    vga::warning(" Found free inode1.5!\n");
-                    ext2::write_block(fs, i_bitmap, (uint16_t*)buf);
-                    vga::warning(" Found free inode1!\n");
+                    ext2::write_block(fs, i_bitmap, buf);
                     
                     // Changing and rewriting metadata
                     fs->blk_grp_descs[group].num_unalloc_inodes--;
                     fs->sb->unalloc_inode_num--;
                     ext2::rewrite_bgds(fs);
                     ext2::rewrite_sb(fs);
-                    vga::warning(" Found free inode2!\n");
                     // Freeing temporary buffer
                     kfree(buf);
 
@@ -118,11 +114,11 @@ void ext2::write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode) 
 
     // Reading the block where the inode is
     uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
-    ext2::read_block(fs, block_num, (uint16_t*)buf);
+    ext2::read_block(fs, block_num, buf);
     // Copying given info to buffer
     memcpy(buf + byte_offset, inode, sizeof(inode_t));
     // Rewriting block
-    ext2::write_block(fs, block_num, (uint16_t*)buf);
+    ext2::write_block(fs, block_num, buf);
     kfree(buf);
 }
 
@@ -141,7 +137,7 @@ uint32_t ext2::alloc_block(ext2_fs_t* fs) {
 
         // Retrieving block bitmap
         uint32_t bitmap = fs->blk_grp_descs[group].blk_addr_blk_usage_bitmap;
-        ext2::read_block(fs, bitmap, (uint16_t*)buf);
+        ext2::read_block(fs, bitmap, buf);
 
         // Itterating through bytes of the bitmap
         for (uint32_t byte = 0; byte < fs->block_size; byte++) {
@@ -158,7 +154,7 @@ uint32_t ext2::alloc_block(ext2_fs_t* fs) {
                     buf[byte] |= mask;
 
                     // Rewriting bitmap with new value
-                    ext2::write_block(fs, bitmap, (uint16_t*)buf);
+                    ext2::write_block(fs, bitmap, buf);
 
                     // Changing and rewriting metadata
                     fs->blk_grp_descs[group].num_unalloc_blks--;
@@ -187,56 +183,59 @@ uint32_t ext2::alloc_block(ext2_fs_t* fs) {
 
 // Rewrites block group descriptors of a FS
 void ext2::rewrite_bgds(ext2_fs_t* fs) {
-    // Getting Block Group Descriptors starting block index
     uint32_t bgd_start_block = (fs->block_size == 1024) ? 2 : 1;
 
     uint8_t* base = (uint8_t*)fs->blk_grp_descs;
     for(uint32_t i = 0; i < fs->blk_grp_desc_blocks; i++) 
-        // Rewriting data
-        ext2::write_block(fs, bgd_start_block + i, (uint16_t*)(base + i * fs->block_size));
+        ext2::write_block(fs, bgd_start_block + i, base + i * fs->block_size);
 }
 
 // Rewrites superblock of a FS
 void ext2::rewrite_sb(ext2_fs_t* fs) {
     if(!fs) return;
 
-    // Allocate a temporary block-sized buffer
-    uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
-    // Superblock is in block #1 if block size is 1024, otherwise block #0
-    uint32_t sb_block = (fs->block_size == 1024) ? 1 : 0;
-    ext2::read_block(fs, sb_block, (uint16_t*)buf);
-    // Copying memory
-    if(sb_block == 1) memcpy(buf, &fs->sb, sizeof(superblock_t));
-    else memcpy(buf + 1024, &fs->sb, sizeof(superblock_t));
-    // Rewriting block
-    ext2::write_block(fs, sb_block, (uint16_t*)buf);
+    uint8_t* buf = (uint8_t*)kcalloc(1, SUPERBLOCK_SIZE);
+
+    // Read existing block first
+    pio_28::read_sector(fs->dev, 2, reinterpret_cast<uint16_t*>(buf), 2);
+
+    // Copy updated superblock into the correct offset
+    // Goes at offset 0 in block #1
+    memcpy(buf, &fs->sb, SUPERBLOCK_SIZE);
+
+    // Write back
+    pio_28::read_sector(fs->dev, 2, reinterpret_cast<uint16_t*>(buf), 2);
 
     kfree(buf);
 }
 
-// Translates Ext2 block number to LBA and reads from device using our ATA/AHCI driver
-void ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_read) {
+
+void ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read) {
     // Translating Ext2 blocks to LBA blocks
     uint32_t lba = (block_num * fs->block_size) / 512;
     uint32_t lba_blocks = (blocks_to_read * fs->block_size) / 512;
 
-    if(fs->dev) pio_28::read_sector(fs->dev, lba, buffer, lba_blocks);
-    // (AHCI is not implemented yet) else if(fs->ahci_dev) // AHCI read
-    else vga::error("Ext2 FS doesn't have a device!\n");
+    if (fs->dev) {
+        // ATA driver expects words, so cast here only
+        pio_28::read_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
+    }
+    else {
+        vga::error("Ext2 FS doesn't have a device!\n");
+    }
 }
 
-// Translates Ext2 block number to LBA and writes to device using our ATA/AHCI driver
-void ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint16_t* buffer, const uint32_t blocks_to_write) {
-    // Translating Ext2 blocks to LBA blocks
+void ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write) {
     uint32_t lba = (block_num * fs->block_size) / 512;
     uint32_t lba_blocks = (blocks_to_write * fs->block_size) / 512;
-    
-    vga::warning("      Writing \n");
-    if(fs->dev) pio_28::write_sector(fs->dev, lba, buffer, lba_blocks);
-    // (AHCI is not implemented yet) else if(fs->ahci_dev) // AHCI write
-    else vga::error("Ext2 FS doesn't have a device!\n");
-    vga::warning("      Finished Writing \n");
+
+    if (fs->dev) {
+        pio_28::write_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
+    }
+    else {
+        vga::error("Ext2 FS doesn't have a device!\n");
+    }
 }
+
 
 ext2_fs_t* curr_fs = nullptr;
 // Parses for dir entries in block
@@ -295,7 +294,7 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     auto read_and_parse = [&](uint32_t block_num) {
         if (block_num == 0) return;
         uint8_t block[curr_fs->block_size];
-        ext2::read_block(curr_fs, block_num, (uint16_t*)block);
+        ext2::read_block(curr_fs, block_num, block);
         parse_directory_block(curr_fs, block, entries, *node, last_index);
     };
 
@@ -313,7 +312,7 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     // -----------------------------------
     if (node->inode->singly_inderect_blk_ptr != 0) {
         uint32_t* ptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-        ext2::read_block(curr_fs, node->inode->singly_inderect_blk_ptr, (uint16_t*)ptrs);
+        ext2::read_block(curr_fs, node->inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(ptrs));
 
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             read_and_parse(ptrs[i]);
@@ -327,14 +326,14 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     // ------------------------------------
     if (node->inode->doubly_inderect_blk_ptr != 0) {
         uint32_t* dptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-        ext2::read_block(curr_fs, node->inode->doubly_inderect_blk_ptr, (uint16_t*)dptrs);
+        ext2::read_block(curr_fs, node->inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(dptrs));
 
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             if (dptrs[i] == 0) continue;
 
             // Read singly indirect block
             uint32_t* sptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-            ext2::read_block(curr_fs, dptrs[i], (uint16_t*)sptrs);
+            ext2::read_block(curr_fs, dptrs[i], reinterpret_cast<uint8_t*>(sptrs));
 
             for (int j = 0; j < curr_fs->block_size / 4; ++j) {
                 read_and_parse(sptrs[j]);
@@ -351,21 +350,21 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     // -------------------------------------
     if (node->inode->triply_inderect_blk_ptr != 0) {
         uint32_t* tptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-        ext2::read_block(curr_fs, node->inode->triply_inderect_blk_ptr, (uint16_t*)tptrs);
+        ext2::read_block(curr_fs, node->inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(tptrs));
 
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             if (tptrs[i] == 0) continue;
 
             // Read doubly indirect block
             uint32_t* dptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-            ext2::read_block(curr_fs, tptrs[i], (uint16_t*)dptrs);
+            ext2::read_block(curr_fs, tptrs[i], reinterpret_cast<uint8_t*>(dptrs));
 
             for (int j = 0; j < curr_fs->block_size / 4; ++j) {
                 if (dptrs[j] == 0) continue;
 
                 // Read singly indirect block
                 uint32_t* sptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-                ext2::read_block(curr_fs, dptrs[j], (uint16_t*)sptrs);
+                ext2::read_block(curr_fs, dptrs[j], reinterpret_cast<uint8_t*>(sptrs));
 
                 for (int k = 0; k < curr_fs->block_size / 4; ++k) {
                     read_and_parse(sptrs[k]);
@@ -395,7 +394,6 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
     pio_28::read_sector(dev, 2, (uint16_t*)ext2fs->sb, 2);
     // Verifying superblock
     if(ext2fs->sb->ext2_magic != EXT2_MAGIC) {
-        // vga::error("Superblock not found for ATA device: %s!\n", dev->serial);
         // Mounting to VFS
         // vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
         return false;
@@ -415,7 +413,7 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
 
     // Allocating and reading BGD
     ext2fs->blk_grp_descs = (blkgrp_descriptor_t*)kmalloc(ext2fs->blk_grp_desc_blocks * ext2fs->block_size);
-    ext2::read_block(ext2fs, (ext2fs->block_size == 1024) ? 2 : 1, (uint16_t*)ext2fs->blk_grp_descs, ext2fs->blk_grp_desc_blocks);
+    ext2::read_block(ext2fs, (ext2fs->block_size == 1024) ? 2 : 1, reinterpret_cast<uint8_t*>(ext2fs->blk_grp_descs), ext2fs->blk_grp_desc_blocks);
 
     // Getting root inode
     inode_t* root_inode = load_inode(ext2fs, ROOT_INODE_NUM);
@@ -505,7 +503,7 @@ bool change_dir(data::string dir) {
 
 // Inserts dir entry in block
 bool insert_into_block(ext2_fs_t* fs, uint32_t block_num, const char* name, uint32_t inode_num, uint8_t* buf, bool* inserted) {
-    ext2::read_block(fs, block_num, (uint16_t*)buf);
+    ext2::read_block(fs, block_num, buf);
 
     uint32_t offset = 0;
     // Checking block for inodes
@@ -522,7 +520,7 @@ bool insert_into_block(ext2_fs_t* fs, uint32_t block_num, const char* name, uint
             entry->type_indicator = EXT2_FT_DIR;
             memcpy(entry->name, name, entry->name_len);
             // Writing back to disk
-            ext2::write_block(fs, block_num, (uint16_t*)buf);
+            ext2::write_block(fs, block_num, buf);
             *inserted = true;
             return true;
         }
@@ -541,7 +539,7 @@ bool insert_into_block(ext2_fs_t* fs, uint32_t block_num, const char* name, uint
             new_entry->type_indicator = EXT2_FT_DIR;
             memcpy(new_entry->name, name, new_entry->name_len);
             // Writing back to disk
-            ext2::write_block(fs, block_num, (uint16_t*)buf);
+            ext2::write_block(fs, block_num, buf);
             *inserted = true;
             return true;
         }
@@ -560,7 +558,6 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
     // -----------------------------------
     // Handle Direct Block
     // -----------------------------------
-    vga::warning("  Direct\n");
     for (int i = 0; i < 12; i++) {
         // Allocating block if zero
         if (parent_inode->direct_blk_ptr[i] == 0)
@@ -574,13 +571,12 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
     // -----------------------------------
     // Handle Singly Indirect Block
     // -----------------------------------
-    vga::warning("  1Direct\n");
     if (parent_inode->singly_inderect_blk_ptr == 0)
         // Allocating block if zero
         parent_inode->singly_inderect_blk_ptr = ext2::alloc_block(fs);
 
     uint32_t* singly = (uint32_t*)kcalloc(1, fs->block_size);
-    ext2::read_block(fs, parent_inode->singly_inderect_blk_ptr, (uint16_t*)singly);
+    ext2::read_block(fs, parent_inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(singly));
 
     for (uint32_t i = 0; i < fs->block_size / 4; i++) {
         if (singly[i] == 0)
@@ -589,7 +585,7 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
 
         // If we could insert a value into a block
         if (insert_into_block(fs, singly[i], name, inode_num, buf, &inserted)) {
-            ext2::write_block(fs, parent_inode->singly_inderect_blk_ptr, (uint16_t*)singly);
+            ext2::write_block(fs, parent_inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(singly));
             kfree(singly);
             return 0;
         }
@@ -599,12 +595,11 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
     // -----------------------------------
     // Handle Doubly Indirect Block
     // -----------------------------------
-    vga::warning("  2Direct\n");
     if (parent_inode->doubly_inderect_blk_ptr == 0)
         parent_inode->doubly_inderect_blk_ptr = ext2::alloc_block(fs);
 
     uint32_t* doubly = (uint32_t*)kcalloc(1, fs->block_size);
-    ext2::read_block(fs, parent_inode->doubly_inderect_blk_ptr, (uint16_t*)doubly);
+    ext2::read_block(fs, parent_inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(doubly));
 
     for (uint32_t i = 0; i < fs->block_size / 4; i++) {
         if (doubly[i] == 0)
@@ -612,7 +607,7 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
             doubly[i] = ext2::alloc_block(fs);
 
         uint32_t* singly_lvl2 = (uint32_t*)kcalloc(1, fs->block_size);
-        ext2::read_block(fs, doubly[i], (uint16_t*)singly_lvl2);
+        ext2::read_block(fs, doubly[i], reinterpret_cast<uint8_t*>(singly_lvl2));
 
         for (uint32_t j = 0; j < fs->block_size / 4; j++) {
             if (singly_lvl2[j] == 0)
@@ -621,8 +616,8 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
 
             // If we could insert a value into a block
             if (insert_into_block(fs, singly_lvl2[j], name, inode_num, buf, &inserted)) {
-                ext2::write_block(fs, doubly[i], (uint16_t*)singly_lvl2);
-                ext2::write_block(fs, parent_inode->doubly_inderect_blk_ptr, (uint16_t*)doubly);
+                ext2::write_block(fs, doubly[i], reinterpret_cast<uint8_t*>(singly_lvl2));
+                ext2::write_block(fs, parent_inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(doubly));
                 kfree(singly_lvl2);
                 kfree(doubly);
                 return 0;
@@ -635,12 +630,11 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
     // -----------------------------------
     // Handle Triply Indirect Block
     // -----------------------------------
-    vga::warning("  3Direct\n");
     if (parent_inode->triply_inderect_blk_ptr == 0)
         parent_inode->triply_inderect_blk_ptr = ext2::alloc_block(fs);
 
     uint32_t* triply = (uint32_t*)kcalloc(1, fs->block_size);
-    ext2::read_block(fs, parent_inode->triply_inderect_blk_ptr, (uint16_t*)triply);
+    ext2::read_block(fs, parent_inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(triply));
 
     for (uint32_t i = 0; i < fs->block_size / 4; i++) {
         if (triply[i] == 0)
@@ -648,7 +642,7 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
             triply[i] = ext2::alloc_block(fs);
 
         uint32_t* doubly_lvl2 = (uint32_t*)kcalloc(1, fs->block_size);
-        ext2::read_block(fs, triply[i], (uint16_t*)doubly_lvl2);
+        ext2::read_block(fs, triply[i], reinterpret_cast<uint8_t*>(doubly_lvl2));
 
         for (uint32_t j = 0; j < fs->block_size / 4; j++) {
             if (doubly_lvl2[j] == 0)
@@ -656,7 +650,7 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
                 doubly_lvl2[j] = ext2::alloc_block(fs);
 
             uint32_t* singly_lvl3 = (uint32_t*)kcalloc(1, fs->block_size);
-            ext2::read_block(fs, doubly_lvl2[j], (uint16_t*)singly_lvl3);
+            ext2::read_block(fs, doubly_lvl2[j], reinterpret_cast<uint8_t*>(singly_lvl3));
 
             for (uint32_t k = 0; k < fs->block_size / 4; k++) {
                 if (singly_lvl3[k] == 0)
@@ -665,9 +659,9 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
 
                 // If we could insert a value into a block
                 if (insert_into_block(fs, singly_lvl3[k], name, inode_num, buf, &inserted)) {
-                    ext2::write_block(fs, doubly_lvl2[j], (uint16_t*)singly_lvl3);
-                    ext2::write_block(fs, triply[i], (uint16_t*)doubly_lvl2);
-                    ext2::write_block(fs, parent_inode->triply_inderect_blk_ptr, (uint16_t*)triply);
+                    ext2::write_block(fs, doubly_lvl2[j], reinterpret_cast<uint8_t*>(singly_lvl3));
+                    ext2::write_block(fs, triply[i], reinterpret_cast<uint8_t*>(doubly_lvl2));
+                    ext2::write_block(fs, parent_inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(triply));
                     kfree(singly_lvl3);
                     kfree(doubly_lvl2);
                     kfree(triply);
@@ -797,7 +791,7 @@ void ext2::mkdir(void) {
     dotdot->name[1] = '.';
 
     // Writing to disk
-    write_block(fs, block_num, (uint16_t*)buf);
+    write_block(fs, block_num, buf);
 
     // Insert into parent dir
     int res = insert_directory_entry(fs, parent.inode, input, inode_num, buf);
