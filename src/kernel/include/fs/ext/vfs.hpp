@@ -36,7 +36,7 @@ namespace vfs {
     void init(void);
     // Prints VFS tree node
     void print_node(const vfsNode& node, int depth);
-    void add_node(treeNode* parent, data::string name);
+    void add_node(treeNode* parent, vfsNode node);
     void add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs);
     treeNode* get_node(const data::string path);
     void mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs);

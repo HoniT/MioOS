@@ -9,6 +9,7 @@
 #define TREE_HPP
 
 #include <mm/heap.hpp>
+#include <drivers/vga_print.hpp>
 
 namespace data {
 
@@ -24,10 +25,38 @@ namespace data {
             Node* next_sibling;
         };
 
-        tree() : root(nullptr) {};
+        tree() : root(nullptr) {}
+
+        // Make tree move-only to avoid double frees and leaks on copies
+        tree(const tree&) = delete;
+        tree& operator=(const tree&) = delete;
+
+        tree(tree&& other) noexcept : root(other.root) {
+            other.root = nullptr;
+        }
+        tree& operator=(tree&& other) noexcept {
+            if (this != &other) {
+                delete_subtree(root);
+                root = other.root;
+                other.root = nullptr;
+            }
+            return *this;
+        }
+
+        ~tree() {
+            // Ensure the whole tree is freed when this object goes out of scope
+            delete_subtree(root);
+            root = nullptr;
+        }
+
         void set_root(Node* node) {
+            // If a previous root exists, delete it to prevent leaks
+            if (root && root != node) {
+                delete_subtree(root);
+            }
             root = node;
         }
+
         Node* get_root() {
             return root;
         }
@@ -36,9 +65,9 @@ namespace data {
 
         Node* create(const T& val) {
             // Allocating node
-            Node* node = (Node*)kmalloc(sizeof(Node));
+            Node* node = (Node*)kcalloc(1, sizeof(Node));
             if(!node) return nullptr;
-
+            
             // Setting values
             node->data = val;
             node->parent = nullptr;

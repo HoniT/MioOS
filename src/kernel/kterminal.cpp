@@ -56,6 +56,7 @@ Command commands[] = {
     // Storage commands
     {"read_ata", ata::read_ata, " -dev <device_index> -sect <sector_index>", " - Prints a given sector of a given ATA device"},
     {"list_ata", ata::list_ata, "", " - Lists available ATA devices"},
+    {"pwd", ext2::pwd, "", " - Prints working directory"},
     {"ls", ext2::ls, "", " - Lists entries of the current directory"},
     {"cd", ext2::cd, " <dir>", " - Changes directory to given dir"},
     {"mkdir", ext2::mkdir, " <dir>", " - Creates a directory in the current dir"}

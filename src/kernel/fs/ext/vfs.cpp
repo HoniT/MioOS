@@ -33,7 +33,7 @@ const char* vfs::ide_device_names[4] = {
 // Prints VFS tree node
 void vfs::print_node(const vfsNode& node, int depth) {
     for(int i = 0; i < depth; i++) vga::printf(" ");
-    vga::printf("%S\n", node.name);
+    vga::printf("%S %s %s\n", node.name, node.is_dir ? "(DIR)" : "", node.path == cmd::currentDir ? "<====" : "");
 }
 
 // Initializes the VFS
@@ -41,17 +41,17 @@ void vfs::init(void) {
     // Creating and setting root dir
     kmalloc(sizeof(ext2_fs_t)); // Reserving memory
     vfs_tree.set_root(vfs_tree.create({"/", "/", true, 0, nullptr, nullptr}));
-    // Adding mount directory
+    // Adding device directory
     vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"dev", "/dev/", true, 0, nullptr, nullptr}));
-    // Adding user directory
-    vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"usr", "/usr/", true, 0, nullptr, nullptr}));
+    // Adding user home directory
+    vfs_tree.add_child(vfs_tree.get_root(), vfs_tree.create({"home", "/home/", true, 0, nullptr, nullptr}));
 }
 
-/// @brief Adds a virtual node (dir, file...) to the VFS
+/// @brief Adds a physical node (dir, file...) to the VFS
 /// @param parent Parent of the node to add
-/// @param node node to add
-void vfs::add_node(treeNode* parent, data::string name) {
-    vfs::add_node(parent, name, 0, nullptr, nullptr);
+/// @param node VFS Node (dir entry)
+void vfs::add_node(treeNode* parent, vfsNode node) {
+    vfs::add_node(parent, node.name, node.inode_num, node.inode, node.fs);
 }
 
 /// @brief Adds a physical node (dir, file...) to the VFS
@@ -59,7 +59,18 @@ void vfs::add_node(treeNode* parent, data::string name) {
 /// @param node node to add
 /// @param inode Inode pointing to actual FS dir entry
 void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs) {
-    if(name.empty() || !parent) return;
+    if(name.empty() || !parent || inode_num == 0 || !inode || !fs) {
+        vga::warning("Insufficient parameters for add_node");
+        // Debug info
+        vga::warning("(Parent: %x, name: %S, inode num: %u, inode: %x, fs: %x)", 
+            parent ? parent : 0,
+            name,
+            inode_num,
+            inode ? inode : 0,
+            fs ? fs : 0
+        );
+        return;
+    }
     if(!parent->data.is_dir) {
         vga::warning("Parent passed to add_node isn't a dir!\n");
         return;
@@ -80,7 +91,9 @@ void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inod
     }
 
     // Adding the node
-    vfs_tree.add_child(parent, vfs_tree.create({name, path, inode ? INODE_IS_DIR(inode) : false, inode_num, inode, fs}));
+    treeNode* node = vfs_tree.create({name, path, INODE_IS_DIR(inode), inode_num, inode, fs});
+    vga::warning("%S, %S, %u, %u, %x, %x\n", node->data.name, node->data.path, node->data.is_dir, node->data.inode_num, node->data.inode, node->data.fs);
+    vfs_tree.add_child(parent, node);
 }
 
 /// @brief Gets a VFS node with a given path
@@ -112,7 +125,7 @@ treeNode* vfs::get_node(const data::string path) {
 /// @param root_inode Inode #2 of Ext2 device
 /// @param fs File System of device
 void vfs::mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs) {
-    // Getting mount dir
+    // Getting device dir
     treeNode* mntNode = vfs::get_node("/dev/");
     if(!mntNode) return;
     // Adding node

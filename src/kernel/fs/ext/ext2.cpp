@@ -239,7 +239,7 @@ void ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer,
 
 ext2_fs_t* curr_fs = nullptr;
 // Parses for dir entries in block
-void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, vfsNode parent, int& last_index) {
+void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, treeNode* parentNode, vfsNode parent, int& last_index) {
     if (last_index >= 256) return;  // prevent overflow
 
     uint32_t offset = 0;
@@ -263,7 +263,10 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, vfsN
         if (INODE_IS_DIR(inode)) path.append("/");
         
         // Adding to array
-        entries[last_index++] = {name, path, INODE_IS_DIR(inode), entry->inode, inode, curr_fs};
+        vfsNode node = vfs_tree.create({name, path, INODE_IS_DIR(inode), entry->inode, inode, curr_fs})->data;
+        // Checking if the entry is in the VFS tree
+        if(!name.equals(".") && !name.equals("..") && !vfs_tree.find_child_by_predicate(parentNode, [node](vfsNode vfsNode){ return vfsNode.name == node.name; })) vfs::add_node(parentNode, node);
+        entries[last_index++] = node;
         
         offset += entry->entry_size;
     }
@@ -295,7 +298,7 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         if (block_num == 0) return;
         uint8_t block[curr_fs->block_size];
         ext2::read_block(curr_fs, block_num, block);
-        parse_directory_block(curr_fs, block, entries, *node, last_index);
+        parse_directory_block(curr_fs, block, entries, tree_node, *node, last_index);
     };
 
     entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256);
@@ -501,47 +504,94 @@ bool change_dir(data::string dir) {
     return false;
 }
 
+static inline uint16_t align4_u16(uint16_t x){ return (uint16_t)((x + 3u) & ~3u); }
+static inline uint16_t dirent_rec_len(uint8_t name_len){ return (uint16_t)(8u + align4_u16(name_len)); }
+
+// If you already have equivalents, remove/replace these:
+static inline void zero_block(ext2_fs_t* fs, uint32_t blk, uint32_t block_size){
+    uint8_t* z = (uint8_t*)kcalloc(1, block_size);
+    ext2::write_block(fs, blk, z);
+    kfree(z);
+}
+
 // Inserts dir entry in block
 bool insert_into_block(ext2_fs_t* fs, uint32_t block_num, const char* name, uint32_t inode_num, uint8_t* buf, bool* inserted) {
     ext2::read_block(fs, block_num, buf);
+
+    const uint16_t needed_len = dirent_rec_len((uint8_t)strlen(name));
 
     uint32_t offset = 0;
     // Checking block for inodes
     while (offset < fs->block_size) {
         dir_ent_t* entry = (dir_ent_t*)(buf + offset);
 
+        // FIX: guard against corrupt rec_len (prevents infinite loop/corruption)
+        if (entry->entry_size == 0) break;
+
+        uint16_t actual_len = dirent_rec_len(entry->name_len); // Rounding up to next multiple of 4
+
         // If we found an empty slot
         if (entry->inode == 0) {
-            uint16_t needed_len = 8 + ((strlen(name) + 3) & ~3); // Rounding up to next multiple of 4
-            // Setting info
-            entry->inode = inode_num;
-            entry->entry_size = fs->block_size - offset;
-            entry->name_len = strlen(name);
-            entry->type_indicator = EXT2_FT_DIR;
-            memcpy(entry->name, name, entry->name_len);
-            // Writing back to disk
-            ext2::write_block(fs, block_num, buf);
-            *inserted = true;
-            return true;
+            // FIX: only reuse if it actually fits; split remainder if large
+            if (entry->entry_size >= needed_len) {
+                uint16_t orig_len = entry->entry_size;
+
+                entry->inode = inode_num;
+                entry->name_len = (uint8_t)strlen(name);
+                entry->type_indicator = EXT2_FT_DIR;
+
+                if (orig_len > needed_len) {
+                    entry->entry_size = needed_len;
+
+                    dir_ent_t* remainder = (dir_ent_t*)((uint8_t*)entry + needed_len);
+                    remainder->inode = 0;
+                    remainder->name_len = 0;
+                    remainder->type_indicator = 0;
+                    remainder->entry_size = (uint16_t)(orig_len - needed_len);
+                } else {
+                    entry->entry_size = orig_len;
+                }
+
+                memcpy(entry->name, name, entry->name_len);
+                // Writing back to disk
+                ext2::write_block(fs, block_num, buf);
+                *inserted = true;
+                return true;
+            }
         }
 
-        uint16_t actual_len = 8 + ((entry->name_len + 3) & ~3); // Rounding up to next multiple of 4
         // If the entry has extra space we'll split it
         if (entry->entry_size > actual_len) {
-            dir_ent_t* new_entry = (dir_ent_t*)((uint8_t*)entry + actual_len);
-            uint16_t new_rec_len = entry->entry_size - actual_len;
+            uint16_t extra = (uint16_t)(entry->entry_size - actual_len);
+            if (extra >= needed_len) { // FIX: ensure enough space to place new dirent
+                dir_ent_t* new_entry = (dir_ent_t*)((uint8_t*)entry + actual_len);
 
-            // Setting info
-            entry->entry_size = actual_len;
-            new_entry->inode = inode_num;
-            new_entry->entry_size = new_rec_len;
-            new_entry->name_len = strlen(name);
-            new_entry->type_indicator = EXT2_FT_DIR;
-            memcpy(new_entry->name, name, new_entry->name_len);
-            // Writing back to disk
-            ext2::write_block(fs, block_num, buf);
-            *inserted = true;
-            return true;
+                // Setting info
+                entry->entry_size = actual_len;
+
+                new_entry->inode = inode_num;
+                new_entry->name_len = (uint8_t)strlen(name);
+                new_entry->type_indicator = EXT2_FT_DIR;
+
+                uint16_t new_min = dirent_rec_len(new_entry->name_len);
+                if (extra > new_min) {
+                    new_entry->entry_size = new_min;
+
+                    dir_ent_t* trailing = (dir_ent_t*)((uint8_t*)new_entry + new_min);
+                    trailing->inode = 0;
+                    trailing->name_len = 0;
+                    trailing->type_indicator = 0;
+                    trailing->entry_size = (uint16_t)(extra - new_min);
+                } else {
+                    new_entry->entry_size = extra;
+                }
+
+                memcpy(new_entry->name, name, new_entry->name_len);
+                // Writing back to disk
+                ext2::write_block(fs, block_num, buf);
+                *inserted = true;
+                return true;
+            }
         }
 
         // Going to next entry
@@ -560,28 +610,41 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
     // -----------------------------------
     for (int i = 0; i < 12; i++) {
         // Allocating block if zero
-        if (parent_inode->direct_blk_ptr[i] == 0)
+        if (parent_inode->direct_blk_ptr[i] == 0){
             parent_inode->direct_blk_ptr[i] = ext2::alloc_block(fs);
+            if (parent_inode->direct_blk_ptr[i] == (uint32_t)-1) return -1;
+            zero_block(fs, parent_inode->direct_blk_ptr[i], fs->block_size); // FIX: zero new data block
+            parent_inode->size_low += fs->block_size;                         // FIX: grow dir size on new data block
+        }
 
         // If we could insert a value into a block
         if (insert_into_block(fs, parent_inode->direct_blk_ptr[i], name, inode_num, buf, &inserted))
             return 0;
     }
 
+    const uint32_t ptrs_per_block = fs->block_size / 4;
+
     // -----------------------------------
     // Handle Singly Indirect Block
     // -----------------------------------
-    if (parent_inode->singly_inderect_blk_ptr == 0)
+    if (parent_inode->singly_inderect_blk_ptr == 0){
         // Allocating block if zero
         parent_inode->singly_inderect_blk_ptr = ext2::alloc_block(fs);
+        if (parent_inode->singly_inderect_blk_ptr == (uint32_t)-1) return -2;
+        zero_block(fs, parent_inode->singly_inderect_blk_ptr, fs->block_size); // FIX: zero index block
+    }
 
     uint32_t* singly = (uint32_t*)kcalloc(1, fs->block_size);
     ext2::read_block(fs, parent_inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(singly));
 
-    for (uint32_t i = 0; i < fs->block_size / 4; i++) {
-        if (singly[i] == 0)
+    for (uint32_t i = 0; i < ptrs_per_block; i++) {
+        if (singly[i] == 0){
             // Allocating block if zero
             singly[i] = ext2::alloc_block(fs);
+            if (singly[i] == (uint32_t)-1){ kfree(singly); return -2; }
+            zero_block(fs, singly[i], fs->block_size);   // FIX: zero new data block
+            parent_inode->size_low += fs->block_size;    // FIX: grow dir size on new data block
+        }
 
         // If we could insert a value into a block
         if (insert_into_block(fs, singly[i], name, inode_num, buf, &inserted)) {
@@ -590,29 +653,40 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
             return 0;
         }
     }
+    ext2::write_block(fs, parent_inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(singly)); // persist pointer updates
     kfree(singly);
 
     // -----------------------------------
     // Handle Doubly Indirect Block
     // -----------------------------------
-    if (parent_inode->doubly_inderect_blk_ptr == 0)
+    if (parent_inode->doubly_inderect_blk_ptr == 0){
         parent_inode->doubly_inderect_blk_ptr = ext2::alloc_block(fs);
+        if (parent_inode->doubly_inderect_blk_ptr == (uint32_t)-1) return -2;
+        zero_block(fs, parent_inode->doubly_inderect_blk_ptr, fs->block_size); // FIX: zero index block
+    }
 
     uint32_t* doubly = (uint32_t*)kcalloc(1, fs->block_size);
     ext2::read_block(fs, parent_inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(doubly));
 
-    for (uint32_t i = 0; i < fs->block_size / 4; i++) {
-        if (doubly[i] == 0)
-            // Allocating block if zero
+    for (uint32_t i = 0; i < ptrs_per_block; i++) {
+        if (doubly[i] == 0){
+            // Allocating block if zero (level-1 index)
             doubly[i] = ext2::alloc_block(fs);
+            if (doubly[i] == (uint32_t)-1){ kfree(doubly); return -2; }
+            zero_block(fs, doubly[i], fs->block_size); // FIX: zero index block
+        }
 
         uint32_t* singly_lvl2 = (uint32_t*)kcalloc(1, fs->block_size);
         ext2::read_block(fs, doubly[i], reinterpret_cast<uint8_t*>(singly_lvl2));
 
-        for (uint32_t j = 0; j < fs->block_size / 4; j++) {
-            if (singly_lvl2[j] == 0)
+        for (uint32_t j = 0; j < ptrs_per_block; j++) {
+            if (singly_lvl2[j] == 0){
                 // Allocating block if zero
                 singly_lvl2[j] = ext2::alloc_block(fs);
+                if (singly_lvl2[j] == (uint32_t)-1){ kfree(singly_lvl2); kfree(doubly); return -2; }
+                zero_block(fs, singly_lvl2[j], fs->block_size); // FIX: zero new data block
+                parent_inode->size_low += fs->block_size;       // FIX: grow dir size on new data block
+            }
 
             // If we could insert a value into a block
             if (insert_into_block(fs, singly_lvl2[j], name, inode_num, buf, &inserted)) {
@@ -623,39 +697,52 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
                 return 0;
             }
         }
+        ext2::write_block(fs, doubly[i], reinterpret_cast<uint8_t*>(singly_lvl2));
         kfree(singly_lvl2);
     }
+    ext2::write_block(fs, parent_inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(doubly));
     kfree(doubly);
 
     // -----------------------------------
     // Handle Triply Indirect Block
     // -----------------------------------
-    if (parent_inode->triply_inderect_blk_ptr == 0)
+    if (parent_inode->triply_inderect_blk_ptr == 0){
         parent_inode->triply_inderect_blk_ptr = ext2::alloc_block(fs);
+        if (parent_inode->triply_inderect_blk_ptr == (uint32_t)-1) return -2;
+        zero_block(fs, parent_inode->triply_inderect_blk_ptr, fs->block_size); // FIX: zero index block
+    }
 
     uint32_t* triply = (uint32_t*)kcalloc(1, fs->block_size);
     ext2::read_block(fs, parent_inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(triply));
 
-    for (uint32_t i = 0; i < fs->block_size / 4; i++) {
-        if (triply[i] == 0)
-            // Allocating block if zero
+    for (uint32_t i = 0; i < ptrs_per_block; i++) {
+        if (triply[i] == 0){
             triply[i] = ext2::alloc_block(fs);
+            if (triply[i] == (uint32_t)-1){ kfree(triply); return -2; }
+            zero_block(fs, triply[i], fs->block_size); // FIX: zero index block
+        }
 
         uint32_t* doubly_lvl2 = (uint32_t*)kcalloc(1, fs->block_size);
         ext2::read_block(fs, triply[i], reinterpret_cast<uint8_t*>(doubly_lvl2));
 
-        for (uint32_t j = 0; j < fs->block_size / 4; j++) {
-            if (doubly_lvl2[j] == 0)
-                // Allocating block if zero
+        for (uint32_t j = 0; j < ptrs_per_block; j++) {
+            if (doubly_lvl2[j] == 0){
                 doubly_lvl2[j] = ext2::alloc_block(fs);
+                if (doubly_lvl2[j] == (uint32_t)-1){ kfree(doubly_lvl2); kfree(triply); return -2; }
+                zero_block(fs, doubly_lvl2[j], fs->block_size); // FIX: zero index block
+            }
 
             uint32_t* singly_lvl3 = (uint32_t*)kcalloc(1, fs->block_size);
             ext2::read_block(fs, doubly_lvl2[j], reinterpret_cast<uint8_t*>(singly_lvl3));
 
-            for (uint32_t k = 0; k < fs->block_size / 4; k++) {
-                if (singly_lvl3[k] == 0)
+            for (uint32_t k = 0; k < ptrs_per_block; k++) {
+                if (singly_lvl3[k] == 0){
                     // Allocating block if zero
                     singly_lvl3[k] = ext2::alloc_block(fs);
+                    if (singly_lvl3[k] == (uint32_t)-1){ kfree(singly_lvl3); kfree(doubly_lvl2); kfree(triply); return -2; }
+                    zero_block(fs, singly_lvl3[k], fs->block_size); // FIX: zero new data block
+                    parent_inode->size_low += fs->block_size;        // FIX: grow dir size on new data block
+                }
 
                 // If we could insert a value into a block
                 if (insert_into_block(fs, singly_lvl3[k], name, inode_num, buf, &inserted)) {
@@ -668,16 +755,24 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
                     return 0;
                 }
             }
+            ext2::write_block(fs, doubly_lvl2[j], reinterpret_cast<uint8_t*>(singly_lvl3));
             kfree(singly_lvl3);
         }
+        ext2::write_block(fs, triply[i], reinterpret_cast<uint8_t*>(doubly_lvl2));
         kfree(doubly_lvl2);
     }
+    ext2::write_block(fs, parent_inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(triply));
     kfree(triply);
 
     return -3; // No space found
 }
 
 #pragma region Terminal Functions
+
+/// @brief Prints working directory
+void ext2::pwd(void) {
+    vga::printf("%S\n", cmd::currentDir);
+}
 
 /// @brief Lists directory entries
 void ext2::ls(void) {
@@ -697,6 +792,8 @@ void ext2::ls(void) {
         }
     }
     vga::printf("\n");
+
+    vfs_tree.traverse(vfs_tree.get_root(), vfs::print_node);
 }
 
 
@@ -726,7 +823,11 @@ void ext2::mkdir(void) {
         return;
     }
 
-    vfsNode parent = vfs::get_node(cmd::currentDir)->data;
+    treeNode* node = vfs::get_node(cmd::currentDir); // Retreiving node from current path
+    if(!node) return; // FIX: guard before deref
+    vfsNode parent = node->data;
+    if(!parent.fs) return;
+
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a dir
     if(!fs) {
@@ -734,8 +835,6 @@ void ext2::mkdir(void) {
         return;
     }
 
-    treeNode* node = vfs::get_node(cmd::currentDir); // Retreiving node from current path
-    if(!node) return;
     int count;
     vfsNode* nodes = ext2::read_dir(node, count);
     if(!nodes) return;
@@ -772,23 +871,25 @@ void ext2::mkdir(void) {
     inode->hard_link_count = 2;  // '.' and '..'
     inode->disk_sect_count = (fs->block_size / 512);
     inode->direct_blk_ptr[0] = block_num;
+
+    // FIX: ensure the new data block content starts zeroed
     uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
 
     // Create directory entries: '.' and '..'
     dir_ent_t* dot = (dir_ent_t*)buf;
     dot->inode = inode_num;
-    dot->entry_size = 12;
     dot->name_len = 1;
     dot->type_indicator = EXT2_FT_DIR;
     dot->name[0] = '.';
+    dot->entry_size = dirent_rec_len(dot->name_len); // FIX: correct aligned size (12)
 
     dir_ent_t* dotdot = (dir_ent_t*)((uint8_t*)dot + dot->entry_size);
     dotdot->inode = parent.inode_num;
-    dotdot->entry_size = fs->block_size - dot->entry_size;
     dotdot->name_len = 2;
     dotdot->type_indicator = EXT2_FT_DIR;
     dotdot->name[0] = '.';
     dotdot->name[1] = '.';
+    dotdot->entry_size = (uint16_t)(fs->block_size - dot->entry_size); // rest of block
 
     // Writing to disk
     write_block(fs, block_num, buf);

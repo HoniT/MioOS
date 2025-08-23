@@ -22,7 +22,7 @@
 #define EXT2_S_IFDIR 0x4000
 #define EXT2_FT_DIR  2
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)
-#define DEFAULT_DIR_PERMS 755 // rwxr-xr-x
+#define DEFAULT_DIR_PERMS 0755 // rwxr-xr-x
 
 // Structure of Ext2 Superblock
 struct superblock_t {
@@ -167,6 +167,7 @@ namespace ext2 {
     void rewrite_sb(ext2_fs_t* fs);
 
     // Terminal functions
+    void pwd(void);
     void ls(void);
     void cd(void);
     void mkdir(void);
