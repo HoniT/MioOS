@@ -18,7 +18,12 @@
 #define SUPERBLOCK_SIZE 1024
 #define EXT2_MAGIC 0xEF53
 
-#define ROOT_INODE_NUM 2
+#define EXT2_BAD_INO             1  /* Bad blocks inode */
+#define EXT2_ROOT_INO            2  /* Root directory */
+#define EXT2_BOOT_LOADER_INO     5  /* Boot loader */
+#define EXT2_UNDEL_DIR_INO       6  /* Undelete directory */
+#define EXT2_FIRST_NONRESERVED_INO 11
+
 #define EXT2_S_IFDIR 0x4000
 #define EXT2_FT_DIR  2
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)

@@ -9,7 +9,6 @@
 #define TREE_HPP
 
 #include <mm/heap.hpp>
-#include <drivers/vga_print.hpp>
 
 namespace data {
 

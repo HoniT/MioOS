@@ -33,7 +33,7 @@ const char* vfs::ide_device_names[4] = {
 // Prints VFS tree node
 void vfs::print_node(const vfsNode& node, int depth) {
     for(int i = 0; i < depth; i++) vga::printf(" ");
-    vga::printf("%S %s %s\n", node.name, node.is_dir ? "(DIR)" : "", node.path == cmd::currentDir ? "<====" : "");
+    vga::printf("%S\n", node.name);
 }
 
 // Initializes the VFS
@@ -59,7 +59,7 @@ void vfs::add_node(treeNode* parent, vfsNode node) {
 /// @param node node to add
 /// @param inode Inode pointing to actual FS dir entry
 void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs) {
-    if(name.empty() || !parent || inode_num == 0 || !inode || !fs) {
+    if(name.empty() || !parent) {
         vga::warning("Insufficient parameters for add_node");
         // Debug info
         vga::warning("(Parent: %x, name: %S, inode num: %u, inode: %x, fs: %x)", 
@@ -75,11 +75,17 @@ void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inod
         vga::warning("Parent passed to add_node isn't a dir!\n");
         return;
     }
-
+    
     // Creating path for new node
     data::string path = parent->data.path;
     path.append(name);
     path.append("/");
+
+    // If the node isn't in a Ext2 FS we'll create placeholders
+    if(!inode || !fs) {
+        treeNode* node = vfs_tree.create({name, path, true, EXT2_BAD_INO, nullptr, nullptr});
+        vfs_tree.add_child(parent, node);
+    }
 
     // Checking if parent already has a child of node
     treeNode* child = vfs_tree.find_child_by_predicate(parent, [path](vfsNode curr){return curr.path == path;});
@@ -92,7 +98,6 @@ void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inod
 
     // Adding the node
     treeNode* node = vfs_tree.create({name, path, INODE_IS_DIR(inode), inode_num, inode, fs});
-    vga::warning("%S, %S, %u, %u, %x, %x\n", node->data.name, node->data.path, node->data.is_dir, node->data.inode_num, node->data.inode, node->data.fs);
     vfs_tree.add_child(parent, node);
 }
 
@@ -129,5 +134,5 @@ void vfs::mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs) {
     treeNode* mntNode = vfs::get_node("/dev/");
     if(!mntNode) return;
     // Adding node
-    vfs::add_node(mntNode, name, ROOT_INODE_NUM, root_inode, fs);
+    vfs::add_node(mntNode, name, EXT2_ROOT_INO, root_inode, fs);
 }
