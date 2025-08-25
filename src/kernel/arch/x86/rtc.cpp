@@ -99,6 +99,81 @@ uint32_t rtc::get_unix_timestamp() {
     return ((days * 24 + hour) * 60 + min) * 60 + sec;
 }
 
+/// @brief Turns UNIX timestamp into a string date & time
+/// @param ts UNIX timestamp
+/// @return String date & time (YYYY-MM-DD HH:MM:SS)
+data::string rtc::timestamp_to_string(uint32_t ts) {
+    data::string out;
+
+    // Extract seconds, minutes, hours
+    uint32_t seconds = ts % 60;
+    ts /= 60;
+    uint32_t minutes = ts % 60;
+    ts /= 60;
+    uint32_t hours = ts % 24;
+    ts /= 24;
+
+    // Days since 1970-01-01
+    uint32_t days = ts;
+
+    // Calculate year
+    uint32_t year = 1970;
+    while (true) {
+        bool leap = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+        uint32_t days_in_year = leap ? 366 : 365;
+        if (days >= days_in_year) {
+            days -= days_in_year;
+            year++;
+        } else {
+            break;
+        }
+    }
+
+    // Calculate month
+    static const uint32_t days_in_month[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    uint32_t month = 0;
+    bool leap = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+    while (month < 12) {
+        uint32_t dim = days_in_month[month];
+        if (leap && month == 1) dim++; // February in leap year
+        if (days >= dim) {
+            days -= dim;
+            month++;
+        } else {
+            break;
+        }
+    }
+
+    uint32_t day = days + 1;
+
+    // Helper lambda to convert number to string
+    auto append_number = [&out](uint32_t num, int width) {
+        char buf[5]; // Enough for 4 digits + null
+        buf[width] = '\0';
+        for (int i = width - 1; i >= 0; i--) {
+            buf[i] = '0' + (num % 10);
+            num /= 10;
+        }
+        out.append(buf);
+    };
+
+    // Build the string YYYY-MM-DD HH:MM:SS
+    append_number(year, 4);
+    out.append("-");
+    append_number(month+1, 2);
+    out.append("-");
+    append_number(day, 2);
+    out.append(" ");
+    append_number(hours, 2);
+    out.append(":");
+    append_number(minutes, 2);
+    out.append(":");
+    append_number(seconds, 2);
+
+    return out;
+}
+
+
 // Prints current time
 void rtc::print_time(void) {
     vga::printf("Date (DD/MM/YY): %u/%u/%u (%s) Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), weekdays[rtc::get_weekday() - 1], 

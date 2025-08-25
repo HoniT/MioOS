@@ -861,7 +861,7 @@ void ext2::ls(void) {
 
     // Printing
     // Default listing
-    if(!metadata_print) 
+    if(!metadata_print)
         for(int i = 0; i < count; i++) {
             // Printing all entries instead of parent and same dir
             if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) {
@@ -873,18 +873,20 @@ void ext2::ls(void) {
         for(int i = 0; i < count; i++) {
             // Printing all entries instead of parent and same dir
             if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) {
-                // Type and permissions
-                vga::printf("%S ", mode_to_string(nodes[i].inode->type_and_perm));
-                // Link counts
-                vga::printf("%u ", nodes[i].inode->hard_link_count);
-                // UID
-                vga::printf("%u ", nodes[i].inode->uid);
-                // GID
-                vga::printf("%u ", nodes[i].inode->gid);
-                // Size
-                vga::printf("%u ", nodes[i].inode->size_low);
-                // Modify time
-                vga::printf("%u ", nodes[i].inode->last_mod_time);
+                if(nodes[i].inode) {
+                    // Type and permissions
+                    vga::printf("%S ", mode_to_string(nodes[i].inode->type_and_perm));
+                    // Link counts
+                    vga::printf("%u ", nodes[i].inode->hard_link_count);
+                    // UID
+                    vga::printf("%u ", nodes[i].inode->uid);
+                    // GID
+                    vga::printf("%u ", nodes[i].inode->gid);
+                    // Size
+                    vga::printf("%u ", nodes[i].inode->size_low);
+                    // Modify time
+                    vga::printf("%S ", rtc::timestamp_to_string(nodes[i].inode->last_mod_time));
+                }
                 // Name
                 vga::printf(nodes[i].is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S\n", nodes[i].name);
             }

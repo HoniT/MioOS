@@ -9,6 +9,7 @@
 #define RTC_HPP
 
 #include <stdint.h>
+#include <lib/data/string.hpp>
 
 #define RTC_PORT 0x70
 
@@ -24,6 +25,7 @@ namespace rtc {
     inline uint8_t bcd_to_bin(uint8_t val);
 
     uint32_t get_unix_timestamp();
+    data::string timestamp_to_string(uint32_t ts);
     void print_time(void);
 }
 
