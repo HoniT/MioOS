@@ -8,8 +8,6 @@
 #ifndef KTERMINAL_HPP
 #define KTERMINAL_HPP
 
-#include <lib/data/string.hpp>
-
 typedef void (*CommandFunc)();
 
 #define INPUTS_TO_SAVE 10
@@ -26,7 +24,6 @@ namespace cmd {
     // Info from kterminal
     extern bool onTerminal;
     extern char* currentInput;
-    extern data::string currentDir; // Current directory in fs to display in terminal
     extern char* currentUser; // Current user using the terminal
 
     void init(void);

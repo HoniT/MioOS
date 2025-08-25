@@ -14,6 +14,7 @@
 #include <io.hpp>
 #include <kterminal.hpp>
 #include <lib/string_util.hpp>
+#include <lib/data/string.hpp>
 
 using namespace io;
 

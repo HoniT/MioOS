@@ -18,6 +18,8 @@
 
 data::tree<vfsNode> vfs_tree;
 
+data::string vfs::currentDir; // Current directory in fs to display in terminal
+
 int vfs::device_name_index = 0;
 const char* vfs::device_names[26] = {
     "sda", "sdb", "sdc", "sdd", "sde", "sdf", "sdg", "sdh", "sdi", "sdj",

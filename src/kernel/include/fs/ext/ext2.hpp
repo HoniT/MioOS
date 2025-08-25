@@ -24,7 +24,25 @@
 #define EXT2_UNDEL_DIR_INO       6  /* Undelete directory */
 #define EXT2_FIRST_NONRESERVED_INO 11
 
-#define EXT2_S_IFDIR 0x4000
+#define EXT2_S_IFMT   0xF000  // Format mask
+#define EXT2_S_IFSOCK 0xC000  // Socket
+#define EXT2_S_IFLNK  0xA000  // Symbolic link
+#define EXT2_S_IFREG  0x8000  // Regular file
+#define EXT2_S_IFBLK  0x6000  // Block device
+#define EXT2_S_IFDIR  0x4000  // Directory
+#define EXT2_S_IFCHR  0x2000  // Character device
+#define EXT2_S_IFIFO  0x1000  // FIFO
+
+#define EXT2_S_IRUSR 0x0100 // Owner has read permission
+#define EXT2_S_IWUSR 0x0080 // Owner has write permission
+#define EXT2_S_IXUSR 0x0040 // Owner has execute permission
+#define EXT2_S_IRGRP 0x0020 // Group has read permission
+#define EXT2_S_IWGRP 0x0010 // Group has write permission
+#define EXT2_S_IXGRP 0x0008 // Group has execute permission
+#define EXT2_S_IROTH 0x0004 // Others have read permission
+#define EXT2_S_IWOTH 0x0002 // Others have write permission
+#define EXT2_S_IXOTH 0x0001 // Others have execute permission
+
 #define EXT2_FT_DIR  2
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)
 #define DEFAULT_DIR_PERMS 0755 // rwxr-xr-x

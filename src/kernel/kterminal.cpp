@@ -16,6 +16,7 @@
 #include <pit.hpp>
 #include <drivers/ata.hpp>
 #include <fs/ext/ext2.hpp>
+#include <fs/ext/vfs.hpp>
 #include <device.hpp>
 #include <kernel_main.hpp>
 #include <rtc.hpp>
@@ -71,7 +72,6 @@ uint8_t saved_inputs_num = 0; // This counts how many places are occupied in the
 // The coordinates of the screen in which the current input resides
 size_t input_row, input_col;
 
-data::string cmd::currentDir; // Current directory in fs to display in terminal
 char* cmd::currentUser = "root"; // Current user using the terminal
 
 // Handles keyboard input
@@ -121,12 +121,12 @@ void kterminal_handle_input() {
 // Initializes the terminal
 void cmd::init(void) {
     currentInput = (char*)kmalloc(255);
-    currentDir = "/";
+    vfs::currentDir = "/";
 
     // Setting up VGA enviorment for terminal
     vga::printf("\n =====================Type \"help\" to get available commands==================== \n");
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-    vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
+    vga::printf("%s@MioOS: %S# ", currentUser, vfs::currentDir);
     vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
 
 
@@ -162,7 +162,7 @@ void cmd::run_cmd(void) {
             commands[i].function();
             
             vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-            vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
+            vga::printf("%s@MioOS: %S# ", currentUser, vfs::currentDir);
             vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
             
             // Saving the current screen coordinates
@@ -180,7 +180,7 @@ void cmd::run_cmd(void) {
     vga::warning("\n%s isn't a valid command!\n", get_first_word(currentInput));
     new_cmd:
     vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-    vga::printf("%s@MioOS: %S# ", currentUser, currentDir);
+    vga::printf("%s@MioOS: %S# ", currentUser, vfs::currentDir);
     vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
 
     // Saving the current screen coordinates
