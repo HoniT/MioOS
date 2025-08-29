@@ -20,10 +20,11 @@ struct Command {
     const char* description;
 };
 
+const char* get_current_input();
+
 namespace cmd {
     // Info from kterminal
     extern bool onTerminal;
-    extern char* currentInput;
     extern char* currentUser; // Current user using the terminal
 
     void init(void);

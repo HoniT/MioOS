@@ -19,6 +19,8 @@
 data::tree<vfsNode> vfs_tree;
 
 data::string vfs::currentDir; // Current directory in fs to display in terminal
+uint8_t vfs::currUid = 0;
+uint8_t vfs::currGid = 0;
 
 int vfs::device_name_index = 0;
 const char* vfs::device_names[26] = {

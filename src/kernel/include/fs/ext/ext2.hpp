@@ -194,6 +194,7 @@ namespace ext2 {
     void ls(void);
     void cd(void);
     void mkdir(void);
+    void rm(void);
 } // namespace ext2
 
 #endif // EXT2_HPP

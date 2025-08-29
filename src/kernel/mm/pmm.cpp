@@ -308,7 +308,7 @@ void pmm::free_frame(void* ptr) {
 
 void pmm::getmeminfo(void) {
     // If the user inputed the help flag
-    if(strcmp(get_remaining_string(cmd::currentInput), "-h") == 0) {
+    if(strcmp(get_remaining_string(get_current_input()), "-h") == 0) {
         // Printing every available version of getmeminfo
         vga::printf("-mmap - Prints the memory map given from GRUB\n");
         vga::printf("-reg - Prints the blocks in the usable memory regions\n");
@@ -316,19 +316,19 @@ void pmm::getmeminfo(void) {
     }
 
     // Prints the memory map
-    if(strcmp(get_remaining_string(cmd::currentInput), "-mmap") == 0) {
+    if(strcmp(get_remaining_string(get_current_input()), "-mmap") == 0) {
         pmm::print_memory_map();
         return;
     }
 
     // Prints block info
-    if(strcmp(get_remaining_string(cmd::currentInput), "-reg") == 0) {
+    if(strcmp(get_remaining_string(get_current_input()), "-reg") == 0) {
         pmm::print_usable_regions();
         return;
     }
 
     // If there were no flags inputed
-    if(strcmp(get_remaining_string(cmd::currentInput), "") == 0) {
+    if(strcmp(get_remaining_string(get_current_input()), "") == 0) {
         // Printing usable and used memory
         vga::printf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
         vga::printf("Total installed memory:  %lu bytes (~%lu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
@@ -339,7 +339,7 @@ void pmm::getmeminfo(void) {
     }
     
     // If an invalid flag has been entered we'll throw an error
-    vga::warning("Invalid flag \"%s\"for \"getmeminfo\"!\n", get_remaining_string(cmd::currentInput));
+    vga::warning("Invalid flag \"%s\"for \"getmeminfo\"!\n", get_remaining_string(get_current_input()));
 }
 
 #pragma endregion

@@ -290,7 +290,7 @@ namespace pio_28 {
 // Reads a given sector on a given ATA device 
 void ata::read_ata(void) {
     // Getting arguments from string
-    int count; data::string* params = split_string_tokens(cmd::currentInput, count);
+    int count; data::string* params = split_string_tokens(get_current_input(), count);
     if(count != 5 || !params[1].equals("-dev") || !params[3].equals("-sect")) {
         vga::warning("Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
         return;

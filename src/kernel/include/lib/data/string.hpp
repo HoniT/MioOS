@@ -94,6 +94,16 @@ namespace data{
         bool operator==(const string& other) const {
             return strcmp(this->data, (const char*)other) == 0;
         }
+        bool operator==(const char* other) const {
+            return strcmp(this->data, other) == 0;
+        }
+        // Returns if this string and a given string are not equal
+        bool operator!=(const string& other) const {
+            return strcmp(this->data, (const char*)other) != 0;
+        }
+        bool operator!=(const char* other) const {
+            return strcmp(this->data, other) != 0;
+        }
 
         // Gets index'th member of data
         char& operator[](uint32_t index) {

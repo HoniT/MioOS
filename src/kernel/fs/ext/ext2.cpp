@@ -13,11 +13,13 @@
 #include <drivers/vga_print.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <rtc.hpp>
-#include <kterminal.hpp> // For defining CD, LS, MKDIR... for the terminal
+#include <kterminal.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/data/string.hpp>
 #include <lib/string_util.hpp>
 #include <lib/path_util.hpp>
+
+#pragma region Read & Write
 
 // Loads an inode with a given inode number
 inode_t* ext2::load_inode(ext2_fs_t* fs, const uint32_t inode_num) {
@@ -144,7 +146,6 @@ void ext2::write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode) 
     kfree(buf);
     return; // success
 }
-
 
 
 /// @brief Allocates a new block
@@ -411,6 +412,8 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     return entries;
 }
 
+#pragma endregion
+
 #pragma region Init
 
 // Initializes the Ext2 FS for an ATA device
@@ -473,6 +476,51 @@ void ext2::find_ext2_fs(void) {
 
 #pragma endregion
 
+#pragma region Helper Functions
+
+static inline uint16_t align4_u16(uint16_t x) { return (uint16_t)((x + 3u) & ~3u); }
+static inline uint16_t dirent_rec_len(uint8_t name_len) { return (uint16_t)(8u + align4_u16(name_len)); }
+static inline void zero_block(ext2_fs_t* fs, uint32_t blk, uint32_t block_size){
+    uint8_t* z = (uint8_t*)kcalloc(1, block_size);
+    ext2::write_block(fs, blk, z);
+    kfree(z);
+}
+
+data::string mode_to_string(const uint16_t mode) {
+    data::string str;
+
+    // File type
+    switch ((mode & EXT2_S_IFMT)) {
+        case EXT2_S_IFREG: str.append("-"); break;
+        case EXT2_S_IFDIR: str.append("d"); break;
+        case EXT2_S_IFLNK: str.append("l"); break;
+        case EXT2_S_IFCHR: str.append("c"); break;
+        case EXT2_S_IFBLK: str.append("b"); break;
+        case EXT2_S_IFIFO: str.append("p"); break;
+        case EXT2_S_IFSOCK: str.append("s"); break;
+        default:           str.append("?"); break;
+    }
+
+    // Owner
+    str.append((mode & EXT2_S_IRUSR) ? "r" : "-");
+    str.append((mode & EXT2_S_IWUSR) ? "w" : "-");
+    str.append((mode & EXT2_S_IXUSR) ? "x" : "-");
+
+    // Group
+    str.append((mode & EXT2_S_IRGRP) ? "r" : "-");
+    str.append((mode & EXT2_S_IWGRP) ? "w" : "-");
+    str.append((mode & EXT2_S_IXGRP) ? "x" : "-");
+
+    // Others
+    str.append((mode & EXT2_S_IROTH) ? "r" : "-");
+    str.append((mode & EXT2_S_IWOTH) ? "w" : "-");
+    str.append((mode & EXT2_S_IXOTH) ? "x" : "-");
+
+    return str;
+}
+
+#pragma endregion
+
 /// @brief cd (Change directory) logic
 /// @param dir Dir to change to
 /// @return If we could change to the dir
@@ -531,16 +579,6 @@ bool change_dir(data::string dir) {
 
     vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
     return false;
-}
-
-// Helper functions
-
-static inline uint16_t align4_u16(uint16_t x){ return (uint16_t)((x + 3u) & ~3u); }
-static inline uint16_t dirent_rec_len(uint8_t name_len){ return (uint16_t)(8u + align4_u16(name_len)); }
-static inline void zero_block(ext2_fs_t* fs, uint32_t blk, uint32_t block_size){
-    uint8_t* z = (uint8_t*)kcalloc(1, block_size);
-    ext2::write_block(fs, blk, z);
-    kfree(z);
 }
 
 // Inserts dir entry in block
@@ -794,42 +832,54 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
     return -3; // No space found
 }
 
-#pragma region Helper Functions
+/// @brief Removes dir entry
+/// @param parent Parent node
+/// @param name Name of entry to remove
+bool remove_dir_entry(treeNode* parent, data::string name) {
+    if(!parent || name.empty()) return false;
 
-data::string mode_to_string(const uint16_t mode) {
-    data::string str;
+    ext2_fs_t* fs = parent->data.fs;
+    inode_t* parent_inode = parent->data.inode;
+    if(!fs || !parent_inode) return false;
 
-    // File type
-    switch ((mode & EXT2_S_IFMT)) {
-        case EXT2_S_IFREG: str.append("-"); break;
-        case EXT2_S_IFDIR: str.append("d"); break;
-        case EXT2_S_IFLNK: str.append("l"); break;
-        case EXT2_S_IFCHR: str.append("c"); break;
-        case EXT2_S_IFBLK: str.append("b"); break;
-        case EXT2_S_IFIFO: str.append("p"); break;
-        case EXT2_S_IFSOCK: str.append("s"); break;
-        default:           str.append("?"); break;
+    // Allocating buffer for a single block
+    uint8_t* buf = (uint8_t*)kmalloc(fs->block_size);
+    if (!buf) {
+        vga::warning("remove_dir_entry: out of memory\n");
+        return false;
     }
 
-    // Owner
-    str.append((mode & EXT2_S_IRUSR) ? "r" : "-");
-    str.append((mode & EXT2_S_IWUSR) ? "w" : "-");
-    str.append((mode & EXT2_S_IXUSR) ? "x" : "-");
-
-    // Group
-    str.append((mode & EXT2_S_IRGRP) ? "r" : "-");
-    str.append((mode & EXT2_S_IWGRP) ? "w" : "-");
-    str.append((mode & EXT2_S_IXGRP) ? "x" : "-");
-
-    // Others
-    str.append((mode & EXT2_S_IROTH) ? "r" : "-");
-    str.append((mode & EXT2_S_IWOTH) ? "w" : "-");
-    str.append((mode & EXT2_S_IXOTH) ? "x" : "-");
-
-    return str;
+    bool removed = false;
+    // Itterating through direct blocks
+    
 }
 
-#pragma endregion
+/// @brief Removes a directory entry
+/// @param parent Parent of entry to remove
+/// @param name Name of entry to remove
+void remove_entry(treeNode* parent, data::string name) {
+    int count;
+    vfsNode* nodes = ext2::read_dir(parent, count);
+
+    vfsNode node;
+    bool found = false;
+
+    for(int i = 0; i < count; i++) {
+        if(nodes[i].name == name) {
+            node = nodes[i]; // save matched entry
+            found = true;
+            break;
+        }
+    }
+
+    if(!found) {
+        vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", name, vfs::currentDir);
+        return;
+    }
+
+    
+    
+}
 
 #pragma region Terminal Functions
 
@@ -842,7 +892,7 @@ void ext2::pwd(void) {
 void ext2::ls(void) {
     // Getting parameter list from cmd
     int count;
-    data::string* tokens = split_string_tokens(cmd::currentInput, count);
+    data::string* tokens = split_string_tokens(get_current_input(), count);
 
     bool metadata_print = false;
     if(count >= 2) {
@@ -898,7 +948,7 @@ void ext2::ls(void) {
 /// @brief Changes directory
 void ext2::cd(void) {
     // Getting directory to change to
-    data::string input = get_remaining_string(cmd::currentInput);
+    data::string input = get_remaining_string(get_current_input());
     if(input.empty()) {
         vga::warning("Syntax: cd <dir>\n");
         return;
@@ -915,7 +965,7 @@ void ext2::cd(void) {
 /// @brief Created a directory in a FS 
 void ext2::mkdir(void) {
     // Getting directory to create
-    data::string input = get_remaining_string(cmd::currentInput);
+    data::string input = get_remaining_string(get_current_input());
     if(input.empty()) {
         vga::warning("Syntax: mkdir <dir>\n");
         return;
@@ -1011,6 +1061,38 @@ void ext2::mkdir(void) {
 
     kfree(buf);
     kfree(inode);
+    return;
+}
+
+/// @brief Removes dir entry
+void ext2::rm(void) {
+    // Getting params
+    int count; data::string* tokens = split_string_tokens(get_current_input(), count);
+
+    if(count == 3) {
+        if(tokens[1] != "-rf" && tokens[1] != "-r") goto invalid_params;
+        bool forced_remove = false;
+        // Checking if we'll remove it forcefully
+        if(tokens[1] == "-rf") forced_remove = true;
+
+
+        return;
+    }
+    // rm <file>
+    else if(count == 2) {
+        if(tokens[1] == "-h") {
+            vga::printf("rm <file> - Deletes file (doesn't work with directories)\n");
+            vga::printf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
+            vga::printf("rm -rf <dir> - Force deletes directory (Deletes contents without any warnings)\n");
+            return;
+        }
+        
+        remove_entry(vfs::get_node(vfs::currentDir), tokens[1]);
+        return;
+    }
+
+    invalid_params:
+    vga::warning("Invalid parameters passed to rm! Try rm -h\n");
     return;
 }
 

@@ -28,7 +28,12 @@ using namespace kbrd;
 // Tells us if were on the terminal mode
 bool cmd::onTerminal = false;
 // Current input
-char* cmd::currentInput;
+char* currentInput;
+
+// Getter
+const char* get_current_input() {
+    return currentInput;
+}
 
 // Basic command function declarations
 void help();
@@ -60,7 +65,8 @@ Command commands[] = {
     {"pwd", ext2::pwd, "", " - Prints working directory"},
     {"ls", ext2::ls, "", " - Lists entries of the current directory"},
     {"cd", ext2::cd, " <dir>", " - Changes directory to given dir"},
-    {"mkdir", ext2::mkdir, " <dir>", " - Creates a directory in the current dir"}
+    {"mkdir", ext2::mkdir, " <dir>", " - Creates a directory in the current dir"},
+    {"rm", ext2::rm, " <file>", " - Removes (deletes) a directory/directory entry"}
 };
 
 // Saving inputs
@@ -88,9 +94,9 @@ void kterminal_handle_input() {
                 break;
 
             case '\b':
-                if (strlen(cmd::currentInput) > 0) {
+                if (strlen(currentInput) > 0) {
                     vga::backspace();
-                    cmd::currentInput[strlen(cmd::currentInput) - 1] = '\0';
+                    currentInput[strlen(currentInput) - 1] = '\0';
                 }
                 break;
 
@@ -106,10 +112,10 @@ void kterminal_handle_input() {
                 break;
 
             default:
-                if (cmd::onTerminal && strlen(cmd::currentInput) < 256) {
-                    size_t len = strlen(cmd::currentInput);
-                    cmd::currentInput[len] = (char)ev.character;
-                    cmd::currentInput[len + 1] = '\0';
+                if (cmd::onTerminal && strlen(currentInput) < 256) {
+                    size_t len = strlen(currentInput);
+                    currentInput[len] = (char)ev.character;
+                    currentInput[len + 1] = '\0';
                     vga::printf("%c", ev.character);
                 }
                 break;
@@ -146,7 +152,7 @@ void cmd::init(void) {
 
 // Runs a command
 void cmd::run_cmd(void) {
-    if(strcmp(get_first_word(cmd::currentInput), "") == 0) {
+    if(strcmp(get_first_word(currentInput), "") == 0) {
         vga::printf("\n");
         goto new_cmd;
     }
@@ -303,12 +309,12 @@ void clear() {
 }
 
 void echo() {
-    vga::printf("%s\n", get_remaining_string(cmd::currentInput));
+    vga::printf("%s\n", get_remaining_string(currentInput));
 }
 
 void peek() {
     // Getting the address from the input
-    const char* strAddress = get_remaining_string(cmd::currentInput);
+    const char* strAddress = get_remaining_string(currentInput);
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
@@ -321,7 +327,7 @@ void peek() {
 }
 
 void poke() {
-    int count; data::string* params = split_string_tokens(cmd::currentInput, count);
+    int count; data::string* params = split_string_tokens(currentInput, count);
     if(count != 3) {
         vga::warning("Syntax: poke <address> <value>\n");
         return;

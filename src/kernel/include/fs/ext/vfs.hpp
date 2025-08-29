@@ -28,6 +28,8 @@ extern data::tree<vfsNode> vfs_tree;
 
 namespace vfs {
     extern data::string currentDir;
+    extern uint8_t currUid;
+    extern uint8_t currGid;
     extern int device_name_index;
     extern const char* device_names[26];
     extern int ide_device_name_index;
