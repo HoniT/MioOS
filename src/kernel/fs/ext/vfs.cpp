@@ -38,8 +38,7 @@ const char* vfs::ide_device_names[4] = {
 void vfs::print_node(const vfsNode& node, int depth) {
     for(int i = 0; i < depth; i++) vga::printf(" ");
     vga::printf("%S", node.name);
-    if(node.path == vfs::currentDir) vga::warning(" <===");
-    if(node.inode) vga::printf(" %S", ext2::mode_to_string(node.inode->type_and_perm));
+    if(node.path == vfs::currentDir) vga::printf(" <===");
     vga::printf("\n");
 }
 
@@ -97,11 +96,9 @@ void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inod
 
     // Adding the node
     treeNode* node = vfs_tree.create({name, path, INODE_IS_DIR(inode), inode_num, inode, fs});
-    vga::warning("MKDIR: %S %S\n", path, ext2::mode_to_string(inode->type_and_perm));
     
     vfs_tree.add_child(parent, node);
     treeNode* node123 = vfs::get_node(path);
-    vga::warning("MKDIR2: %S %S\n", node123->data.path, ext2::mode_to_string(node123->data.inode->type_and_perm));
 }
 
 /// @brief Gets a VFS node with a given path

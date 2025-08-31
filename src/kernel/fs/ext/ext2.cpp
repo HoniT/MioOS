@@ -269,7 +269,7 @@ bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer,
 ext2_fs_t* curr_fs = nullptr;
 // Parses for dir entries in block
 void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, treeNode* parentNode, vfsNode parent, int& last_index) {
-    if (last_index >= 256) return;  // prevent overflow
+    if (last_index >= 256) return;  // Prevent overflow
 
     uint32_t offset = 0;
     // Finding all dir entries in the block
@@ -558,7 +558,6 @@ bool change_dir(data::string dir) {
         vfs::currentDir = found_dir->data.path;
         // Changing FS if possible
         if(curr_fs != found_dir->data.fs) curr_fs = found_dir->data.fs;
-        if(found_dir->data.inode) vga::printf("Changed to %S (found in predicate)\n", ext2::mode_to_string(found_dir->data.inode->type_and_perm));
         return true;
     }
 
@@ -581,7 +580,6 @@ bool change_dir(data::string dir) {
             
             // Adding to VFS tree
             vfs::add_node(currNode, nodes[i].name, nodes[i].inode_num, nodes[i].inode, nodes[i].fs);
-            if(nodes[i].inode) vga::printf("Changed to %S\n", ext2::mode_to_string(nodes[i].inode->type_and_perm));
             return true;
         }
     }
@@ -951,8 +949,6 @@ void ext2::ls(void) {
             }
         }
     vga::printf("\n");
-
-    vfs_tree.traverse(vfs_tree.get_root(), vfs::print_node);
 }
 
 
@@ -991,7 +987,6 @@ void ext2::mkdir(void) {
     vfsNode parent = node->data;
     if(!parent.fs) return;
 
-    vga::printf("%S\n", mode_to_string(parent.inode->type_and_perm));
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a dir
     if(!fs) {
@@ -1066,7 +1061,6 @@ void ext2::mkdir(void) {
 
     parent.inode->hard_link_count++;
     parent.inode->last_mod_time = rtc::get_unix_timestamp();
-    vga::printf("%S\n", mode_to_string(parent.inode->type_and_perm));
 
     // Write back inodes
     write_inode(fs, inode_num, inode);
@@ -1077,7 +1071,6 @@ void ext2::mkdir(void) {
     vfs::add_node(vfs::get_node(vfs::currentDir), input, inode_num, inode, fs);
 
     kfree(buf);
-    kfree(inode);
     return;
 }
 
