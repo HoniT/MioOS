@@ -27,6 +27,18 @@ void* memcpy(void* dest, const void* src, size_t n) {
     return dest;
 }
 
+uint32_t memcmp(const void *s1, const void *s2, const size_t n) {
+    const unsigned char *p1 = (const unsigned char *)s1;
+    const unsigned char *p2 = (const unsigned char *)s2;
+
+    for (size_t i = 0; i < n; i++) {
+        if (p1[i] != p2[i]) {
+            return (int)p1[i] - (int)p2[i];
+        }
+    }
+    return 0;
+}
+
 // Alligns the size to the allignment
 size_t align_up(const size_t size, const size_t alignment) {
     return (size + alignment - 1) & ~(alignment - 1);

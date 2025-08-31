@@ -11,8 +11,8 @@
 #include <stdint.h>
 #include <device.hpp>
 #include <lib/data/tree.hpp>
+#include <lib/data/string.hpp>
 
-#pragma region Structures
 
 // For superblock
 #define SUPERBLOCK_SIZE 1024
@@ -47,6 +47,7 @@
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)
 #define DEFAULT_DIR_PERMS 0755 // rwxr-xr-x
 
+#pragma region Structures
 // Structure of Ext2 Superblock
 struct superblock_t {
     // -- Base Fields --
@@ -169,9 +170,11 @@ namespace ext2 {
     // Finds all Ext2 File Systems
     void find_ext2_fs(void);
 
+    data::string mode_to_string(const uint16_t mode);
+
     // Read / Write functions
-    void read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read = 1);
-    void write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write = 1);
+    bool read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read = 1);
+    bool write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write = 1);
     // Returns a list of VFS nodes of entries in the given dir
     vfsNode* read_dir(data::tree<vfsNode>::Node* node, int& count);
     

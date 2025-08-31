@@ -235,7 +235,7 @@ void ext2::rewrite_sb(ext2_fs_t* fs) {
 }
 
 
-void ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read) {
+bool ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read) {
     // Translating Ext2 blocks to LBA blocks
     uint32_t lba = (block_num * fs->block_size) / 512;
     uint32_t lba_blocks = (blocks_to_read * fs->block_size) / 512;
@@ -246,10 +246,12 @@ void ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, 
     }
     else {
         vga::error("Ext2 FS doesn't have a device!\n");
+        return false;
     }
+    return true;
 }
 
-void ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write) {
+bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write) {
     uint32_t lba = (block_num * fs->block_size) / 512;
     uint32_t lba_blocks = (blocks_to_write * fs->block_size) / 512;
 
@@ -258,7 +260,9 @@ void ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer,
     }
     else {
         vga::error("Ext2 FS doesn't have a device!\n");
+        return false;
     }
+    return true;
 }
 
 
@@ -486,7 +490,10 @@ static inline void zero_block(ext2_fs_t* fs, uint32_t blk, uint32_t block_size){
     kfree(z);
 }
 
-data::string mode_to_string(const uint16_t mode) {
+/// @brief Transforms the type and permissions field of an inode into a readable permission string
+/// @param mode Type and permissions field of an inode
+/// @return Readable string permission
+data::string ext2::mode_to_string(const uint16_t mode) {
     data::string str;
 
     // File type
@@ -551,6 +558,7 @@ bool change_dir(data::string dir) {
         vfs::currentDir = found_dir->data.path;
         // Changing FS if possible
         if(curr_fs != found_dir->data.fs) curr_fs = found_dir->data.fs;
+        if(found_dir->data.inode) vga::printf("Changed to %S (found in predicate)\n", ext2::mode_to_string(found_dir->data.inode->type_and_perm));
         return true;
     }
 
@@ -573,6 +581,7 @@ bool change_dir(data::string dir) {
             
             // Adding to VFS tree
             vfs::add_node(currNode, nodes[i].name, nodes[i].inode_num, nodes[i].inode, nodes[i].fs);
+            if(nodes[i].inode) vga::printf("Changed to %S\n", ext2::mode_to_string(nodes[i].inode->type_and_perm));
             return true;
         }
     }
@@ -851,19 +860,21 @@ bool remove_dir_entry(treeNode* parent, data::string name) {
 
     bool removed = false;
     // Itterating through direct blocks
-    
+    for(int i = 0; i < 12; i++) {
+
+    }
 }
 
 /// @brief Removes a directory entry
 /// @param parent Parent of entry to remove
 /// @param name Name of entry to remove
-void remove_entry(treeNode* parent, data::string name) {
+void remove_entry(treeNode* parent, data::string name, bool is_dir) {
+    // Getting parent directories entries
     int count;
     vfsNode* nodes = ext2::read_dir(parent, count);
-
     vfsNode node;
     bool found = false;
-
+    // Finding entry
     for(int i = 0; i < count; i++) {
         if(nodes[i].name == name) {
             node = nodes[i]; // save matched entry
@@ -871,13 +882,11 @@ void remove_entry(treeNode* parent, data::string name) {
             break;
         }
     }
-
     if(!found) {
-        vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", name, vfs::currentDir);
+        vga::warning("rm: Couldn't find directory \"%S\" in \"%S\"\n", name, vfs::currentDir);
         return;
     }
 
-    
     
 }
 
@@ -942,6 +951,8 @@ void ext2::ls(void) {
             }
         }
     vga::printf("\n");
+
+    vfs_tree.traverse(vfs_tree.get_root(), vfs::print_node);
 }
 
 
@@ -970,12 +981,17 @@ void ext2::mkdir(void) {
         vga::warning("Syntax: mkdir <dir>\n");
         return;
     }
+    if(input[0] == '-') {
+        vga::warning("Please don't start the name of the dir with '-'\n");
+        return;
+    }
 
     treeNode* node = vfs::get_node(vfs::currentDir); // Retreiving node from current path
     if(!node) return;
     vfsNode parent = node->data;
     if(!parent.fs) return;
 
+    vga::printf("%S\n", mode_to_string(parent.inode->type_and_perm));
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a dir
     if(!fs) {
@@ -1050,6 +1066,7 @@ void ext2::mkdir(void) {
 
     parent.inode->hard_link_count++;
     parent.inode->last_mod_time = rtc::get_unix_timestamp();
+    vga::printf("%S\n", mode_to_string(parent.inode->type_and_perm));
 
     // Write back inodes
     write_inode(fs, inode_num, inode);
@@ -1078,16 +1095,16 @@ void ext2::rm(void) {
 
         return;
     }
-    // rm <file>
     else if(count == 2) {
-        if(tokens[1] == "-h") {
+        if(tokens[1][0] == '-' && tokens[1] == "-h") {
             vga::printf("rm <file> - Deletes file (doesn't work with directories)\n");
             vga::printf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
             vga::printf("rm -rf <dir> - Force deletes directory (Deletes contents without any warnings)\n");
             return;
         }
         
-        remove_entry(vfs::get_node(vfs::currentDir), tokens[1]);
+        // rm <file>
+        remove_entry(vfs::get_node(vfs::currentDir), tokens[1], false);
         return;
     }
 

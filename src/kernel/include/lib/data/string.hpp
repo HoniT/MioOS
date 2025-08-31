@@ -134,8 +134,8 @@ namespace data{
             length = 0;
         }
         // Appending const char* to this string
-        void append(const char* str) {
-            if (!str || str[0] == '\0') return; // Nothing to append
+        data::string append(const char* str) {
+            if (!str || str[0] == '\0') return *this; // Nothing to append
 
             uint32_t str_len = strlen(str);
             uint32_t new_length = length + str_len;
@@ -154,10 +154,12 @@ namespace data{
                 kfree(data);
             data = new_data;
             length = new_length;
+
+            return *this;
         }
         // Appending a given string to this string
-        void append(const string& str) {
-            append(str.data);
+        data::string append(const string& str) {
+            return append(str.data);
         }
 
         // Substring
