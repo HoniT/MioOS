@@ -9,12 +9,13 @@
 #define KERNEL_MAIN_HPP
 
 #include <stdint.h>
+#include <lib/data/string.hpp>
 
 // GRUB multiboot magic number
 #define MULTIBOOT_BOOTLOADER_MAGIC 0x2BADB002
 
 // MioOS kernel version
-const uint32_t kernel_version = 1;
+extern data::string kernel_version;
 
 // GRUB multiboot info
 // Multiboot header definitions

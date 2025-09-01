@@ -45,7 +45,7 @@
 
 #define EXT2_FT_DIR  2
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)
-#define DEFAULT_DIR_PERMS 0755 // rwxr-xr-x
+#define DEFAULT_DIR_PERMS 0777 // rwxrwxrwx
 
 #pragma region Structures
 // Structure of Ext2 Superblock
@@ -162,6 +162,12 @@ struct ext2_fs_t {
     uint32_t blk_grp_desc_blocks;
 };
 
+struct ext2_perms {
+    bool read;
+    bool write;
+    bool execute;
+};
+
 struct vfsNode;
 
 namespace ext2 {
@@ -171,6 +177,7 @@ namespace ext2 {
     void find_ext2_fs(void);
 
     data::string mode_to_string(const uint16_t mode);
+    ext2_perms get_perms(const inode_t* inode, const uint32_t uid, const uint32_t gid);
 
     // Read / Write functions
     bool read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read = 1);

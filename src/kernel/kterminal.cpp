@@ -290,7 +290,7 @@ void getsysinfo() {
     vga::printf("CPU Model: %s\n", cpu_model_name);
 
     // Kernel
-    vga::printf("\n---Software---\nKernel Version: %u\n", kernel_version);
+    vga::printf("\n---Software---\nKernel Version: %S\n", kernel_version);
 
     // Printing colors (vga color test)
     for (int i = PRINT_COLOR_BLACK; i <= PRINT_COLOR_WHITE; ++i) {

@@ -19,8 +19,8 @@
 data::tree<vfsNode> vfs_tree;
 
 data::string vfs::currentDir; // Current directory in fs to display in terminal
-uint8_t vfs::currUid = 0;
-uint8_t vfs::currGid = 0;
+uint32_t vfs::currUid = 0;
+uint32_t vfs::currGid = 0;
 
 int vfs::device_name_index = 0;
 const char* vfs::device_names[26] = {
@@ -66,11 +66,11 @@ void vfs::add_node(treeNode* parent, vfsNode node) {
 /// @param inode Inode pointing to actual FS dir entry
 void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs) {
     if(name.empty() || !parent) {
-        vga::warning("Insufficient parameters for add_node");
+        vga::warning("add_node: Insufficient parameters for add_node");
         return;
     }
     if(!parent->data.is_dir) {
-        vga::warning("Parent passed to add_node isn't a dir!\n");
+        vga::warning("add_node: Parent passed to add_node isn't a dir!\n");
         return;
     }
     

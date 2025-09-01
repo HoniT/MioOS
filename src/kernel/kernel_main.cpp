@@ -28,6 +28,7 @@
 #include <fs/ext/vfs.hpp>
 #include <tests/unit_tests.hpp>
 
+data::string kernel_version;
 extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Managing GRUB multiboot error
     if(magic != MULTIBOOT_BOOTLOADER_MAGIC) {
@@ -35,19 +36,20 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
         kernel_panic("Invalid GRUB magic number!");
         return;
     }
-
+    
     vga::init(); // Setting main VGA text/title
     
     // Descriptor tables
     gdt::init(); // Global Descriptor Table (GDT)
     idt::init(); // Interrupts Descriptor Table (IDT)
-
+    
     cpu::get_processor_info();
     
     // Initializing memory managers
     heap::init();
     pmm::init(mbi);
     vmm::init();
+    kernel_version = "MioOS kernel 0.3 (Alpha)";
     
     // Testing heap
     unittsts::test_heap();
@@ -59,7 +61,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Drivers
     pit::init(); // Programmable Interval Timer
     kbrd::init(); // Keyboard drivers
-
+    
     // Initializing File System, storage drivers...
     device_init();
     ata::init();

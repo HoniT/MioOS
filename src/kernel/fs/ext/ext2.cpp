@@ -282,7 +282,7 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, tree
         
         // Retrieve name
         data::string name(entry->name, entry->name_len);
-        if(!inode) vga::warning("No inode for %S\n", name);
+        if(!inode) vga::warning("parse_directory_block: No inode for %S\n", name);
         
         // Build full path
         data::string path = parent.path;
@@ -528,6 +528,29 @@ data::string ext2::mode_to_string(const uint16_t mode) {
 
 #pragma endregion
 
+/// @brief Gets permissions (rwx) of the current user for an inode
+/// @param inode Inode we're trying to access
+/// @param uid User ID
+/// @param gid Group ID
+/// @return Permissions read / write / execute
+ext2_perms ext2::get_perms(const inode_t* inode, const uint32_t uid, const uint32_t gid) {
+    if(!inode) {
+        vga::warning("get_perms: Inode not found!\n");
+        return {false, false, false};
+    }
+
+    // If user is root, it has full access automatically
+    if(uid == 0) return {true, true, true};
+
+    uint16_t mode = inode->type_and_perm;
+    // If the user is owner
+    if(inode->uid == uid) return {mode & EXT2_S_IRUSR, mode & EXT2_S_IWUSR, mode & EXT2_S_IXUSR};
+    // If the user is in the inodes group
+    if(inode->gid == gid) return {mode & EXT2_S_IRGRP, mode & EXT2_S_IWGRP, mode & EXT2_S_IXGRP};
+    // Other user
+    return {mode & EXT2_S_IROTH, mode & EXT2_S_IWOTH, mode & EXT2_S_IXOTH};
+}
+
 /// @brief cd (Change directory) logic
 /// @param dir Dir to change to
 /// @return If we could change to the dir
@@ -541,7 +564,12 @@ bool change_dir(data::string dir) {
     if(dir.equals("..")) {
         // If we're in root
         if(!currNode->parent) {
-            vga::warning("No parent for root dir!\n");
+            vga::warning("cd: No parent for root dir!\n");
+            return false;
+        }
+        // Checking permission to change
+        if(currNode->parent->data.inode && !ext2::get_perms(currNode->parent->data.inode, vfs::currUid, vfs::currGid).execute) {
+            vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", currNode->parent->data.path);
             return false;
         }
 
@@ -555,6 +583,11 @@ bool change_dir(data::string dir) {
     treeNode* found_dir = vfs_tree.find_child_by_predicate(currNode, [dir](vfsNode node){return node.name == dir;});
     // If we found in tree
     if(found_dir && found_dir->data.is_dir) {
+        // Checking permission to change
+        if(found_dir->data.inode && !ext2::get_perms(found_dir->data.inode, vfs::currUid, vfs::currGid).execute) {
+            vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", found_dir->data.path);
+            return false;
+        }
         vfs::currentDir = found_dir->data.path;
         // Changing FS if possible
         if(curr_fs != found_dir->data.fs) curr_fs = found_dir->data.fs;
@@ -563,7 +596,7 @@ bool change_dir(data::string dir) {
 
     // If we're in virtual dirs, it's pointless to check again physically
     if (!curr_fs) {
-        vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
+        vga::warning("cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
         return false;
     }
     
@@ -574,6 +607,11 @@ bool change_dir(data::string dir) {
     for(int i = 0; i < count; i++) {
         // If we found it here
         if(nodes[i].name == dir && nodes[i].is_dir) {
+            // Checking permission to change
+            if(nodes[i].inode && !ext2::get_perms(nodes[i].inode, vfs::currUid, vfs::currGid).execute) {
+                vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", nodes[i].path);
+                return false;
+            }
             vfs::currentDir = nodes[i].path;
             // Changing FS if possible
             if(curr_fs != nodes[i].fs) curr_fs = nodes[i].fs;
@@ -584,7 +622,7 @@ bool change_dir(data::string dir) {
         }
     }
 
-    vga::warning("Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
+    vga::warning("cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
     return false;
 }
 
@@ -905,7 +943,7 @@ void ext2::ls(void) {
     if(count >= 2) {
         if(tokens[1].equals("-l")) metadata_print = true;
         else {
-            vga::warning("Invalid parameter \"%S\" passed to ls\n", tokens[1]);
+            vga::warning("ls: Invalid parameter \"%S\" passed to ls\n", tokens[1]);
             return;
         }
     }
@@ -920,6 +958,8 @@ void ext2::ls(void) {
     // Default listing
     if(!metadata_print)
         for(int i = 0; i < count; i++) {
+            // Permission denied
+            if(nodes[i].inode && !ext2::get_perms(nodes[i].inode, vfs::currUid, vfs::currGid).read) continue;
             // Printing all entries instead of parent and same dir
             if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) {
                 vga::printf(nodes[i].is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S ", nodes[i].name);
@@ -928,6 +968,8 @@ void ext2::ls(void) {
     // Metadata printing
     else 
         for(int i = 0; i < count; i++) {
+            // Permission denied
+            if(nodes[i].inode && !ext2::get_perms(nodes[i].inode, vfs::currUid, vfs::currGid).read) continue;
             // Printing all entries instead of parent and same dir
             if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) {
                 if(nodes[i].inode) {
@@ -957,7 +999,7 @@ void ext2::cd(void) {
     // Getting directory to change to
     data::string input = get_remaining_string(get_current_input());
     if(input.empty()) {
-        vga::warning("Syntax: cd <dir>\n");
+        vga::warning("cd: Syntax: cd <dir>\n");
         return;
     }
 
@@ -974,11 +1016,11 @@ void ext2::mkdir(void) {
     // Getting directory to create
     data::string input = get_remaining_string(get_current_input());
     if(input.empty()) {
-        vga::warning("Syntax: mkdir <dir>\n");
+        vga::warning("mkdir: Syntax: mkdir <dir>\n");
         return;
     }
     if(input[0] == '-') {
-        vga::warning("Please don't start the name of the dir with '-'\n");
+        vga::warning("mkdir: Please don't start the name of the dir with '-'\n");
         return;
     }
 
@@ -990,7 +1032,12 @@ void ext2::mkdir(void) {
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a dir
     if(!fs) {
-        vga::warning("Can't create directory in \"%S\", because it's not in an Ext2 File System!\n", vfs::currentDir);
+        vga::warning("mkdir: Can't create directory in \"%S\", because it's not in an Ext2 File System!\n", parent.path);
+        return;
+    }
+    // Permission denied
+    if(parent.inode && !ext2::get_perms(parent.inode, vfs::currUid, vfs::currGid).write) {
+        vga::warning("mkdir: Can't create directory in \"%S\", permission denied!\n", parent.path);
         return;
     }
 
@@ -1001,7 +1048,7 @@ void ext2::mkdir(void) {
     for(int i = 0; i < count; i++) {
         // Printing all entries instead of parent and same dir
         if(nodes[i].name == input && nodes[i].is_dir) {
-            vga::warning("Directory \"%S\" already exists in \"%S\"\n", input, vfs::currentDir);
+            vga::warning("mkdir: Directory \"%S\" already exists in \"%S\"\n", input, parent.path);
             return;
         }
     }
@@ -1009,12 +1056,12 @@ void ext2::mkdir(void) {
     // Allocating inode and block
     uint32_t inode_num = ext2::alloc_inode(fs);
     if(inode_num == (uint32_t)-1) {
-        vga::error("Couldn't create directory do to inode allocation fail!\n");
+        vga::error("mkdir: Couldn't create directory do to inode allocation fail!\n");
         return;
     }
     uint32_t block_num = ext2::alloc_block(fs);
     if(block_num == (uint32_t)-1) {
-        vga::error("Couldn't create directory do to block allocation fail!\n");
+        vga::error("mkdir: Couldn't create directory do to block allocation fail!\n");
         return;
     }
     
@@ -1102,7 +1149,7 @@ void ext2::rm(void) {
     }
 
     invalid_params:
-    vga::warning("Invalid parameters passed to rm! Try rm -h\n");
+    vga::warning("rm: Invalid parameters passed to rm! Try rm -h\n");
     return;
 }
 
