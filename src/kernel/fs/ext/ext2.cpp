@@ -1044,19 +1044,17 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
     return -3; // No space found
 }
 
-/// @brief Removes a dir entry
+/// @brief Removes a dir entry, supports up to triple indirect blocks
 /// @param fs File system
 /// @param parent_inode Parent directories inode
 /// @param name Name of entry to remove
 void remove_dir_entry(ext2_fs_t* fs, inode_t* parent_inode, data::string name) {
     if (!parent_inode) return;
 
-    // Iterate over all blocks in parent dir
-    for (int i = 0; i < 12; i++) {
-        if (parent_inode->direct_blk_ptr[i] == 0) continue; // Empty block
-
+    auto scan_block = [&](uint32_t block_num) -> bool {
+        if (block_num == 0) return false;
         uint8_t* block = (uint8_t*)kmalloc(fs->block_size);
-        ext2::read_block(fs, parent_inode->direct_blk_ptr[i], block);
+        ext2::read_block(fs, block_num, block);
 
         uint32_t offset = 0;
         dir_ent_t* prev = nullptr;
@@ -1068,25 +1066,94 @@ void remove_dir_entry(ext2_fs_t* fs, inode_t* parent_inode, data::string name) {
 
                 if (entry_name == name) {
                     if (prev) {
-                        // Merge into previous record
-                        prev->entry_size += entry->entry_size;
+                        prev->entry_size += entry->entry_size; // merge
                     } else {
-                        // If first in block, just clear it
-                        entry->inode = 0;
+                        entry->inode = 0; // clear if first
                     }
-
-                    // Write updated block
-                    ext2::write_block(fs, parent_inode->direct_blk_ptr[i], block);
-                    return;
+                    ext2::write_block(fs, block_num, block);
+                    kfree(block);
+                    return true;
                 }
             }
-
             prev = entry;
             offset += entry->entry_size;
         }
         kfree(block);
+        return false;
+    };
+
+    // --- Direct blocks ---
+    for (int i = 0; i < 12; i++) {
+        if (scan_block(parent_inode->direct_blk_ptr[i])) return;
+    }
+
+    // --- Single indirect ---
+    if (parent_inode->singly_inderect_blk_ptr) {
+        uint32_t* table = (uint32_t*)kmalloc(fs->block_size);
+        ext2::read_block(fs, parent_inode->singly_inderect_blk_ptr, (uint8_t*)table);
+        uint32_t per_block = fs->block_size / sizeof(uint32_t);
+        for (uint32_t i = 0; i < per_block; i++) {
+            if (scan_block(table[i])) {
+                kfree(table);
+                return;
+            }
+        }
+        kfree(table);
+    }
+
+    // --- Double indirect ---
+    if (parent_inode->doubly_inderect_blk_ptr) {
+        uint32_t* lvl1 = (uint32_t*)kmalloc(fs->block_size);
+        ext2::read_block(fs, parent_inode->doubly_inderect_blk_ptr, (uint8_t*)lvl1);
+        uint32_t per_block = fs->block_size / sizeof(uint32_t);
+        for (uint32_t i = 0; i < per_block; i++) {
+            if (lvl1[i] == 0) continue;
+            uint32_t* lvl2 = (uint32_t*)kmalloc(fs->block_size);
+            ext2::read_block(fs, lvl1[i], (uint8_t*)lvl2);
+            for (uint32_t j = 0; j < per_block; j++) {
+                if (scan_block(lvl2[j])) {
+                    kfree(lvl2);
+                    kfree(lvl1);
+                    return;
+                }
+            }
+            kfree(lvl2);
+        }
+        kfree(lvl1);
+    }
+
+    // --- Triple indirect ---
+    if (parent_inode->triply_inderect_blk_ptr) {
+        uint32_t* lvl1 = (uint32_t*)kmalloc(fs->block_size);
+        ext2::read_block(fs, parent_inode->triply_inderect_blk_ptr, (uint8_t*)lvl1);
+        uint32_t per_block = fs->block_size / sizeof(uint32_t);
+
+        for (uint32_t i = 0; i < per_block; i++) {
+            if (lvl1[i] == 0) continue;
+            uint32_t* lvl2 = (uint32_t*)kmalloc(fs->block_size);
+            ext2::read_block(fs, lvl1[i], (uint8_t*)lvl2);
+
+            for (uint32_t j = 0; j < per_block; j++) {
+                if (lvl2[j] == 0) continue;
+                uint32_t* lvl3 = (uint32_t*)kmalloc(fs->block_size);
+                ext2::read_block(fs, lvl2[j], (uint8_t*)lvl3);
+
+                for (uint32_t k = 0; k < per_block; k++) {
+                    if (scan_block(lvl3[k])) {
+                        kfree(lvl3);
+                        kfree(lvl2);
+                        kfree(lvl1);
+                        return;
+                    }
+                }
+                kfree(lvl3);
+            }
+            kfree(lvl2);
+        }
+        kfree(lvl1);
     }
 }
+
 
 /// @brief Removes a directory entry
 /// @param node_to_remove Node to remove
