@@ -35,10 +35,11 @@ const char* vfs::ide_device_names[4] = {
 };
 
 // Prints VFS tree node
-void vfs::print_node(const vfsNode& node, int depth) {
+void vfs::print_node(const treeNode* node, int depth) {
     for(int i = 0; i < depth; i++) vga::printf(" ");
-    vga::printf("%S", node.name);
-    if(node.path == vfs::currentDir) vga::printf(" <===");
+    vga::printf("%x", node);
+    vga::printf("(%S)", node->data.name);
+    if(node->data.path == vfs::currentDir) vga::printf(" <===");
     vga::printf("\n");
 }
 

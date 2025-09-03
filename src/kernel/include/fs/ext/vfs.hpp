@@ -38,7 +38,7 @@ namespace vfs {
     // Initializes the VFS
     void init(void);
     // Prints VFS tree node
-    void print_node(const vfsNode& node, int depth);
+    void print_node(const treeNode* node, int depth);
     void add_node(treeNode* parent, vfsNode node);
     void add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs);
     treeNode* get_node(const data::string path);

@@ -8,6 +8,7 @@
 #ifndef TREE_HPP
 #define TREE_HPP
 
+#include <drivers/vga_print.hpp>
 #include <mm/heap.hpp>
 
 namespace data {
@@ -62,41 +63,66 @@ namespace data {
 
         // Add and remove functions
 
+        // Detach 'node' from its parent/sibling list
+        void detach_from_parent(Node* node) {
+            if (!node || !node->parent) return;
+
+            Node* parent = node->parent;
+
+            // If node is first child
+            if (parent->first_child == node) {
+                parent->first_child = node->next_sibling;
+            } else {
+                // Find previous sibling and unlink
+                Node* prev = parent->first_child;
+                while (prev && prev->next_sibling != node) {
+                    prev = prev->next_sibling;
+                }
+                if (prev) {
+                    prev->next_sibling = node->next_sibling;
+                }
+            }
+
+            node->parent = nullptr;
+        }
+
         Node* create(const T& val) {
-            // Allocating node
             Node* node = (Node*)kcalloc(1, sizeof(Node));
-            if(!node) return nullptr;
-            
-            // Setting values
+            if (!node) return nullptr;
+
+            // Construct data carefully if T has non-trivial ctor (optional)
             node->data = val;
             node->parent = nullptr;
             node->first_child = nullptr;
             node->next_sibling = nullptr;
-
             return node;
         }
 
         void add_child(Node* parent, Node* child) {
-            if(!parent || !child) return;
+            if (!parent || !child) return;
 
-            child->parent = parent;
-            // If parent hasn't got a child adding the child as first child
-            if(!parent->first_child) {
-                parent->first_child = child;
+            // If child already has a parent, detach it first to avoid duplicates
+            if (child->parent) {
+                detach_from_parent(child);
             }
-            // Else we'll add it to the end of the children list
-            else {
+
+            // Clear sibling pointer — avoid dragging any previous sibling chain
+            child->next_sibling = nullptr;
+            child->parent = parent;
+
+            if (!parent->first_child) {
+                parent->first_child = child;
+            } else {
                 Node* cur = parent->first_child;
-                while (cur->next_sibling)
-                    cur = cur->next_sibling;
+                while (cur->next_sibling) cur = cur->next_sibling;
                 cur->next_sibling = child;
             }
         }
 
-        void delete_subtree(Node* node) {
-            if(!node) return;
+        void delete_subtree(Node*& node) {
+            if (!node) return;
 
-            // Deleting subtrees recursively
+            // First, recursively delete children
             Node* child = node->first_child;
             while (child) {
                 Node* next = child->next_sibling;
@@ -104,8 +130,19 @@ namespace data {
                 child = next;
             }
 
-            // Freeing memory
+            // Unlink this node from its parent so nobody keeps a dangling pointer
+            if (node->parent) {
+                // Reuse detach helper which will set parent->first_child or prev->next_sibling
+                detach_from_parent(node);
+            }
+
+            // Extra safety: clear pointers before free
+            node->first_child = nullptr;
+            node->next_sibling = nullptr;
+            node->parent = nullptr;
+
             kfree(node);
+            node = nullptr;
         }
 
         // Helper functions
@@ -125,10 +162,22 @@ namespace data {
         }
 
         // Traversing whole tree starting from given node
-        void traverse(Node* node, void (*visit)(const T&, int depth), int depth = 0) {
+        void traverse(Node* node, void (*visit)(Node*)) {
             if (!node) return;
             
-            visit(node->data, depth);
+            Node* child = node->first_child;
+            visit(node);
+            while (child) {
+                traverse(child, visit);
+                child = child->next_sibling;
+            }
+        }
+
+        // Traversing whole tree starting from given node
+        void traverse(Node* node, void (*visit)(const Node*, int depth), int depth = 0) {
+            if (!node) return;
+            
+            visit(node, depth);
             Node* child = node->first_child;
             while (child) {
                 traverse(child, visit, depth + 1);

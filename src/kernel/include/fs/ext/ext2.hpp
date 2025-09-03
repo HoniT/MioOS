@@ -44,8 +44,8 @@
 #define EXT2_S_IXOTH 0x0001 // Others have execute permission
 
 #define EXT2_FT_DIR  2
-#define INODE_IS_DIR(inode) ((inode->type_and_perm & 0xF000) == EXT2_S_IFDIR)
-#define DEFAULT_DIR_PERMS 0777 // rwxrwxrwx
+#define INODE_IS_DIR(inode) ((inode->type_and_perm & EXT2_S_IFMT) == EXT2_S_IFDIR)
+#define DEFAULT_DIR_PERMS 0755 // rwxr-xr-x
 
 #pragma region Structures
 // Structure of Ext2 Superblock
@@ -185,14 +185,24 @@ namespace ext2 {
     // Returns a list of VFS nodes of entries in the given dir
     vfsNode* read_dir(data::tree<vfsNode>::Node* node, int& count);
     
+    uint8_t* get_inode_bitmap(ext2_fs_t* fs, uint32_t group);
+    void write_inode_bitmap(ext2_fs_t* fs, uint32_t group, uint8_t* bitmap);
     // Loads an inode with a given inode number
     inode_t* load_inode(ext2_fs_t* fs, const uint32_t inode_num);
+    void free_inode(ext2_fs_t* fs, const uint32_t inode_num);
     // Allocates inode
     uint32_t alloc_inode(ext2_fs_t* fs);   
     // Writes inode info to disk
     void write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode);
+
+    uint8_t* get_block_bitmap(ext2_fs_t* fs, uint32_t group);
+    void write_block_bitmap(ext2_fs_t* fs, uint32_t group, uint8_t* bitmap);
     // Allocates block
     uint32_t alloc_block(ext2_fs_t* fs);
+    void free_block(ext2_fs_t* fs, uint32_t block_num);
+    void free_blocks(ext2_fs_t* fs, inode_t* inode);
+
+    void clear_bitmap_bit(uint8_t* bitmap, uint32_t bit);
 
     // Rewrites block group descriptors of a FS
     void rewrite_bgds(ext2_fs_t* fs);
