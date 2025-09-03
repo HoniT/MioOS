@@ -416,7 +416,7 @@ void vprintf(const char* format, va_list args) {
                 case 'S': {  // Custom string
                     data::string* str = va_arg(args, data::string*);
                     if (str) {
-                        print_str(str->data);
+                        print_str(str->c_str());
                     } else {
                         print_str("(null)");
                     }

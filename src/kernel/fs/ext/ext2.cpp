@@ -1296,8 +1296,8 @@ void ext2::mkdir(void) {
         vga::warning("mkdir: Syntax: mkdir <dir>\n");
         return;
     }
-    if(input[0] == '-') {
-        vga::warning("mkdir: Please don't start the name of the dir with '-'\n");
+    if(input.includes("/")) {
+        vga::warning("mkdir: Please don't use '/' in a directory name\n");
         return;
     }
 

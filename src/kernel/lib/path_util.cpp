@@ -45,7 +45,7 @@ data::string* split_path_tokens(data::string path, int& count) {
         uint32_t len = i - start;
 
         if (len > 0) {
-            new (&tokens[token_index++]) data::string(path.data + start, len);
+            new (&tokens[token_index++]) data::string(path.c_str() + start, len);
         }
     }
 

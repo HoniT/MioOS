@@ -16,9 +16,10 @@
 
 namespace data{
     class string {
-    public:
+    private:
         char* data;
         uint32_t length;
+    public:
 
         #pragma region Constructors & Destructors
         // Default constructor
@@ -162,6 +163,10 @@ namespace data{
             return append(str.data);
         }
 
+        const char* c_str() {
+            return data;
+        }
+
         // Substring
         string substr(uint32_t start, uint32_t len) const {
             // If we're out of bounds
@@ -177,6 +182,26 @@ namespace data{
             string substr_str = substr;
             return substr_str;
         }
+
+        bool includes(const char* substr) {
+            if (!substr) return false;
+
+            for (int i = 0; data[i] != '\0'; i++) {
+                int j = 0;
+
+                // Try to match substr starting at str[i]
+                while (substr[j] != '\0' && data[i + j] != '\0' && data[i + j] == substr[j]) {
+                    j++;
+                }
+
+                // If we reached end of substr, match found
+                if (substr[j] == '\0') {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         #pragma endregion
     };
 } // namespace data

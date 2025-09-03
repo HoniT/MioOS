@@ -215,7 +215,7 @@ data::string* split_string_tokens(data::string str, int& count) {
         uint32_t len = i - start;
 
         if (len > 0) {
-            new (&tokens[token_index++]) data::string(str.data + start, len);
+            new (&tokens[token_index++]) data::string(str.c_str() + start, len);
         }
     }
 
