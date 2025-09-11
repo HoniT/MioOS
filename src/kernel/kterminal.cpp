@@ -66,6 +66,7 @@ Command commands[] = {
     {"ls", ext2::ls, "", " - Lists entries of the current directory"},
     {"cd", ext2::cd, " <dir>", " - Changes directory to given dir"},
     {"mkdir", ext2::mkdir, " <dir>", " - Creates a directory in the current dir"},
+    {"mkfile", ext2::mkfile, " <file>", " - Creates a file in the current dir"},
     {"rm", ext2::rm, " <file>", " - Removes (deletes) a directory/directory entry"}
 };
 

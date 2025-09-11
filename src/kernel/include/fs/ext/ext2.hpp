@@ -45,7 +45,8 @@
 
 #define EXT2_FT_DIR  2
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & EXT2_S_IFMT) == EXT2_S_IFDIR)
-#define DEFAULT_DIR_PERMS 0755 // rwxr-xr-x
+#define INODE_IS_FILE(inode) ((inode->type_and_perm & EXT2_S_IFMT) == EXT2_S_IFREG)
+#define DEFAULT_PERMS 0755 // rwxr-xr-x
 
 #pragma region Structures
 // Structure of Ext2 Superblock
@@ -214,6 +215,7 @@ namespace ext2 {
     void ls(void);
     void cd(void);
     void mkdir(void);
+    void mkfile(void);
     void rm(void);
 } // namespace ext2
 

@@ -116,20 +116,6 @@ void* kcalloc(const size_t num, const size_t size) {
     return ptr;
 }
 
-void print_heap_blocks(void) {
-    HeapBlock* current = heap_head; // Setting current block as head
-
-    while(current) {
-        // Printing info
-        vga::printf("-Block range: %x-%x\n", current, uint32_t(current) + current->size);
-        vga::printf("Block size: %d bytes\n", current->size);
-        vga::printf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
-
-        // Going to next node/block
-        current = current->next;
-    }
-}
-
 void heap::heap_dump(void) {
     vga::printf("--------------- Heap Dump ---------------\n");
 
@@ -139,11 +125,12 @@ void heap::heap_dump(void) {
 
     // Itterating through blocks
     while(current) {
-        if(!current->free) {
-            // if the block is free we'll output the size and store add it to the total amount
-            vga::printf("Allocated block %d size: %u bytes\n", ++allocated_block_num, current->size);
-            bytes_in_use += current->size;
-        }
+        // If the block is free we'll output the size and store add it to the total amount
+        vga::printf("Block range: %x-%x\n", current, uint32_t(current) + current->size);
+        vga::printf("Block size: %d bytes\n", current->size);
+        vga::printf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
+
+        if(!current->free) bytes_in_use += current->size;
 
         // Getting next block
         current = current->next;
@@ -151,9 +138,8 @@ void heap::heap_dump(void) {
 
     // Printing every heap block
     vga::printf("\n");
-    print_heap_blocks();
 
     // Printing final status of heap
-    vga::printf("Heap status: %lu bytes used out of %lu (%u%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use, HEAP_SIZE) * 100);
+    vga::printf("Heap status: %lu bytes used out of %lu (%u%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
     vga::printf("-----------------------------------------\n");
 }

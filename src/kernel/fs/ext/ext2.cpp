@@ -815,7 +815,9 @@ bool insert_into_block(ext2_fs_t* fs, uint32_t block_num, const char* name, uint
 
                 entry->inode = inode_num;
                 entry->name_len = (uint8_t)strlen(name);
-                entry->type_indicator = EXT2_FT_DIR;
+                inode_t* inode = ext2::load_inode(fs, inode_num);
+                entry->type_indicator = inode->type_and_perm & EXT2_S_IFMT;
+                kfree(inode);
 
                 if (orig_len > needed_len) {
                     entry->entry_size = needed_len;
@@ -1165,7 +1167,7 @@ void remove_entry(treeNode* node_to_remove) {
         return;
     }
     // Reading dir entries to add any missing entries of current dir to the VFS tree
-    int count; ext2::read_dir(node_to_remove, count);
+    if(node_to_remove->data.is_dir) { int count; ext2::read_dir(node_to_remove, count); }
 
     // Checking permissions to delete
     inode_t* inode_to_check = node.is_dir ? node.inode : parent_node.inode; // If it is a file, we'll check the parent dirs inode
@@ -1323,7 +1325,7 @@ void ext2::mkdir(void) {
     if(!nodes) return;
     // Checking if the dir already exists
     for(int i = 0; i < count; i++) {
-        // Printing all entries instead of parent and same dir
+        // Checking if this node is the dir we want to create
         if(nodes[i].name == input && nodes[i].is_dir) {
             vga::warning("mkdir: Directory \"%S\" already exists in \"%S\"\n", input, parent.path);
             return;
@@ -1346,9 +1348,9 @@ void ext2::mkdir(void) {
     inode_t* inode = load_inode(fs, inode_num);
     memset(inode, 0, sizeof(inode_t));
     
-    inode->type_and_perm = EXT2_S_IFDIR | DEFAULT_DIR_PERMS;
-    inode->uid = 0;
-    inode->gid = 0;
+    inode->type_and_perm = EXT2_S_IFDIR | DEFAULT_PERMS;
+    inode->uid = vfs::currUid;
+    inode->gid = vfs::currGid;
     inode->size_low = fs->block_size;
     inode->create_time = inode->last_access_time = inode->last_mod_time = rtc::get_unix_timestamp();
     inode->hard_link_count = 2;  // '.' and '..'
@@ -1384,6 +1386,89 @@ void ext2::mkdir(void) {
     }
 
     parent.inode->hard_link_count++;
+    parent.inode->last_mod_time = rtc::get_unix_timestamp();
+
+    // Write back inodes
+    write_inode(fs, inode_num, inode);
+    write_inode(fs, parent.inode_num, parent.inode);
+    inode = load_inode(fs, inode_num);
+
+    // Adding to VFS
+    vfs::add_node(vfs::get_node(vfs::currentDir), input, inode_num, inode, fs);
+
+    kfree(buf);
+    return;
+}
+
+/// @brief Makes a file
+void ext2::mkfile(void) {
+    // Getting file to create
+    data::string input = get_remaining_string(get_current_input());
+    if(input.empty()) {
+        vga::warning("mkfile: Syntax: mkfile <file>\n");
+        return;
+    }
+    if(input.includes("/")) {
+        vga::warning("mkfile: Please don't use '/' in a file name\n");
+        return;
+    }
+
+    treeNode* node = vfs::get_node(vfs::currentDir); // Retreiving node from current path
+    if(!node) return;
+    vfsNode parent = node->data;
+    if(!parent.fs) return;
+
+    ext2_fs_t* fs = parent.fs;
+    // Checking if we're in a Ext2 FS to create a file
+    if(!fs) {
+        vga::warning("mkfile: Can't create file in \"%S\", because it's not in an Ext2 File System!\n", parent.path);
+        return;
+    }
+    // Permission denied
+    if(parent.inode && !ext2::get_perms(parent.inode, vfs::currUid, vfs::currGid).write) {
+        vga::warning("mkfile: Can't create file in \"%S\", permission denied!\n", parent.path);
+        return;
+    }
+
+    int count;
+    vfsNode* nodes = ext2::read_dir(node, count);
+    if(!nodes) return;
+    // Checking if the file already exists
+    for(int i = 0; i < count; i++) {
+        // Checking if this node is the file we want to create
+        if(nodes[i].name == input && !nodes[i].is_dir) {
+            vga::warning("mkfile: File \"%S\" already exists in \"%S\"\n", input, parent.path);
+            return;
+        }
+    }
+
+    // Allocating inode and block
+    uint32_t inode_num = ext2::alloc_inode(fs);
+    if(inode_num == (uint32_t)-1) {
+        vga::error("mkfile: Couldn't create file do to inode allocation fail!\n");
+        return;
+    }
+    
+    // Getting and initializing newly allocated inode
+    inode_t* inode = load_inode(fs, inode_num);
+    memset(inode, 0, sizeof(inode_t));
+    
+    inode->type_and_perm = EXT2_S_IFREG | DEFAULT_PERMS;
+    inode->uid = vfs::currUid;
+    inode->gid = vfs::currGid;
+    inode->size_low = 0;
+    inode->create_time = inode->last_access_time = inode->last_mod_time = rtc::get_unix_timestamp();
+    inode->hard_link_count = 1;
+    inode->disk_sect_count = 0;
+
+    uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
+    // Insert into parent dir
+    int res = insert_directory_entry(fs, parent.inode, input, inode_num, buf);
+    if (res != 0) {
+        kfree(buf);
+        return;
+    }
+
     parent.inode->last_mod_time = rtc::get_unix_timestamp();
 
     // Write back inodes
