@@ -8,7 +8,6 @@
 #ifndef TREE_HPP
 #define TREE_HPP
 
-#include <drivers/vga_print.hpp>
 #include <mm/heap.hpp>
 
 namespace data {
@@ -159,6 +158,30 @@ namespace data {
                 cur = cur->next_sibling;
             }
             return nullptr;
+        }
+
+        // Finds all children node that matches our specifications given by predicate
+        template<typename Func>
+        Node** find_children_by_predicate(Node* parent, Func predicate, int& count) {
+            count = 0;
+            if(!parent) return nullptr;
+            
+            // Counting
+            Node* curr = parent->first_child;
+            while(curr) {
+                if(predicate(curr->data)) count++;
+                curr = curr->next_sibling;
+            }
+
+            // Allocating and returning
+            Node** res = (Node**)kcalloc(count, sizeof(Node));
+            count = 0;
+            curr = parent->first_child;
+            while(curr) {
+                if(predicate(curr->data)) res[count++] = curr;
+                curr = curr->next_sibling;
+            }
+            return res;
         }
 
         // Traversing whole tree starting from given node

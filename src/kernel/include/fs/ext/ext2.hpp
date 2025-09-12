@@ -43,7 +43,15 @@
 #define EXT2_S_IWOTH 0x0002 // Others have write permission
 #define EXT2_S_IXOTH 0x0001 // Others have execute permission
 
-#define EXT2_FT_DIR  2
+#define EXT2_FT_UNKNOWN  0   // Unknown file type
+#define EXT2_FT_REG_FILE 1   // Regular file
+#define EXT2_FT_DIR      2   // Directory
+#define EXT2_FT_CHRDEV   3   // Character device
+#define EXT2_FT_BLKDEV   4   // Block device
+#define EXT2_FT_FIFO     5   // FIFO (named pipe)
+#define EXT2_FT_SOCK     6   // Socket
+#define EXT2_FT_SYMLINK  7   // Symbolic link
+
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & EXT2_S_IFMT) == EXT2_S_IFDIR)
 #define INODE_IS_FILE(inode) ((inode->type_and_perm & EXT2_S_IFMT) == EXT2_S_IFREG)
 #define DEFAULT_PERMS 0755 // rwxr-xr-x
@@ -179,6 +187,7 @@ namespace ext2 {
 
     data::string mode_to_string(const uint16_t mode);
     ext2_perms get_perms(const inode_t* inode, const uint32_t uid, const uint32_t gid);
+    uint8_t get_inode_type(const inode_t* inode);
 
     // Read / Write functions
     bool read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read = 1);

@@ -452,8 +452,9 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, tree
         // Adding to array
         vfsNode node = vfs_tree.create({name, path, INODE_IS_DIR(inode), entry->inode, inode, curr_fs})->data;
         // Checking if the entry is in the VFS tree
-        if(!name.equals(".") && !name.equals("..") && !vfs_tree.find_child_by_predicate(parentNode, [node](vfsNode vfsNode){ return vfsNode.name == node.name; })) 
+        if(!name.equals(".") && !name.equals(".."))  {
             vfs::add_node(parentNode, node);
+        }
         entries[last_index++] = node;
         
         offset += entry->entry_size;
@@ -463,8 +464,8 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, tree
 // Returns a list of VFS nodes of entries in the given dir
 vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     if (!tree_node || !count) return nullptr;
-    vfsNode* node = &tree_node->data;
-    if (!node->is_dir) {
+    vfsNode node = tree_node->data;
+    if (!node.is_dir) {
         vga::error("read_dir error: node is not a directory!\n");
         return nullptr;
     }
@@ -486,7 +487,7 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         if (block_num == 0) return;
         uint8_t block[curr_fs->block_size];
         ext2::read_block(curr_fs, block_num, block);
-        parse_directory_block(curr_fs, block, entries, tree_node, *node, last_index);
+        parse_directory_block(curr_fs, block, entries, tree_node, node, last_index);
     };
 
     entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256);
@@ -495,15 +496,15 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     // Handle Direct Blocks
     // ---------------------
     for (int i = 0; i < 12; i++) {
-        read_and_parse(node->inode->direct_blk_ptr[i]);
+        read_and_parse(node.inode->direct_blk_ptr[i]);
     }
 
     // -----------------------------------
     // Handle Singly Indirect Block
     // -----------------------------------
-    if (node->inode->singly_inderect_blk_ptr != 0) {
+    if (node.inode->singly_inderect_blk_ptr != 0) {
         uint32_t* ptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-        ext2::read_block(curr_fs, node->inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(ptrs));
+        ext2::read_block(curr_fs, node.inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(ptrs));
 
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             read_and_parse(ptrs[i]);
@@ -515,9 +516,9 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     // ------------------------------------
     // Handle Doubly Indirect Block
     // ------------------------------------
-    if (node->inode->doubly_inderect_blk_ptr != 0) {
+    if (node.inode->doubly_inderect_blk_ptr != 0) {
         uint32_t* dptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-        ext2::read_block(curr_fs, node->inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(dptrs));
+        ext2::read_block(curr_fs, node.inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(dptrs));
 
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             if (dptrs[i] == 0) continue;
@@ -539,9 +540,9 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
     // -------------------------------------
     // Handle Triply Indirect Block
     // -------------------------------------
-    if (node->inode->triply_inderect_blk_ptr != 0) {
+    if (node.inode->triply_inderect_blk_ptr != 0) {
         uint32_t* tptrs = (uint32_t*)kmalloc(curr_fs->block_size);
-        ext2::read_block(curr_fs, node->inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(tptrs));
+        ext2::read_block(curr_fs, node.inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(tptrs));
 
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             if (tptrs[i] == 0) continue;
@@ -694,6 +695,22 @@ data::string ext2::mode_to_string(const uint16_t mode) {
     return str;
 }
 
+/// @brief Gets inodes type (e.g. Dir, file, symlink...)
+/// @param inode Inode to check
+/// @return Type of inode
+uint8_t ext2::get_inode_type(const inode_t* inode) {
+    switch (inode->type_and_perm & EXT2_S_IFMT) {
+        case EXT2_S_IFREG:  return EXT2_FT_REG_FILE;
+        case EXT2_S_IFDIR:  return EXT2_FT_DIR;     
+        case EXT2_S_IFCHR:  return EXT2_FT_CHRDEV;  
+        case EXT2_S_IFBLK:  return EXT2_FT_BLKDEV;  
+        case EXT2_S_IFIFO:  return EXT2_FT_FIFO;    
+        case EXT2_S_IFSOCK: return EXT2_FT_SOCK;    
+        case EXT2_S_IFLNK:  return EXT2_FT_SYMLINK; 
+        default:            return EXT2_FT_UNKNOWN; 
+    }
+}
+
 /// @brief Gets permissions (rwx) of the current user for an inode
 /// @param inode Inode we're trying to access
 /// @param uid User ID
@@ -816,7 +833,7 @@ bool insert_into_block(ext2_fs_t* fs, uint32_t block_num, const char* name, uint
                 entry->inode = inode_num;
                 entry->name_len = (uint8_t)strlen(name);
                 inode_t* inode = ext2::load_inode(fs, inode_num);
-                entry->type_indicator = inode->type_and_perm & EXT2_S_IFMT;
+                entry->type_indicator = ext2::get_inode_type(inode);
                 kfree(inode);
 
                 if (orig_len > needed_len) {
@@ -850,7 +867,9 @@ bool insert_into_block(ext2_fs_t* fs, uint32_t block_num, const char* name, uint
 
                 new_entry->inode = inode_num;
                 new_entry->name_len = (uint8_t)strlen(name);
-                new_entry->type_indicator = EXT2_FT_DIR;
+                inode_t* inode = ext2::load_inode(fs, inode_num);
+                new_entry->type_indicator = ext2::get_inode_type(inode);
+                kfree(inode);
 
                 uint16_t new_min = dirent_rec_len(new_entry->name_len);
                 if (extra > new_min) {
@@ -1050,7 +1069,7 @@ int insert_directory_entry(ext2_fs_t* fs, inode_t* parent_inode, const char* nam
 /// @param fs File system
 /// @param parent_inode Parent directories inode
 /// @param name Name of entry to remove
-void remove_dir_entry(ext2_fs_t* fs, inode_t* parent_inode, data::string name) {
+void remove_dir_entry(ext2_fs_t* fs, inode_t* parent_inode, data::string name, uint8_t type) {
     if (!parent_inode) return;
 
     auto scan_block = [&](uint32_t block_num) -> bool {
@@ -1066,7 +1085,7 @@ void remove_dir_entry(ext2_fs_t* fs, inode_t* parent_inode, data::string name) {
             if (entry->inode != 0) {
                 data::string entry_name(entry->name, entry->name_len);
 
-                if (entry_name == name) {
+                if (entry_name == name && entry->type_indicator == type) {
                     if (prev) {
                         prev->entry_size += entry->entry_size; // merge
                     } else {
@@ -1178,12 +1197,12 @@ void remove_entry(treeNode* node_to_remove) {
     }
 
     // Removing dir entry of what we want deleted
-    remove_dir_entry(parent_node.fs, parent_node.inode, node.name);
+    remove_dir_entry(parent_node.fs, parent_node.inode, node.name, ext2::get_inode_type(node.inode));
 
     // Removing hard links
     if (node.is_dir) {
         // Directory removal
-        node.inode->hard_link_count--;           // Parent link
+        node.inode->hard_link_count--;        // Parent link
         parent_node.inode->hard_link_count--;    // ".." in child no longer points to parent
     } else {
         // File removal
@@ -1201,7 +1220,7 @@ void remove_entry(treeNode* node_to_remove) {
     ext2::rewrite_bgds(node.fs);
     // Rewriting parent inode
     ext2::write_inode(parent_node.fs, parent_node.inode_num, parent_node.inode);
-}   
+} 
 
 #pragma region Terminal Functions
 
@@ -1377,6 +1396,7 @@ void ext2::mkdir(void) {
 
     // Writing to disk
     write_block(fs, block_num, buf);
+    write_inode(fs, inode_num, inode);
 
     // Insert into parent dir
     int res = insert_directory_entry(fs, parent.inode, input, inode_num, buf);
@@ -1389,7 +1409,6 @@ void ext2::mkdir(void) {
     parent.inode->last_mod_time = rtc::get_unix_timestamp();
 
     // Write back inodes
-    write_inode(fs, inode_num, inode);
     write_inode(fs, parent.inode_num, parent.inode);
     inode = load_inode(fs, inode_num);
 
@@ -1461,6 +1480,8 @@ void ext2::mkfile(void) {
     inode->hard_link_count = 1;
     inode->disk_sect_count = 0;
 
+    write_inode(fs, inode_num, inode);
+
     uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
     // Insert into parent dir
     int res = insert_directory_entry(fs, parent.inode, input, inode_num, buf);
@@ -1472,7 +1493,6 @@ void ext2::mkfile(void) {
     parent.inode->last_mod_time = rtc::get_unix_timestamp();
 
     // Write back inodes
-    write_inode(fs, inode_num, inode);
     write_inode(fs, parent.inode_num, parent.inode);
     inode = load_inode(fs, inode_num);
 
@@ -1495,39 +1515,49 @@ void ext2::rm(void) {
         // Reading dir to find the object we want to remove
         int count; ext2::read_dir(parent, count);
         data::string name = tokens[2];
-        treeNode* node = vfs_tree.find_child_by_predicate(parent, [name](vfsNode node){ return node.name == name;});
+        treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name;}, count);
         kfree(tokens);
-        if(!node) {
-            vga::warning("rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
+        if(!nodes || count == 0) {
+            vga::warning("rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
         }
-
-        // Traversing directory recursively and deleting all contents
-        vfs_tree.traverse(node, remove_entry);
-        // Removing from VFS tree
-        vfs_tree.delete_subtree(node);
+        for(int i = 0; i < count; i++) {
+            // Found a valid node
+            if(nodes[i]->data.is_dir) {
+                // rm -r <dir>
+                // Traversing directory recursively and deleting all contents
+                vfs_tree.traverse(nodes[i], remove_entry);
+                // Removing from VFS tree
+                vfs_tree.delete_subtree(nodes[i]);
+                return;
+            }
+        }
+        vga::warning("rm: The object (\"%S\") to delete is a file! Please use rm <file>\n", name);
         return;
     }
     else if(count == 2) {
         // Reading dir to find the object we want to remove
         int count; ext2::read_dir(parent, count);
         data::string name = tokens[1];
-        treeNode* node = vfs_tree.find_child_by_predicate(parent, [name](vfsNode node){ return node.name == name; });
+        treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name; }, count);
         kfree(tokens);
-        if(!node) {
+        if(!nodes || count == 0) {
             vga::warning("rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
         }
-        // We need to recursively delete a directory
-        else if(node->data.is_dir) {
-            vga::warning("rm: The object (\"%S\") to delete is a directory! Please use rm -r <dir>\n", name);
-            return;
+        for(int i = 0; i < count; i++) {
+            // Found a valid node
+            if(!nodes[i]->data.is_dir) {
+                // rm <file>
+                remove_entry(nodes[i]);
+                // Removing from VFS tree
+                vfs_tree.delete_subtree(nodes[i]);
+                return;
+            }
         }
         
-        // rm <file>
-        remove_entry(node);
-        // Removing from VFS tree
-        vfs_tree.delete_subtree(node);
+        // We need to recursively delete a directory
+        vga::warning("rm: The object (\"%S\") to delete is a directory! Please use rm -r <dir>\n", name);
         return;
     }
 
