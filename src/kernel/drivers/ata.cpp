@@ -303,21 +303,21 @@ void ata::read_ata(void) {
     }
 
     int sector_index = str_to_int(params[4]);
-    if(sector_index < 0 || sector_index >= ata_devices[device_index].total_sectors) {
-        vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index].total_sectors);
+    if(sector_index < 0 || sector_index >= ata_devices[device_index]->total_sectors) {
+        vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
         return;
     }
 
     uint16_t buffer[256];
-    if(pio_28::read_sector(&(ata_devices[device_index]), sector_index, buffer))
+    if(pio_28::read_sector(ata_devices[device_index], sector_index, buffer))
         for(uint16_t i = 0; i < 256; i++) 
             vga::printf("%h ", buffer[i]);
 }
 
 void ata::list_ata(void) {
     for(int i = 0; i < 4; i++) {
-        if(strlen(ata_devices[i].serial) == 0) continue;
-        ata::device_t* device = &(ata_devices[i]); 
+        if(strlen(ata_devices[i]->serial) == 0) continue;
+        ata::device_t* device = ata_devices[i]; 
         vga::printf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
             device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
         vga::printf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");

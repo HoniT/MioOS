@@ -161,6 +161,9 @@ struct ext2_fs_t {
         // TODO: Add an AHCI device to this union after implementing an AHCI driver
     };
 
+    // MBR partition start
+    uint32_t partition_start = 0;
+
     // File system info
     superblock_t* sb;
     blkgrp_descriptor_t* blk_grp_descs;
@@ -181,7 +184,7 @@ struct vfsNode;
 
 namespace ext2 {
     // Initialization functions
-    bool init_ext2_device(ata::device_t* dev);
+    ext2_fs_t* init_ext2_device(ata::device_t* dev);
     // Finds all Ext2 File Systems
     void find_ext2_fs(void);
 

@@ -11,7 +11,8 @@
 #include <stdint.h>
 #include <drivers/ata.hpp>
 
-extern ata::device_t* ata_devices;
+extern ata::device_t** ata_devices;
+extern uint8_t last_ata_device_index;
 void device_init(void);
 
 namespace ata {

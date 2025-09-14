@@ -8,6 +8,7 @@
 
 #include <fs/ext/ext2.hpp>
 #include <fs/ext/vfs.hpp>
+#include <mbr.hpp>
 #include <mm/heap.hpp>
 #include <drivers/ata.hpp>
 #include <drivers/vga_print.hpp>
@@ -395,7 +396,7 @@ void ext2::rewrite_sb(ext2_fs_t* fs) {
 
 bool ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read) {
     // Translating Ext2 blocks to LBA blocks
-    uint32_t lba = (block_num * fs->block_size) / 512;
+    uint32_t lba = fs->partition_start + ((block_num * fs->block_size) / 512);
     uint32_t lba_blocks = (blocks_to_read * fs->block_size) / 512;
 
     if (fs->dev) {
@@ -410,7 +411,7 @@ bool ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, 
 }
 
 bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write) {
-    uint32_t lba = (block_num * fs->block_size) / 512;
+    uint32_t lba = fs->partition_start + ((block_num * fs->block_size) / 512);
     uint32_t lba_blocks = (blocks_to_write * fs->block_size) / 512;
 
     if (fs->dev) {
@@ -427,7 +428,7 @@ bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer,
 ext2_fs_t* curr_fs = nullptr;
 // Parses for dir entries in block
 void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, treeNode* parentNode, vfsNode parent, int& last_index) {
-    if (last_index >= 256) return;  // Prevent overflow
+    if (last_index >= 300) return;  // Prevent overflow
 
     uint32_t offset = 0;
     // Finding all dir entries in the block
@@ -470,11 +471,11 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         return nullptr;
     }
     int last_index = 0;
-    vfsNode* entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256); // Estimate 256 entries for now
+    vfsNode* entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 300); // Estimate 256 entries for now
     // If we're not in a physical FS (In virtually added directories e.g. "/" (root)) we'll find children in the VFS tree
     if(!curr_fs) {
         treeNode* curr = tree_node->first_child;
-        entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256);
+        entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 300);
         while(curr) {
             entries[last_index++] = curr->data;
             curr = curr->next_sibling;
@@ -490,7 +491,7 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         parse_directory_block(curr_fs, block, entries, tree_node, node, last_index);
     };
 
-    entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 256);
+    entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 300);
 
     // ---------------------
     // Handle Direct Blocks
@@ -580,37 +581,45 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
 #pragma region Init
 
 // Initializes the Ext2 FS for an ATA device
-bool ext2::init_ext2_device(ata::device_t* dev) {
+ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev) {
+    // Getting MBR
+    mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
+    mbr::read_mbr(dev, mbr);
+    uint32_t partition_start = mbr::find_partition_lba(mbr);
+    
     // Allocating space for the FS metadata and superblock. Adding device 
     ext2_fs_t* ext2fs = (ext2_fs_t*)kcalloc(1, sizeof(ext2_fs_t));
     ext2fs->dev = dev;
+    ext2fs->partition_start = partition_start;
     ext2fs->sb = (superblock_t*)kmalloc(SUPERBLOCK_SIZE);
     
     // Reading superblock (Located at LBA 2 and takes up 2 sectors)
-    pio_28::read_sector(dev, 2, (uint16_t*)ext2fs->sb, 2);
+    pio_28::read_sector(dev, partition_start + 2, (uint16_t*)ext2fs->sb, 2);
+    
     // Verifying superblock
     if(ext2fs->sb->ext2_magic != EXT2_MAGIC) {
         // Mounting to VFS
         vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
-        return false;
+        return nullptr;
     }
     // Saving information about device
     ext2fs->block_size = 1024 << ext2fs->sb->blk_size;
     ext2fs->blocks_per_group = ext2fs->sb->blkgroup_blk_num;
     ext2fs->inodes_per_group = ext2fs->sb->blkgroup_inode_num;
-
+    
     // Total number of block groups (rounded up)
     ext2fs->total_groups = 
-        (ext2fs->sb->blks_num + ext2fs->blocks_per_group - 1) / ext2fs->blocks_per_group;
-
+    (ext2fs->sb->blks_num + ext2fs->blocks_per_group - 1) / ext2fs->blocks_per_group;
+    
     // Number of blocks needed for the Block Group Descriptor Table (rounded up)
     ext2fs->blk_grp_desc_blocks = 
-        (ext2fs->total_groups * sizeof(blkgrp_descriptor_t) + ext2fs->block_size - 1) / ext2fs->block_size;
-
+    (ext2fs->total_groups * sizeof(blkgrp_descriptor_t) + ext2fs->block_size - 1) / ext2fs->block_size;
+    
     // Allocating and reading BGD
     ext2fs->blk_grp_descs = (blkgrp_descriptor_t*)kmalloc(ext2fs->blk_grp_desc_blocks * ext2fs->block_size);
-    ext2::read_block(ext2fs, (ext2fs->block_size == 1024) ? 2 : 1, reinterpret_cast<uint8_t*>(ext2fs->blk_grp_descs), ext2fs->blk_grp_desc_blocks);
-
+    uint32_t bgd_start = (ext2fs->block_size == 1024) ? 2 : 1;
+    ext2::read_block(ext2fs, bgd_start, reinterpret_cast<uint8_t*>(ext2fs->blk_grp_descs), ext2fs->blk_grp_desc_blocks);
+    
     // Getting root inode
     inode_t* root_inode = load_inode(ext2fs, EXT2_ROOT_INO);
     if (!INODE_IS_DIR(root_inode)) {
@@ -618,21 +627,22 @@ bool ext2::init_ext2_device(ata::device_t* dev) {
         vga::error("The root inode wasn't a directory for ATA device!\n");
         // Mounting to VFS
         vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
-        return false;
+        return nullptr;
     }
 
     // Mounting to VFS
     vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], root_inode, ext2fs);
 
-    return true;
+    return ext2fs;
 }
 
 // Finds all Ext2 File Systems
 void ext2::find_ext2_fs(void) {
     // Initializing Ext2 on ATA devices
-    for(int i = 0; i < sizeof(ata_devices); i++)
-        if(strcmp(ata_devices[i].serial, "") != 0)
-            ext2::init_ext2_device(&ata_devices[i]);
+    for(int i = 0; i < last_ata_device_index; i++)
+        if(ata_devices[i]) {
+            ext2::init_ext2_device(ata_devices[i]);
+        }
 
     // TODO: Find on AHCI when implemented
 }
