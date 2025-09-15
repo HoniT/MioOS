@@ -12,7 +12,6 @@
 #include <mm/heap.hpp>
 #include <lib/string_util.hpp>
 #include <lib/mem_util.hpp>
-#include <drivers/vga_print.hpp>
 
 namespace data{
     class string {
