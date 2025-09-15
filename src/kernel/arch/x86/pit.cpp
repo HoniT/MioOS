@@ -51,7 +51,7 @@ void pit::delay(const uint64_t ms) {
 
 #pragma region Terminal Functions
 
-void pit::getuptime(void) {
+void pit::getuptime(data::list<data::string> params) {
     uint64_t total_seconds = udiv64(ticks, uint64_t(frequency));
 
     uint64_t hours = udiv64(total_seconds, 3600);

@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 #include <kernel_main.hpp>
+#include <lib/data/list.hpp>
+#include <lib/data/string.hpp>
 
 #define METADATA_ADDR 0x600000 // 6MiB mark
 #define FRAME_SIZE 0x1000 // 4KiB frames
@@ -58,7 +60,7 @@ namespace pmm {
     void free_frame(void* ptr);
 
     // Terminal functions
-    void getmeminfo(void);
+    void getmeminfo(data::list<data::string> params);
 } // Namespace pmm
 
 #endif // PMM_HPP

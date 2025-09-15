@@ -1227,20 +1227,17 @@ void remove_entry(treeNode* node_to_remove) {
 #pragma region Terminal Functions
 
 /// @brief Prints working directory
-void ext2::pwd(void) {
+void ext2::pwd(data::list<data::string> params) {
     vga::printf("%S\n", vfs::currentDir);
 }
 
 /// @brief Lists directory entries
-void ext2::ls(void) {
-    // Getting parameter list from cmd
-    data::list<data::string> tokens = split_string_tokens(get_current_input());
-
+void ext2::ls(data::list<data::string> params) {
     bool metadata_print = false;
-    if(tokens.count() >= 2) {
-        if(tokens.at(1).equals("-l")) metadata_print = true;
+    if(params.count() >= 1) {
+        if(params.at(0).equals("-l")) metadata_print = true;
         else {
-            vga::warning("ls: Invalid parameter \"%S\" passed to ls\n", tokens.at(1));
+            vga::warning("ls: Invalid parameter \"%S\" passed to ls\n", params.at(0));
             return;
         }
     }
@@ -1292,9 +1289,9 @@ void ext2::ls(void) {
 
 
 /// @brief Changes directory
-void ext2::cd(void) {
+void ext2::cd(data::list<data::string> params) {
     // Getting directory to change to
-    data::string input = get_remaining_string(get_current_input());
+    data::string input = params.at(0);
     if(input.empty()) {
         vga::warning("cd: Syntax: cd <dir>\n");
         return;
@@ -1309,14 +1306,13 @@ void ext2::cd(void) {
 
 
 /// @brief Created a directory in a FS 
-void ext2::mkdir(void) {
-    // Getting directory to create
-    data::string input = get_remaining_string(get_current_input());
-    if(input.empty()) {
+void ext2::mkdir(data::list<data::string> params) {
+    data::string dir = params.at(0);
+    if(dir.empty()) {
         vga::warning("mkdir: Syntax: mkdir <dir>\n");
         return;
     }
-    if(input.includes("/")) {
+    if(dir.includes("/")) {
         vga::warning("mkdir: Please don't use '/' in a directory name\n");
         return;
     }
@@ -1343,8 +1339,8 @@ void ext2::mkdir(void) {
     // Checking if the dir already exists
     for(vfsNode node : nodes) {
         // Checking if this node is the dir we want to create
-        if(node.name == input && node.is_dir) {
-            vga::warning("mkdir: Directory \"%S\" already exists in \"%S\"\n", input, parent.path);
+        if(node.name == dir && node.is_dir) {
+            vga::warning("mkdir: Directory \"%S\" already exists in \"%S\"\n", dir, parent.path);
             return;
         }
     }
@@ -1397,7 +1393,7 @@ void ext2::mkdir(void) {
     write_inode(fs, inode_num, inode);
 
     // Insert into parent dir
-    int res = insert_directory_entry(fs, parent.inode, input, inode_num, buf);
+    int res = insert_directory_entry(fs, parent.inode, dir, inode_num, buf);
     if (res != 0) {
         kfree(buf);
         return;
@@ -1411,21 +1407,20 @@ void ext2::mkdir(void) {
     inode = load_inode(fs, inode_num);
 
     // Adding to VFS
-    vfs::add_node(vfs::get_node(vfs::currentDir), input, inode_num, inode, fs);
+    vfs::add_node(vfs::get_node(vfs::currentDir), dir, inode_num, inode, fs);
 
     kfree(buf);
     return;
 }
 
 /// @brief Makes a file
-void ext2::mkfile(void) {
-    // Getting file to create
-    data::string input = get_remaining_string(get_current_input());
-    if(input.empty()) {
+void ext2::mkfile(data::list<data::string> params) {
+    data::string file = params.at(0);
+    if(file.empty()) {
         vga::warning("mkfile: Syntax: mkfile <file>\n");
         return;
     }
-    if(input.includes("/")) {
+    if(file.includes("/")) {
         vga::warning("mkfile: Please don't use '/' in a file name\n");
         return;
     }
@@ -1452,8 +1447,8 @@ void ext2::mkfile(void) {
     // Checking if the file already exists
     for(vfsNode node : nodes) {
         // Checking if this node is the file we want to create
-        if(node.name == input && !node.is_dir) {
-            vga::warning("mkfile: File \"%S\" already exists in \"%S\"\n", input, parent.path);
+        if(node.name == file && !node.is_dir) {
+            vga::warning("mkfile: File \"%S\" already exists in \"%S\"\n", file, parent.path);
             return;
         }
     }
@@ -1481,7 +1476,7 @@ void ext2::mkfile(void) {
 
     uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
     // Insert into parent dir
-    int res = insert_directory_entry(fs, parent.inode, input, inode_num, buf);
+    int res = insert_directory_entry(fs, parent.inode, file, inode_num, buf);
     if (res != 0) {
         kfree(buf);
         return;
@@ -1494,26 +1489,25 @@ void ext2::mkfile(void) {
     inode = load_inode(fs, inode_num);
 
     // Adding to VFS
-    vfs::add_node(vfs::get_node(vfs::currentDir), input, inode_num, inode, fs);
+    vfs::add_node(vfs::get_node(vfs::currentDir), file, inode_num, inode, fs);
 
     kfree(buf);
     return;
 }
 
 /// @brief Removes dir entry
-void ext2::rm(void) {
+void ext2::rm(data::list<data::string> params) {
     // Getting params
-    data::list<data::string> tokens = split_string_tokens(get_current_input());
     treeNode* parent = vfs::get_node(vfs::currentDir);
 
-    if(tokens.count() == 3) {
-        if(tokens.at(1) != "-r") goto invalid_params;
+    if(params.count() == 2) {
+        if(params.at(0) != "-r") goto invalid_params;
 
         // Reading dir to find the object we want to remove
         ext2::read_dir(parent);
-        data::string name = tokens.at(2);
+        data::string name = params.at(1);
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name;}, count);
-        tokens.clear();
+        params.clear();
         if(!nodes || count == 0) {
             vga::warning("rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
@@ -1532,12 +1526,12 @@ void ext2::rm(void) {
         vga::warning("rm: The object (\"%S\") to delete is a file! Please use rm <file>\n", name);
         return;
     }
-    else if(tokens.count() == 2) {
+    else if(params.count() == 1) {
         // Reading dir to find the object we want to remove
         ext2::read_dir(parent);
-        data::string name = tokens.at(1);
+        data::string name = params.at(0);
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name; }, count);
-        tokens.clear();
+        params.clear();
         if(!nodes || count == 0) {
             vga::warning("rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
@@ -1562,7 +1556,7 @@ void ext2::rm(void) {
     vga::warning("rm: Invalid parameters passed to rm!\n");
     vga::printf("rm <file> - Deletes file (doesn't work with directories)\n");
     vga::printf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
-    tokens.clear();
+    params.clear();
     return;
 }
 

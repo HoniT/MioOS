@@ -8,7 +8,10 @@
 #ifndef KTERMINAL_HPP
 #define KTERMINAL_HPP
 
-typedef void (*CommandFunc)();
+#include <lib/data/list.hpp>
+#include <lib/data/string.hpp>
+
+typedef void (*CommandFunc)(data::list<data::string>);
 
 #define INPUTS_TO_SAVE 10
 
@@ -34,5 +37,8 @@ namespace cmd {
     void cmd_down(void);
 } // namespace cmd
 
+namespace heap {
+    void heap_dump(data::list<data::string> params);
+}
 
 #endif // KTERMINAL_HPP

@@ -9,6 +9,8 @@
 #define ATA_HPP
 
 #include <stdint.h>
+#include <lib/data/list.hpp>
+#include <lib/data/string.hpp>
 
 #define IDENTIFY_COMMAND 0xEC
 #define READ_SECTOR_COMMAND 0x20
@@ -62,8 +64,8 @@ namespace ata {
     void delay_400ns(const bool secondary);
     
     // Terminal Functions
-    void list_ata(void);
-    void read_ata(void);
+    void list_ata(data::list<data::string> params);
+    void read_ata(data::list<data::string> params);
 } // namespace ata
 
 // 28 bit PIO mode functions

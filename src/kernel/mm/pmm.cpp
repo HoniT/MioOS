@@ -306,29 +306,9 @@ void pmm::free_frame(void* ptr) {
 
 #pragma region Terminal Functions
 
-void pmm::getmeminfo(void) {
-    // If the user inputed the help flag
-    if(strcmp(get_remaining_string(get_current_input()), "-h") == 0) {
-        // Printing every available version of getmeminfo
-        vga::printf("-mmap - Prints the memory map given from GRUB\n");
-        vga::printf("-reg - Prints the blocks in the usable memory regions\n");
-        return;
-    }
-
-    // Prints the memory map
-    if(strcmp(get_remaining_string(get_current_input()), "-mmap") == 0) {
-        pmm::print_memory_map();
-        return;
-    }
-
-    // Prints block info
-    if(strcmp(get_remaining_string(get_current_input()), "-reg") == 0) {
-        pmm::print_usable_regions();
-        return;
-    }
-
+void pmm::getmeminfo(data::list<data::string> params) {
     // If there were no flags inputed
-    if(strcmp(get_remaining_string(get_current_input()), "") == 0) {
+    if(params.empty()) {
         // Printing usable and used memory
         vga::printf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
         vga::printf("Total installed memory:  %lu bytes (~%lu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
@@ -337,9 +317,29 @@ void pmm::getmeminfo(void) {
         vga::printf("Hardware reserved memory:   %lu bytes\n", pmm::hardware_reserved_ram);
         return;
     }
-    
+
+    // If the user inputed the help flag
+    if(params.at(0).equals("-h")) {
+        // Printing every available version of getmeminfo
+        vga::printf("-mmap - Prints the memory map given from GRUB\n");
+        vga::printf("-reg - Prints the blocks in the usable memory regions\n");
+        return;
+    }
+
+    // Prints the memory map
+    if(params.at(0).equals("-mmap")) {
+        pmm::print_memory_map();
+        return;
+    }
+
+    // Prints block info
+    if(params.at(0).equals("-reg")) {
+        pmm::print_usable_regions();
+        return;
+    }
+
     // If an invalid flag has been entered we'll throw an error
-    vga::warning("Invalid flag \"%s\"for \"getmeminfo\"!\n", get_remaining_string(get_current_input()));
+    vga::warning("Invalid flag \"%s\"for \"getmeminfo\"!\n", params.at(0));
 }
 
 #pragma endregion

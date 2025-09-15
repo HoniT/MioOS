@@ -36,14 +36,14 @@ const char* get_current_input() {
 }
 
 // Basic command function declarations
-void help();
-void clear();
-void echo();
+void help(data::list<data::string> params);
+void clear(data::list<data::string> params);
+void echo(data::list<data::string> params);
 // System info commands
-void getsysinfo();
+void getsysinfo(data::list<data::string> params);
 // Memory debugging commands
-void peek();
-void poke();
+void peek(data::list<data::string> params);
+void poke(data::list<data::string> params);
 
 // List of commands
 Command commands[] = {
@@ -166,7 +166,7 @@ void cmd::run_cmd(void) {
         // If the current input and the command at this index match well execute
         if(strcmp(get_first_word(currentInput), commands[i].name) == 0) {
             vga::printf("\n");
-            commands[i].function();
+            commands[i].function(split_string_tokens(get_remaining_string(get_current_input())));
             
             vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
             vga::printf("%s@MioOS: %S# ", currentUser, vfs::currentDir);
@@ -271,7 +271,7 @@ void cmd::cmd_down(void) {
 
 #pragma region Basic Commands
 
-void help() {
+void help(data::list<data::string> params) {
     // Itterating through the commands
     for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
         vga::printf(PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4), "%s", commands[i].name);
@@ -282,7 +282,7 @@ void help() {
     return;
 }
 
-void getsysinfo() {
+void getsysinfo(data::list<data::string> params) {
     // RAM
     vga::printf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
 
@@ -303,19 +303,19 @@ void getsysinfo() {
     return;
 }
 
-void clear() {
+void clear(data::list<data::string> params) {
     vga::col = 0; vga::row = 0;
     vga::print_clear();
     vga::printf(" =====================Type \"help\" to get available commands==================== ");
 }
 
-void echo() {
-    vga::printf("%s\n", get_remaining_string(currentInput));
+void echo(data::list<data::string> params) {
+    vga::printf("%s\n", params.at(0));
 }
 
-void peek() {
+void peek(data::list<data::string> params) {
     // Getting the address from the input
-    const char* strAddress = get_remaining_string(currentInput);
+    const char* strAddress = params.at(0);
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
@@ -327,15 +327,14 @@ void peek() {
     vga::printf("Value at the given address: %h\n", *(uint8_t*)address);
 }
 
-void poke() {
-    data::list<data::string> params = split_string_tokens(currentInput);
-    if(params.count() != 3) {
+void poke(data::list<data::string> params) {
+    if(params.count() != 2) {
         vga::warning("Syntax: poke <address> <value>\n");
         return;
     }
 
     // Getting address and value from the input
-    const char* strAddress = params.at(1);
+    const char* strAddress = params.at(0);
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
@@ -343,7 +342,7 @@ void poke() {
         return;
     }
     #endif
-    const char* strVal = params.at(2);
+    const char* strVal = params.at(1);
     uint8_t val = hex_to_uint32(strVal);
 
     // Writing the value to the address

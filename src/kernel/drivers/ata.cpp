@@ -288,21 +288,19 @@ namespace pio_28 {
 #pragma region Terminal Functions
 
 // Reads a given sector on a given ATA device 
-void ata::read_ata(void) {
-    // Getting arguments from string
-    data::list<data::string> params = split_string_tokens(get_current_input());
-    if(params.count() != 5 || !params.at(1).equals("-dev") || !params.at(3).equals("-sect")) {
+void ata::read_ata(data::list<data::string> params) {
+    if(params.count() != 4 || !params.at(0).equals("-dev") || !params.at(2).equals("-sect")) {
         vga::warning("Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
         return;
     }
 
-    int device_index = str_to_int(params.at(2));
+    int device_index = str_to_int(params.at(1));
     if(device_index < 0 || device_index >= 4) {
         vga::warning("Please use an integer (0-3) as the device index in decimal format.\n");
         return;
     }
 
-    int sector_index = str_to_int(params.at(4));
+    int sector_index = str_to_int(params.at(3));
     if(sector_index < 0 || sector_index >= ata_devices[device_index]->total_sectors) {
         vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
         return;
@@ -314,9 +312,9 @@ void ata::read_ata(void) {
             vga::printf("%h ", buffer[i]);
 }
 
-void ata::list_ata(void) {
+void ata::list_ata(data::list<data::string> params) {
     for(int i = 0; i < 4; i++) {
-        if(strlen(ata_devices[i]->serial) == 0) continue;
+        if(!ata_devices[i]) continue;
         ata::device_t* device = ata_devices[i]; 
         vga::printf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
             device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);

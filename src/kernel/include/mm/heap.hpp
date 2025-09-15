@@ -22,7 +22,6 @@ struct HeapBlock {
 
 namespace heap {
     void init(void);
-    void heap_dump(void);
 } // Namespace heap
 
 // Memory allocation and deallocation functions

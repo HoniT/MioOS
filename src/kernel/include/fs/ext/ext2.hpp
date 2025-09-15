@@ -224,12 +224,12 @@ namespace ext2 {
     void rewrite_sb(ext2_fs_t* fs);
 
     // Terminal functions
-    void pwd(void);
-    void ls(void);
-    void cd(void);
-    void mkdir(void);
-    void mkfile(void);
-    void rm(void);
+    void pwd(data::list<data::string> params);
+    void ls(data::list<data::string> params);
+    void cd(data::list<data::string> params);
+    void mkdir(data::list<data::string> params);
+    void mkfile(data::list<data::string> params);
+    void rm(data::list<data::string> params);
 } // namespace ext2
 
 #endif // EXT2_HPP

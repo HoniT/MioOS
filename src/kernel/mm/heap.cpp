@@ -10,6 +10,7 @@
 #include <drivers/vga_print.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/math.hpp>
+#include <kterminal.hpp>
 
 // Start of the heap
 static HeapBlock* heap_head = nullptr;
@@ -116,7 +117,7 @@ void* kcalloc(const size_t num, const size_t size) {
     return ptr;
 }
 
-void heap::heap_dump(void) {
+void heap::heap_dump(data::list<data::string> params) {
     vga::printf("--------------- Heap Dump ---------------\n");
 
     HeapBlock* current = heap_head; // Setting the current block as the head
@@ -125,20 +126,10 @@ void heap::heap_dump(void) {
 
     // Itterating through blocks
     while(current) {
-        // If the block is free we'll output the size and store add it to the total amount
-        vga::printf("Block range: %x-%x\n", current, uint32_t(current) + current->size);
-        vga::printf("Block size: %d bytes\n", current->size);
-        vga::printf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
-
         if(!current->free) bytes_in_use += current->size;
-
         // Getting next block
         current = current->next;
     }
-
-    // Printing every heap block
-    vga::printf("\n");
-
     // Printing final status of heap
     vga::printf("Heap status: %lu bytes used out of %lu (%u%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
     vga::printf("-----------------------------------------\n");
