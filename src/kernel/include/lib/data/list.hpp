@@ -28,16 +28,18 @@ namespace data {
             if (new_capacity < length) new_capacity = length;
 
             T* new_arr = (T*)kmalloc(sizeof(T) * new_capacity);
+            if (!new_arr) return;
 
-            // Copy old data
-            if (arr) {
-                memcpy(new_arr, arr, sizeof(T) * length);
-                kfree(arr);
+            for (uint32_t i = 0; i < length; i++) {
+                new (&new_arr[i]) T(arr[i]); // Copy construct
+                arr[i].~T();                 // Destroy old object
             }
 
+            if (arr) kfree(arr);
             arr = new_arr;
             capacity = new_capacity;
         }
+
 
     public:
         #pragma region Constructors & Destructor
@@ -94,10 +96,11 @@ namespace data {
         /// @brief Adds a value to list
         void push_back(const T& value) {
             if (length >= capacity) {
-                uint32_t new_capacity = (capacity == 0) ? 2 : capacity * 2;
-                resize(new_capacity);
+                uint32_t new_cap = (capacity == 0) ? 2 : capacity * 2;
+                resize(new_cap);
             }
-            arr[length++] = value;
+            new (&arr[length]) T(value); // Placement new
+            length++;
         }
 
         /// @brief Removes last element from list

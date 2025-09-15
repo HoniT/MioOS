@@ -426,61 +426,60 @@ bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer,
 
 
 ext2_fs_t* curr_fs = nullptr;
-// Parses for dir entries in block
-void parse_directory_block(ext2_fs_t* fs, uint8_t* block, vfsNode* entries, treeNode* parentNode, vfsNode parent, int& last_index) {
-    if (last_index >= 300) return;  // Prevent overflow
-
+// Parses dir entries in a block and adds them to a list
+void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& entries, treeNode* parentNode, vfsNode parent) {
     uint32_t offset = 0;
-    // Finding all dir entries in the block
+
     while (offset < fs->block_size) {
         dir_ent_t* entry = (dir_ent_t*)(block + offset);
         if (entry->inode == 0) break;
-        if (entry->entry_size < 8) break; // Entry too small or corrupted
-        
+        if (entry->entry_size < 8) break; // Corrupted or too small entry
+
         inode_t* inode = ext2::load_inode(fs, entry->inode);
-        
-        // Retrieve name
+
         data::string name(entry->name, entry->name_len);
-        if(!inode) vga::warning("parse_directory_block: No inode for %S\n", name);
-        
+        if (!inode) vga::warning("parse_directory_block: No inode for %S\n", name);
+
         // Build full path
         data::string path = parent.path;
         path.append(name);
-        
-        // If it's a directory, add trailing slash
+
         if (INODE_IS_DIR(inode)) path.append("/");
-        
-        // Adding to array
+
+        // Create VFS node
         vfsNode node = vfs_tree.create({name, path, INODE_IS_DIR(inode), entry->inode, inode, curr_fs})->data;
-        // Checking if the entry is in the VFS tree
-        if(!name.equals(".") && !name.equals(".."))  {
+
+        // Add to VFS tree if not '.' or '..'
+        if (!name.equals(".") && !name.equals("..")) {
             vfs::add_node(parentNode, node);
         }
-        entries[last_index++] = node;
-        
+
+        // Add to dynamic list
+        entries.push_back(node);
+
         offset += entry->entry_size;
     }
 }
 
-// Returns a list of VFS nodes of entries in the given dir
-vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
-    if (!tree_node || !count) return nullptr;
+// Returns a list of VFS nodes of entries in the given directory
+data::list<vfsNode> ext2::read_dir(treeNode* tree_node) {
+    data::list<vfsNode> entries;
+
+    if (!tree_node) return entries;
+
     vfsNode node = tree_node->data;
     if (!node.is_dir) {
         vga::error("read_dir error: node is not a directory!\n");
-        return nullptr;
+        return entries;
     }
-    int last_index = 0;
-    vfsNode* entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 300); // Estimate 256 entries for now
-    // If we're not in a physical FS (In virtually added directories e.g. "/" (root)) we'll find children in the VFS tree
-    if(!curr_fs) {
+
+    // If we don't have a physical FS, gather children from VFS tree
+    if (!curr_fs) {
         treeNode* curr = tree_node->first_child;
-        entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 300);
-        while(curr) {
-            entries[last_index++] = curr->data;
+        while (curr) {
+            entries.push_back(curr->data);
             curr = curr->next_sibling;
         }
-        count = last_index;
         return entries;
     }
 
@@ -488,35 +487,31 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         if (block_num == 0) return;
         uint8_t block[curr_fs->block_size];
         ext2::read_block(curr_fs, block_num, block);
-        parse_directory_block(curr_fs, block, entries, tree_node, node, last_index);
+        parse_directory_block(curr_fs, block, entries, tree_node, node);
     };
 
-    entries = (vfsNode*)kmalloc(sizeof(vfsNode) * 300);
-
     // ---------------------
-    // Handle Direct Blocks
+    // Direct blocks
     // ---------------------
     for (int i = 0; i < 12; i++) {
         read_and_parse(node.inode->direct_blk_ptr[i]);
     }
 
-    // -----------------------------------
-    // Handle Singly Indirect Block
-    // -----------------------------------
+    // ---------------------
+    // Singly indirect block
+    // ---------------------
     if (node.inode->singly_inderect_blk_ptr != 0) {
         uint32_t* ptrs = (uint32_t*)kmalloc(curr_fs->block_size);
         ext2::read_block(curr_fs, node.inode->singly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(ptrs));
-
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             read_and_parse(ptrs[i]);
         }
-
-        kfree(ptrs); // Free allocated block pointer list
+        kfree(ptrs);
     }
 
-    // ------------------------------------
-    // Handle Doubly Indirect Block
-    // ------------------------------------
+    // ---------------------
+    // Doubly indirect block
+    // ---------------------
     if (node.inode->doubly_inderect_blk_ptr != 0) {
         uint32_t* dptrs = (uint32_t*)kmalloc(curr_fs->block_size);
         ext2::read_block(curr_fs, node.inode->doubly_inderect_blk_ptr, reinterpret_cast<uint8_t*>(dptrs));
@@ -524,7 +519,6 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             if (dptrs[i] == 0) continue;
 
-            // Read singly indirect block
             uint32_t* sptrs = (uint32_t*)kmalloc(curr_fs->block_size);
             ext2::read_block(curr_fs, dptrs[i], reinterpret_cast<uint8_t*>(sptrs));
 
@@ -538,9 +532,9 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         kfree(dptrs);
     }
 
-    // -------------------------------------
-    // Handle Triply Indirect Block
-    // -------------------------------------
+    // ---------------------
+    // Triply indirect block
+    // ---------------------
     if (node.inode->triply_inderect_blk_ptr != 0) {
         uint32_t* tptrs = (uint32_t*)kmalloc(curr_fs->block_size);
         ext2::read_block(curr_fs, node.inode->triply_inderect_blk_ptr, reinterpret_cast<uint8_t*>(tptrs));
@@ -548,14 +542,12 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         for (int i = 0; i < curr_fs->block_size / 4; ++i) {
             if (tptrs[i] == 0) continue;
 
-            // Read doubly indirect block
             uint32_t* dptrs = (uint32_t*)kmalloc(curr_fs->block_size);
             ext2::read_block(curr_fs, tptrs[i], reinterpret_cast<uint8_t*>(dptrs));
 
             for (int j = 0; j < curr_fs->block_size / 4; ++j) {
                 if (dptrs[j] == 0) continue;
 
-                // Read singly indirect block
                 uint32_t* sptrs = (uint32_t*)kmalloc(curr_fs->block_size);
                 ext2::read_block(curr_fs, dptrs[j], reinterpret_cast<uint8_t*>(sptrs));
 
@@ -572,9 +564,9 @@ vfsNode* ext2::read_dir(treeNode* tree_node, int& count) {
         kfree(tptrs);
     }
 
-    count = last_index;
     return entries;
 }
+
 
 #pragma endregion
 
@@ -795,23 +787,23 @@ bool change_dir(data::string dir) {
     }
     
     // If we couldnt find the dir in the virtual tree, we'll check physically
-    int count;
-    vfsNode* nodes = ext2::read_dir(currNode, count);
-    if(!nodes) return false;
-    for(int i = 0; i < count; i++) {
+    data::list<vfsNode> nodes = ext2::read_dir(currNode);
+    if(nodes.empty()) return false;
+
+    for(vfsNode node : nodes) {
         // If we found it here
-        if(nodes[i].name == dir && nodes[i].is_dir) {
+        if(node.name == dir && node.is_dir) {
             // Checking permission to change
-            if(nodes[i].inode && !ext2::get_perms(nodes[i].inode, vfs::currUid, vfs::currGid).execute) {
-                vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", nodes[i].path);
+            if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).execute) {
+                vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", node.path);
                 return false;
             }
-            vfs::currentDir = nodes[i].path;
+            vfs::currentDir = node.path;
             // Changing FS if possible
-            if(curr_fs != nodes[i].fs) curr_fs = nodes[i].fs;
+            if(curr_fs != node.fs) curr_fs = node.fs;
             
             // Adding to VFS tree
-            vfs::add_node(currNode, nodes[i].name, nodes[i].inode_num, nodes[i].inode, nodes[i].fs);
+            vfs::add_node(currNode, node.name, node.inode_num, node.inode, node.fs);
             return true;
         }
     }
@@ -1196,7 +1188,7 @@ void remove_entry(treeNode* node_to_remove) {
         return;
     }
     // Reading dir entries to add any missing entries of current dir to the VFS tree
-    if(node_to_remove->data.is_dir) { int count; ext2::read_dir(node_to_remove, count); }
+    if(node_to_remove->data.is_dir) { int count; ext2::read_dir(node_to_remove); }
 
     // Checking permissions to delete
     inode_t* inode_to_check = node.is_dir ? node.inode : parent_node.inode; // If it is a file, we'll check the parent dirs inode
@@ -1242,61 +1234,58 @@ void ext2::pwd(void) {
 /// @brief Lists directory entries
 void ext2::ls(void) {
     // Getting parameter list from cmd
-    int count;
-    data::string* tokens = split_string_tokens(get_current_input(), count);
+    data::list<data::string> tokens = split_string_tokens(get_current_input());
 
     bool metadata_print = false;
-    if(count >= 2) {
-        if(tokens[1].equals("-l")) metadata_print = true;
+    if(tokens.count() >= 2) {
+        if(tokens.at(1).equals("-l")) metadata_print = true;
         else {
-            vga::warning("ls: Invalid parameter \"%S\" passed to ls\n", tokens[1]);
+            vga::warning("ls: Invalid parameter \"%S\" passed to ls\n", tokens.at(1));
             return;
         }
     }
 
     treeNode* node = vfs::get_node(vfs::currentDir); // Retreiving node from current path
     if(!node) return;
-
-    vfsNode* nodes = ext2::read_dir(node, count);
-    if(!nodes) return;
-
+    data::list<vfsNode> nodes = ext2::read_dir(node);
+    if(nodes.empty()) return;
     // Printing
     // Default listing
     if(!metadata_print) {
-        for(int i = 0; i < count; i++) {
+        for(vfsNode node : nodes) {
             // Permission denied
-            if(nodes[i].inode && !ext2::get_perms(nodes[i].inode, vfs::currUid, vfs::currGid).read) continue;
+            if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).read) continue;
             // Printing all entries instead of parent and same dir
-            if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) {
-                vga::printf(nodes[i].is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S ", nodes[i].name);
+            if(!node.name.equals(".") && !node.name.equals("..")) {
+                vga::printf(node.is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S ", node.name);
             }
         }
         vga::printf("\n");
     }
     // Metadata printing
     else 
-        for(int i = 0; i < count; i++) {
+        for(vfsNode node : nodes) {
             // Permission denied
-            if(nodes[i].inode && !ext2::get_perms(nodes[i].inode, vfs::currUid, vfs::currGid).read) continue;
+            if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).read) continue;
             // Printing all entries instead of parent and same dir
-            if(!nodes[i].name.equals(".") && !nodes[i].name.equals("..")) {
-                if(nodes[i].inode) {
+            if(!node.name.equals(".") && !node.name.equals("..")) {
+                if(node.inode) {
                     // Type and permissions
-                    vga::printf("%S ", mode_to_string(nodes[i].inode->type_and_perm));
+                    vga::printf("%S ", mode_to_string(node.inode->type_and_perm));
                     // Link counts
-                    vga::printf("%u ", nodes[i].inode->hard_link_count);
+                    vga::printf("%u ", node.inode->hard_link_count);
                     // UID
-                    vga::printf("%u ", nodes[i].inode->uid);
+                    vga::printf("%u ", node.inode->uid);
                     // GID
-                    vga::printf("%u ", nodes[i].inode->gid);
+                    vga::printf("%u ", node.inode->gid);
                     // Size
-                    vga::printf("%u ", nodes[i].inode->size_low);
+                    vga::printf("%u ", node.inode->size_low);
                     // Modify time
-                    vga::printf("%S ", rtc::timestamp_to_string(nodes[i].inode->last_mod_time));
+                    vga::printf("%S ", rtc::timestamp_to_string(node.inode->last_mod_time));
                 }
                 else vga::printf("(Couldn't recognize File System / Inode) ");
                 // Name
-                vga::printf(nodes[i].is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S\n", nodes[i].name);
+                vga::printf(node.is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S\n", node.name);
             }
         }
 }
@@ -1349,13 +1338,12 @@ void ext2::mkdir(void) {
         return;
     }
 
-    int count;
-    vfsNode* nodes = ext2::read_dir(node, count);
-    if(!nodes) return;
+    data::list<vfsNode> nodes = ext2::read_dir(node);
+    if(nodes.empty()) return;
     // Checking if the dir already exists
-    for(int i = 0; i < count; i++) {
+    for(vfsNode node : nodes) {
         // Checking if this node is the dir we want to create
-        if(nodes[i].name == input && nodes[i].is_dir) {
+        if(node.name == input && node.is_dir) {
             vga::warning("mkdir: Directory \"%S\" already exists in \"%S\"\n", input, parent.path);
             return;
         }
@@ -1459,13 +1447,12 @@ void ext2::mkfile(void) {
         return;
     }
 
-    int count;
-    vfsNode* nodes = ext2::read_dir(node, count);
-    if(!nodes) return;
+    data::list<vfsNode> nodes = ext2::read_dir(node);
+    if(nodes.empty()) return;
     // Checking if the file already exists
-    for(int i = 0; i < count; i++) {
+    for(vfsNode node : nodes) {
         // Checking if this node is the file we want to create
-        if(nodes[i].name == input && !nodes[i].is_dir) {
+        if(node.name == input && !node.is_dir) {
             vga::warning("mkfile: File \"%S\" already exists in \"%S\"\n", input, parent.path);
             return;
         }
@@ -1516,17 +1503,17 @@ void ext2::mkfile(void) {
 /// @brief Removes dir entry
 void ext2::rm(void) {
     // Getting params
-    int count; data::string* tokens = split_string_tokens(get_current_input(), count);
+    data::list<data::string> tokens = split_string_tokens(get_current_input());
     treeNode* parent = vfs::get_node(vfs::currentDir);
 
-    if(count == 3) {
-        if(tokens[1] != "-r") goto invalid_params;
+    if(tokens.count() == 3) {
+        if(tokens.at(1) != "-r") goto invalid_params;
 
         // Reading dir to find the object we want to remove
-        int count; ext2::read_dir(parent, count);
-        data::string name = tokens[2];
-        treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name;}, count);
-        kfree(tokens);
+        ext2::read_dir(parent);
+        data::string name = tokens.at(2);
+        int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name;}, count);
+        tokens.clear();
         if(!nodes || count == 0) {
             vga::warning("rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
@@ -1545,12 +1532,12 @@ void ext2::rm(void) {
         vga::warning("rm: The object (\"%S\") to delete is a file! Please use rm <file>\n", name);
         return;
     }
-    else if(count == 2) {
+    else if(tokens.count() == 2) {
         // Reading dir to find the object we want to remove
-        int count; ext2::read_dir(parent, count);
-        data::string name = tokens[1];
-        treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name; }, count);
-        kfree(tokens);
+        ext2::read_dir(parent);
+        data::string name = tokens.at(1);
+        int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name; }, count);
+        tokens.clear();
         if(!nodes || count == 0) {
             vga::warning("rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
@@ -1575,7 +1562,7 @@ void ext2::rm(void) {
     vga::warning("rm: Invalid parameters passed to rm!\n");
     vga::printf("rm <file> - Deletes file (doesn't work with directories)\n");
     vga::printf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
-    kfree(tokens);
+    tokens.clear();
     return;
 }
 

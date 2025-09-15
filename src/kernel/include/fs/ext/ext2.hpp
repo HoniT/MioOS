@@ -12,6 +12,7 @@
 #include <device.hpp>
 #include <lib/data/tree.hpp>
 #include <lib/data/string.hpp>
+#include <lib/data/list.hpp>
 
 
 // For superblock
@@ -196,7 +197,7 @@ namespace ext2 {
     bool read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read = 1);
     bool write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write = 1);
     // Returns a list of VFS nodes of entries in the given dir
-    vfsNode* read_dir(data::tree<vfsNode>::Node* node, int& count);
+    data::list<vfsNode> read_dir(data::tree<vfsNode>::Node* node);
     
     uint8_t* get_inode_bitmap(ext2_fs_t* fs, uint32_t group);
     void write_inode_bitmap(ext2_fs_t* fs, uint32_t group, uint8_t* bitmap);

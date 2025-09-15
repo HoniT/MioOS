@@ -8,6 +8,7 @@
 
 #include <lib/string_util.hpp>
 #include <lib/data/string.hpp>
+#include <lib/data/list.hpp>
 
 // Compares to strings together and returns the difference
 int32_t strcmp(const char *str1, const char *str2) {
@@ -188,25 +189,13 @@ char* strcat(char* dest, const char* src) {
 }
 
 // Splits a string into tokens
-data::string* split_string_tokens(data::string str, int& count) {
+data::list<data::string> split_string_tokens(data::string str) {
+    data::list<data::string> tokens;
     if (str.empty()) {
-        count = 0;
-        return nullptr;
+        return tokens;
     }
-
-    const int max_tokens = 16;
-    void* raw = kmalloc(sizeof(data::string) * max_tokens);
-    if (!raw) {
-        count = 0;
-        return nullptr;
-    }
-
-    data::string* tokens = static_cast<data::string*>(raw);
-
-    int token_index = 0;
     uint32_t i = 0;
-
-    while (i < str.size() && token_index < max_tokens) {
+    while (i < str.size()) {
         // Skip repeated slashes
         while (i < str.size() && str[i] == ' ') i++;
 
@@ -215,16 +204,8 @@ data::string* split_string_tokens(data::string str, int& count) {
         uint32_t len = i - start;
 
         if (len > 0) {
-            new (&tokens[token_index++]) data::string(str.c_str() + start, len);
+            tokens.push_back(data::string(str.c_str() + start, len));
         }
     }
-
-    count = token_index;
-
-    if (token_index == 0) {
-        kfree(tokens);
-        return nullptr;
-    }
-
     return tokens;
 }

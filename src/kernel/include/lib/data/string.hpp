@@ -12,6 +12,7 @@
 #include <mm/heap.hpp>
 #include <lib/string_util.hpp>
 #include <lib/mem_util.hpp>
+#include <lib/data/list.hpp>
 
 namespace data{
     class string {
@@ -205,6 +206,6 @@ namespace data{
     };
 } // namespace data
 
-data::string* split_string_tokens(data::string str, int& count);
+data::list<data::string> split_string_tokens(data::string str);
 
 #endif // STRING_HPP

@@ -290,19 +290,19 @@ namespace pio_28 {
 // Reads a given sector on a given ATA device 
 void ata::read_ata(void) {
     // Getting arguments from string
-    int count; data::string* params = split_string_tokens(get_current_input(), count);
-    if(count != 5 || !params[1].equals("-dev") || !params[3].equals("-sect")) {
+    data::list<data::string> params = split_string_tokens(get_current_input());
+    if(params.count() != 5 || !params.at(1).equals("-dev") || !params.at(3).equals("-sect")) {
         vga::warning("Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
         return;
     }
 
-    int device_index = str_to_int(params[2]);
+    int device_index = str_to_int(params.at(2));
     if(device_index < 0 || device_index >= 4) {
         vga::warning("Please use an integer (0-3) as the device index in decimal format.\n");
         return;
     }
 
-    int sector_index = str_to_int(params[4]);
+    int sector_index = str_to_int(params.at(4));
     if(sector_index < 0 || sector_index >= ata_devices[device_index]->total_sectors) {
         vga::warning("Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
         return;
