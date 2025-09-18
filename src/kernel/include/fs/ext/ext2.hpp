@@ -56,6 +56,11 @@
 #define INODE_IS_DIR(inode) ((inode->type_and_perm & EXT2_S_IFMT) == EXT2_S_IFDIR)
 #define INODE_IS_FILE(inode) ((inode->type_and_perm & EXT2_S_IFMT) == EXT2_S_IFREG)
 #define DEFAULT_PERMS 0755 // rwxr-xr-x
+#define RESTRICTED_PERMS 0700 // rwx------
+
+#define TEST_BIT(bitmap, bit)  ((bitmap[(bit) / 8] >> ((bit) % 8)) & 1)
+#define SET_BIT(bitmap, bit)   (bitmap[(bit) / 8] |= (1 << ((bit) % 8)))
+#define CLEAR_BIT(bitmap, bit) (bitmap[(bit) / 8] &= ~(1 << ((bit) % 8)))
 
 #pragma region Structures
 // Structure of Ext2 Superblock
@@ -185,7 +190,7 @@ struct vfsNode;
 
 namespace ext2 {
     // Initialization functions
-    ext2_fs_t* init_ext2_device(ata::device_t* dev);
+    ext2_fs_t* init_ext2_device(ata::device_t* dev, bool sysdisk_check);
     // Finds all Ext2 File Systems
     void find_ext2_fs(void);
 
@@ -223,13 +228,18 @@ namespace ext2 {
     // Rewrites superblock of a FS
     void rewrite_sb(ext2_fs_t* fs);
 
+    bool check_inode_status(uint32_t inode_num);
+
     // Terminal functions
     void pwd(data::list<data::string> params);
     void ls(data::list<data::string> params);
     void cd(data::list<data::string> params);
     void mkdir(data::list<data::string> params);
+    void make_dir(data::string dir, vfsNode parent, data::tree<vfsNode>::Node* node, uint16_t perms);
     void mkfile(data::list<data::string> params);
+    void make_file(data::string file, vfsNode parent, data::tree<vfsNode>::Node* node, uint16_t perms);
     void rm(data::list<data::string> params);
+    void check_inode_status(data::list<data::string> params);
 } // namespace ext2
 
 #endif // EXT2_HPP

@@ -43,10 +43,21 @@ void vfs::print_node(const treeNode* node, int depth) {
 }
 
 // Initializes the VFS
-void vfs::init(void) {
+treeNode* vfs::init(ext2_fs_t* fs) {
     // Creating and setting root dir
     // kmalloc(sizeof(ext2_fs_t)); // Reserving memory
-    vfs_tree.set_root(vfs_tree.create({"/", "/", true, 0, nullptr, nullptr}));
+    treeNode* node = vfs_tree.create({"/", "/", true, EXT2_ROOT_INO, ext2::load_inode(fs, EXT2_ROOT_INO), fs});
+    vfs_tree.set_root(node);
+    return node;
+}
+
+// Initializes the VFS
+treeNode* vfs::init(void) {
+    // Creating and setting root dir
+    // kmalloc(sizeof(ext2_fs_t)); // Reserving memory
+    treeNode* node = vfs_tree.create({"/", "/", true, EXT2_ROOT_INO, nullptr, nullptr});
+    vfs_tree.set_root(node);
+    return node;
 }
 
 /// @brief Adds a physical node (dir, file...) to the VFS

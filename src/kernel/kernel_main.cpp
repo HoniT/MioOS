@@ -26,6 +26,7 @@
 #include <drivers/ata.hpp>
 #include <fs/ext/ext2.hpp>
 #include <fs/ext/vfs.hpp>
+#include <fs/sysdisk.hpp>
 #include <tests/unit_tests.hpp>
 
 data::string kernel_version;
@@ -65,8 +66,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Initializing File System, storage drivers...
     device_init();
     ata::init();
-    vfs::init();
-    ext2::find_ext2_fs();
+    sysdisk::get_sysdisk(mbi);
     
     // Kernel CLI and other 
     cmd::init();

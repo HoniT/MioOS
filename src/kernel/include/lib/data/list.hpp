@@ -147,6 +147,15 @@ namespace data {
 
             length--;
         }
+
+        /// @brief Returns if an element is in the list
+        bool includes(T val) {
+            for(int i = 0; i < length; i++) {
+                if(arr[i] == val) return true;
+            }
+            return false;
+        }
+
         #pragma endregion
 
         #pragma region Iteration

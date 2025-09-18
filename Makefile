@@ -51,6 +51,6 @@ $(BUILD)/%.o: $(SRC)/%.asm
 clean:
 	rm -rf $(BUILD)
 	mkdir $(BUILD)
-	rm $(OS_ELF) iso/mio_os.iso
+	rm -f $(OS_ELF) iso/mio_os.iso
 
 .PHONY: all clean

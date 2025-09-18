@@ -123,16 +123,16 @@ uint32_t ext2::alloc_inode(ext2_fs_t* fs) {
 
         // Iterate through each inode in this group
         for (uint32_t ino_offset = 0; ino_offset < fs->inodes_per_group; ino_offset++) {
-            // Skip reserved inodes
-            uint32_t ino = group * fs->inodes_per_group + ino_offset;
-            if (ino <= EXT2_FIRST_NONRESERVED_INO) continue;
+            // Compute 1-based inode number
+            uint32_t ino = group * fs->inodes_per_group + ino_offset + 1;
 
-            // Check if bit is free
-            uint32_t byte_index = ino_offset / 8;
-            uint8_t bit_index = ino_offset % 8;
-            if (!(bitmap[byte_index] & (1 << bit_index))) {
-                // Mark as allocated
-                bitmap[byte_index] |= (1 << bit_index);
+            // Skip reserved inodes
+            if (ino < EXT2_FIRST_NONRESERVED_INO) continue;
+
+            // The bitmap bit for inode `ino` is at index `ino - 1`
+            if (!TEST_BIT(bitmap, ino - 1)) {
+                // Mark as allocated (bit index = ino - 1)
+                SET_BIT(bitmap, ino - 1);
 
                 // Write bitmap back
                 ext2::write_inode_bitmap(fs, group, bitmap);
@@ -143,9 +143,15 @@ uint32_t ext2::alloc_inode(ext2_fs_t* fs) {
                 ext2::rewrite_bgds(fs);
                 ext2::rewrite_sb(fs);
 
-                return ino;
+                // free bitmap buffer we got from get_inode_bitmap
+                kfree(bitmap);
+
+                return ino; // return 1-based inode number
             }
         }
+
+        // nothing found in this group, free bitmap before moving on
+        kfree(bitmap);
     }
 
     kernel_panic("No more inodes to allocate!");
@@ -464,6 +470,7 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& e
 // Returns a list of VFS nodes of entries in the given directory
 data::list<vfsNode> ext2::read_dir(treeNode* tree_node) {
     data::list<vfsNode> entries;
+    curr_fs = tree_node->data.fs;
 
     if (!tree_node) return entries;
 
@@ -573,7 +580,7 @@ data::list<vfsNode> ext2::read_dir(treeNode* tree_node) {
 #pragma region Init
 
 // Initializes the Ext2 FS for an ATA device
-ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev) {
+ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev, bool sysdisk_check) {
     // Getting MBR
     mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
     mbr::read_mbr(dev, mbr);
@@ -591,7 +598,7 @@ ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev) {
     // Verifying superblock
     if(ext2fs->sb->ext2_magic != EXT2_MAGIC) {
         // Mounting to VFS
-        vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
+        if(!sysdisk_check) vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
         return nullptr;
     }
     // Saving information about device
@@ -618,12 +625,12 @@ ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev) {
         // Not a directory, something went wrong
         vga::error("The root inode wasn't a directory for ATA device!\n");
         // Mounting to VFS
-        vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
+        if(!sysdisk_check) vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
         return nullptr;
     }
 
     // Mounting to VFS
-    vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], root_inode, ext2fs);
+    if(!sysdisk_check) vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], root_inode, ext2fs);
 
     return ext2fs;
 }
@@ -633,7 +640,7 @@ void ext2::find_ext2_fs(void) {
     // Initializing Ext2 on ATA devices
     for(int i = 0; i < last_ata_device_index; i++)
         if(ata_devices[i]) {
-            ext2::init_ext2_device(ata_devices[i]);
+            ext2::init_ext2_device(ata_devices[i], false);
         }
 
     // TODO: Find on AHCI when implemented
@@ -1245,7 +1252,6 @@ void ext2::ls(data::list<data::string> params) {
     treeNode* node = vfs::get_node(vfs::currentDir); // Retreiving node from current path
     if(!node) return;
     data::list<vfsNode> nodes = ext2::read_dir(node);
-    if(nodes.empty()) return;
     // Printing
     // Default listing
     if(!metadata_print) {
@@ -1277,6 +1283,8 @@ void ext2::ls(data::list<data::string> params) {
                     vga::printf("%u ", node.inode->gid);
                     // Size
                     vga::printf("%u ", node.inode->size_low);
+                    // Inode num
+                    vga::printf("%u ", node.inode_num);
                     // Modify time
                     vga::printf("%S ", rtc::timestamp_to_string(node.inode->last_mod_time));
                 }
@@ -1322,6 +1330,10 @@ void ext2::mkdir(data::list<data::string> params) {
     vfsNode parent = node->data;
     if(!parent.fs) return;
 
+    ext2::make_dir(dir, parent, node, DEFAULT_PERMS);
+}
+
+void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t perms) {
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a dir
     if(!fs) {
@@ -1335,7 +1347,6 @@ void ext2::mkdir(data::list<data::string> params) {
     }
 
     data::list<vfsNode> nodes = ext2::read_dir(node);
-    if(nodes.empty()) return;
     // Checking if the dir already exists
     for(vfsNode node : nodes) {
         // Checking if this node is the dir we want to create
@@ -1361,7 +1372,7 @@ void ext2::mkdir(data::list<data::string> params) {
     inode_t* inode = load_inode(fs, inode_num);
     memset(inode, 0, sizeof(inode_t));
     
-    inode->type_and_perm = EXT2_S_IFDIR | DEFAULT_PERMS;
+    inode->type_and_perm = EXT2_S_IFDIR | perms;
     inode->uid = vfs::currUid;
     inode->gid = vfs::currGid;
     inode->size_low = fs->block_size;
@@ -1407,7 +1418,7 @@ void ext2::mkdir(data::list<data::string> params) {
     inode = load_inode(fs, inode_num);
 
     // Adding to VFS
-    vfs::add_node(vfs::get_node(vfs::currentDir), dir, inode_num, inode, fs);
+    vfs::add_node(node, dir, inode_num, inode, fs);
 
     kfree(buf);
     return;
@@ -1430,6 +1441,10 @@ void ext2::mkfile(data::list<data::string> params) {
     vfsNode parent = node->data;
     if(!parent.fs) return;
 
+    ext2::make_file(file, parent, node, DEFAULT_PERMS);
+}
+
+void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t perms) {
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a file
     if(!fs) {
@@ -1443,7 +1458,6 @@ void ext2::mkfile(data::list<data::string> params) {
     }
 
     data::list<vfsNode> nodes = ext2::read_dir(node);
-    if(nodes.empty()) return;
     // Checking if the file already exists
     for(vfsNode node : nodes) {
         // Checking if this node is the file we want to create
@@ -1464,7 +1478,7 @@ void ext2::mkfile(data::list<data::string> params) {
     inode_t* inode = load_inode(fs, inode_num);
     memset(inode, 0, sizeof(inode_t));
     
-    inode->type_and_perm = EXT2_S_IFREG | DEFAULT_PERMS;
+    inode->type_and_perm = EXT2_S_IFREG | perms;
     inode->uid = vfs::currUid;
     inode->gid = vfs::currGid;
     inode->size_low = 0;
@@ -1489,7 +1503,7 @@ void ext2::mkfile(data::list<data::string> params) {
     inode = load_inode(fs, inode_num);
 
     // Adding to VFS
-    vfs::add_node(vfs::get_node(vfs::currentDir), file, inode_num, inode, fs);
+    vfs::add_node(node, file, inode_num, inode, fs);
 
     kfree(buf);
     return;
@@ -1558,6 +1572,42 @@ void ext2::rm(data::list<data::string> params) {
     vga::printf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
     params.clear();
     return;
+}
+
+/// @brief Prints if inode is allocated or free
+void ext2::check_inode_status(data::list<data::string> params) {
+    if(params.empty()) {
+        vga::warning("istat: Syntax: istat <inode_num>");
+        return;
+    }
+    uint32_t inode_num = str_to_int(params.at(0));
+    uint8_t* inode_bitmap = ext2::get_inode_bitmap(curr_fs, (inode_num - 1) / curr_fs->inodes_per_group);
+
+    if (!inode_bitmap) {
+        vga::error("Error: inode bitmap not provided!\n");
+        return;
+    }
+
+    // In ext filesystems, inode numbers start from 1
+    uint32_t allocated = TEST_BIT(inode_bitmap, inode_num - 1);
+
+    if (allocated)
+        vga::printf("Inode %u is ALLOCATED.\n", inode_num);
+    else
+        vga::printf("Inode %u is FREE.\n", inode_num);
+}
+
+/// @brief Prints if inode is allocated or free
+bool ext2::check_inode_status(uint32_t inode_num) {
+    uint8_t* inode_bitmap = ext2::get_inode_bitmap(curr_fs, (inode_num - 1) / curr_fs->inodes_per_group);
+
+    if (!inode_bitmap) {
+        vga::error("Error: inode bitmap not provided!\n");
+        return false;
+    }
+
+    // In ext filesystems, inode numbers start from 1
+    return TEST_BIT(inode_bitmap, inode_num - 1);
 }
 
 #pragma endregion

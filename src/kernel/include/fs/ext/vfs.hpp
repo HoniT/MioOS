@@ -36,7 +36,8 @@ namespace vfs {
     extern const char* ide_device_names[4];
 
     // Initializes the VFS
-    void init(void);
+    treeNode* init(ext2_fs_t* fs);
+    treeNode* init(void);
     // Prints VFS tree node
     void print_node(const treeNode* node, int depth);
     void add_node(treeNode* parent, vfsNode node);
