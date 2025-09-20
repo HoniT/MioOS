@@ -1660,7 +1660,7 @@ void ext2::cat(data::list<data::string> params) {
     path.append(params.at(0));
     uint32_t inode_num = ext2::find_inode(curr_fs, path);
     if (!inode_num) {
-        vga::error("cat: File \"%s\" not found!\n", path);
+        vga::error("cat: File \"%S\" not found!\n", path);
         return;
     }
 
@@ -1668,7 +1668,7 @@ void ext2::cat(data::list<data::string> params) {
     inode_t* inode = ext2::load_inode(curr_fs, inode_num);
 
     if (INODE_IS_DIR(inode)) {
-        vga::warning("cat: \"%s\" is a directory\n", path);
+        vga::warning("cat: \"%S\" is a directory\n", path);
         return;
     }
 
