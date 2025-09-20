@@ -68,6 +68,7 @@ Command commands[] = {
     {"mkdir", ext2::mkdir, " <dir>", " - Creates a directory in the current dir"},
     {"mkfile", ext2::mkfile, " <file>", " - Creates a file in the current dir"},
     {"rm", ext2::rm, " <file>", " - Removes (deletes) a directory/directory entry"},
+    {"cat", ext2::cat, " <file>", " - Prints file contents"},
     {"istat", ext2::check_inode_status, " <inode_num>", " - Prints inode status"}
 };
 

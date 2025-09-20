@@ -197,6 +197,7 @@ namespace ext2 {
     data::string mode_to_string(const uint16_t mode);
     ext2_perms get_perms(const inode_t* inode, const uint32_t uid, const uint32_t gid);
     uint8_t get_inode_type(const inode_t* inode);
+    uint32_t find_inode(ext2_fs_t* fs, data::string path);
 
     // Read / Write functions
     bool read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read = 1);
@@ -240,6 +241,7 @@ namespace ext2 {
     void make_file(data::string file, vfsNode parent, data::tree<vfsNode>::Node* node, uint16_t perms);
     void rm(data::list<data::string> params);
     void check_inode_status(data::list<data::string> params);
+    void cat(data::list<data::string> params);
 } // namespace ext2
 
 #endif // EXT2_HPP

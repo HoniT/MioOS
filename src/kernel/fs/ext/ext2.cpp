@@ -650,6 +650,43 @@ void ext2::find_ext2_fs(void) {
 
 #pragma region Helper Functions
 
+/// @brief Get's inode number from path
+/// @param fs Ext2 File system
+/// @param path Path of node
+/// @return Inode num
+uint32_t ext2::find_inode(ext2_fs_t* fs, data::string path) {
+    if (path.empty()) return EXT2_BAD_INO;
+
+    int count;
+    data::string* tokens = split_path_tokens(path, count);
+    if (!tokens || count == 0 || !tokens[0].equals("/")) return EXT2_BAD_INO;
+
+    treeNode* curr = vfs_tree.get_root();
+    for (int i = 1; i < count; i++) {
+        treeNode* parent = curr;
+        bool read_dir = false;
+
+    check:
+        data::string name_to_find = tokens[i];
+        if (parent->data.is_dir) {
+            ext2::read_dir(parent);
+        }
+
+        curr = vfs_tree.find_child_by_predicate(parent, [name_to_find](vfsNode node) { 
+            return node.name == name_to_find; 
+        });
+        if (!curr) {
+            kfree(tokens);
+            return EXT2_BAD_INO;
+        }
+    }
+
+    uint32_t inode_num = curr->data.inode_num;
+    kfree(tokens);
+    return inode_num;
+}
+
+
 /// @brief Clears a specific bit in a bitmap (marks block/inode free)
 /// @param bitmap Pointer to bitmap in memory
 /// @param bit Bit index to clear
@@ -1609,5 +1646,54 @@ bool ext2::check_inode_status(uint32_t inode_num) {
     // In ext filesystems, inode numbers start from 1
     return TEST_BIT(inode_bitmap, inode_num - 1);
 }
+
+// Reads a file and prints its contents
+void ext2::cat(data::list<data::string> params) {
+    // Checking params
+    if(params.count() != 1) {
+        vga::warning("cat: Syntax: cat <file>\n");
+        return;
+    }
+
+    // Resolve the path
+    data::string path(vfs::currentDir);
+    path.append(params.at(0));
+    uint32_t inode_num = ext2::find_inode(curr_fs, path);
+    if (!inode_num) {
+        vga::error("cat: File \"%s\" not found!\n", path);
+        return;
+    }
+
+    // Step 2. Read the inode
+    inode_t* inode = ext2::load_inode(curr_fs, inode_num);
+
+    if (INODE_IS_DIR(inode)) {
+        vga::warning("cat: \"%s\" is a directory\n", path);
+        return;
+    }
+
+    // Step 3. Read file data
+    uint32_t file_size = inode->size_low;
+    uint32_t block_size = curr_fs->block_size;
+    uint8_t block[curr_fs->block_size]; // supports up to 4K blocks
+    uint32_t bytes_printed = 0;
+
+    for (int i = 0; i < 12 && inode->direct_blk_ptr[i]; i++) { // direct blocks only
+        read_block(curr_fs, inode->direct_blk_ptr[i], block);
+
+        uint32_t to_print = file_size - bytes_printed;
+        if (to_print > block_size) to_print = block_size;
+
+        for (uint32_t j = 0; j < to_print; j++) {
+            vga::printf("%c", (char)block[j]);  // print character to screen
+        }
+
+        bytes_printed += to_print;
+        if (bytes_printed >= file_size) break;
+    }
+
+    vga::printf("\n");
+}
+
 
 #pragma endregion
