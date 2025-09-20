@@ -1659,7 +1659,7 @@ void ext2::cat(data::list<data::string> params) {
     data::string path(vfs::currentDir);
     path.append(params.at(0));
     uint32_t inode_num = ext2::find_inode(curr_fs, path);
-    if (!inode_num) {
+    if (inode_num == EXT2_BAD_INO) {
         vga::error("cat: File \"%S\" not found!\n", path);
         return;
     }
