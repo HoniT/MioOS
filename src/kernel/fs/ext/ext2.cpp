@@ -1277,9 +1277,12 @@ void ext2::pwd(data::list<data::string> params) {
 
 /// @brief Lists directory entries
 void ext2::ls(data::list<data::string> params) {
-    bool metadata_print = false;
+    bool metadata_print = false, all_print = false;
     if(params.count() >= 1) {
-        if(params.at(0).equals("-l")) metadata_print = true;
+        if(params.at(0).at(0) == '-') {
+            if(params.at(0).includes("a")) all_print = true;
+            if(params.at(0).includes("l")) metadata_print = true;
+        }
         else {
             vga::warning("ls: Invalid parameter \"%S\" passed to ls\n", params.at(0));
             return;
@@ -1296,9 +1299,8 @@ void ext2::ls(data::list<data::string> params) {
             // Permission denied
             if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).read) continue;
             // Printing all entries instead of parent and same dir
-            if(!node.name.equals(".") && !node.name.equals("..")) {
+            if((all_print && (node.name.equals(".") || node.name.equals(".."))) || !(node.name.equals(".") || node.name.equals(".."))) 
                 vga::printf(node.is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S ", node.name);
-            }
         }
         vga::printf("\n");
     }
@@ -1307,8 +1309,8 @@ void ext2::ls(data::list<data::string> params) {
         for(vfsNode node : nodes) {
             // Permission denied
             if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).read) continue;
-            // Printing all entries instead of parent and same dir
-            if(!node.name.equals(".") && !node.name.equals("..")) {
+            if((all_print && (node.name.equals(".") || node.name.equals(".."))) || !(node.name.equals(".") || node.name.equals(".."))) {
+                // Printing all entries instead of parent and same dir
                 if(node.inode) {
                     // Type and permissions
                     vga::printf("%S ", mode_to_string(node.inode->type_and_perm));
@@ -1330,6 +1332,7 @@ void ext2::ls(data::list<data::string> params) {
                 vga::printf(node.is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S\n", node.name);
             }
         }
+    
 }
 
 
@@ -1660,7 +1663,7 @@ void ext2::cat(data::list<data::string> params) {
     path.append(params.at(0));
     uint32_t inode_num = ext2::find_inode(curr_fs, path);
     if (inode_num == EXT2_BAD_INO) {
-        vga::error("cat: File \"%S\" not found!\n", path);
+        vga::warning("cat: File \"%S\" not found!\n", path);
         return;
     }
 
