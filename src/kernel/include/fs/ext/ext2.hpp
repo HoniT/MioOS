@@ -229,6 +229,8 @@ namespace ext2 {
     // Rewrites superblock of a FS
     void rewrite_sb(ext2_fs_t* fs);
 
+    data::string get_file_contents(data::string path);
+
     bool check_inode_status(uint32_t inode_num);
 
     // Terminal functions

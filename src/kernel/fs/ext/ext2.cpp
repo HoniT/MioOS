@@ -1268,6 +1268,101 @@ void remove_entry(treeNode* node_to_remove) {
     ext2::write_inode(parent_node.fs, parent_node.inode_num, parent_node.inode);
 } 
 
+// Helper: append data from one block
+static void read_file_block(ext2_fs_t* fs, uint32_t block_num, uint8_t* block_buf,
+                            data::string& out, uint32_t& bytes_read, uint32_t file_size) {
+    if (!block_num) return;
+    if (bytes_read >= file_size) return;
+
+    if (!ext2::read_block(fs, block_num, block_buf)) return; // Handle read failure
+
+    uint32_t block_size = fs->block_size;
+    uint32_t to_copy = file_size - bytes_read;
+    if (to_copy > block_size) to_copy = block_size;
+
+    for (uint32_t i = 0; i < to_copy; i++) {
+        out.append((char)block_buf[i]);
+    }
+
+    bytes_read += to_copy;
+}
+
+// Recursive helper: handle indirect blocks of depth `level`
+static void read_indirect_block(ext2_fs_t* fs, uint32_t block_num, int level,
+                                uint8_t* block_buf, data::string& out,
+                                uint32_t& bytes_read, uint32_t file_size) {
+    if (!block_num) return;
+    if (bytes_read >= file_size) return;
+
+    if (!ext2::read_block(fs, block_num, block_buf)) return;
+
+    uint32_t block_size = fs->block_size;
+    uint32_t entries = block_size / sizeof(uint32_t);
+    uint32_t* blocks = (uint32_t*)block_buf;
+
+    for (uint32_t i = 0; i < entries; i++) {
+        if (level == 1) {
+            read_file_block(fs, blocks[i], block_buf, out, bytes_read, file_size);
+        } else {
+            read_indirect_block(fs, blocks[i], level - 1, block_buf, out, bytes_read, file_size);
+        }
+        if (bytes_read >= file_size) break;
+    }
+}
+
+data::string ext2::get_file_contents(data::string path) {
+    data::string data;
+
+    uint32_t inode_num = ext2::find_inode(curr_fs, path);
+    if (inode_num == EXT2_BAD_INO) {
+        vga::warning("cat: File \"%S\" not found!\n", path);
+        return data;
+    }
+
+    inode_t* inode = ext2::load_inode(curr_fs, inode_num);
+    if (!inode) {
+        vga::warning("cat: Failed to load inode for \"%S\"\n", path);
+        return data;
+    }
+
+    if (INODE_IS_DIR(inode)) {
+        vga::warning("cat: \"%S\" is a directory\n", path);
+        return data;
+    }
+
+    uint64_t file_size = inode->size_low;
+    // If ext2 revision supports >4GB files, also include inode->size_high
+    // file_size |= ((uint64_t)inode->size_high) << 32;
+
+    uint32_t block_size = curr_fs->block_size;
+    uint8_t* block = (uint8_t*)kmalloc(block_size);
+    uint32_t bytes_read = 0;
+
+    // --- Direct blocks ---
+    for (int i = 0; i < 12 && inode->direct_blk_ptr[i]; i++) {
+        read_file_block(curr_fs, inode->direct_blk_ptr[i], block, data, bytes_read, file_size);
+        if (bytes_read >= file_size) break;
+    }
+
+    // --- Single indirect ---
+    if (bytes_read < file_size && inode->singly_inderect_blk_ptr) {
+        read_indirect_block(curr_fs, inode->singly_inderect_blk_ptr, 1, block, data, bytes_read, file_size);
+    }
+
+    // --- Double indirect ---
+    if (bytes_read < file_size && inode->doubly_inderect_blk_ptr) {
+        read_indirect_block(curr_fs, inode->doubly_inderect_blk_ptr, 2, block, data, bytes_read, file_size);
+    }
+
+    // --- Triple indirect ---
+    if (bytes_read < file_size && inode->triply_inderect_blk_ptr) {
+        read_indirect_block(curr_fs, inode->triply_inderect_blk_ptr, 3, block, data, bytes_read, file_size);
+    }
+
+    kfree(block);
+    return data;
+}
+
 #pragma region Terminal Functions
 
 /// @brief Prints working directory
@@ -1661,42 +1756,8 @@ void ext2::cat(data::list<data::string> params) {
     // Resolve the path
     data::string path(vfs::currentDir);
     path.append(params.at(0));
-    uint32_t inode_num = ext2::find_inode(curr_fs, path);
-    if (inode_num == EXT2_BAD_INO) {
-        vga::warning("cat: File \"%S\" not found!\n", path);
-        return;
-    }
-
-    // Step 2. Read the inode
-    inode_t* inode = ext2::load_inode(curr_fs, inode_num);
-
-    if (INODE_IS_DIR(inode)) {
-        vga::warning("cat: \"%S\" is a directory\n", path);
-        return;
-    }
-
-    // Step 3. Read file data
-    uint32_t file_size = inode->size_low;
-    uint32_t block_size = curr_fs->block_size;
-    uint8_t block[curr_fs->block_size]; // supports up to 4K blocks
-    uint32_t bytes_printed = 0;
-
-    for (int i = 0; i < 12 && inode->direct_blk_ptr[i]; i++) { // direct blocks only
-        read_block(curr_fs, inode->direct_blk_ptr[i], block);
-
-        uint32_t to_print = file_size - bytes_printed;
-        if (to_print > block_size) to_print = block_size;
-
-        for (uint32_t j = 0; j < to_print; j++) {
-            vga::printf("%c", (char)block[j]);  // print character to screen
-        }
-
-        bytes_printed += to_print;
-        if (bytes_printed >= file_size) break;
-    }
-
-    vga::printf("\n");
+    data::string file = ext2::get_file_contents(path);
+    vga::printf("%S\n", file);
 }
-
 
 #pragma endregion

@@ -162,6 +162,11 @@ namespace data{
         data::string append(const string& str) {
             return append(str.data);
         }
+        // Appending a given char to this string
+        data::string append(const char c) {
+            char str[2] = { c, '\0' };   // make a tiny C-string
+            return append(str);
+        }
 
         const char* c_str() {
             return data;
