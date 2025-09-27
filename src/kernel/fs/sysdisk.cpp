@@ -40,14 +40,20 @@ void sysdisk::get_sysdisk(const multiboot_info* mbi) {
     int ata_index = bios_drive - 0x80;
     if (ata_index < 0 || ata_index >= 4) {
         vga::set_init_text_answer(coords, false);
-        kernel_panic("Boot device BIOS number out of ATA range");
+        vga::warning("Boot device BIOS number (%x) out of ATA range! Device could be AHCI\n", bios_drive);
+        vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        vfs::init();
+        ext2::find_ext2_fs();
         return;
     }
     ata::device_t* dev = ata_devices[ata_index];
     if(!dev) {
         // TODO: Check AHCI devices if ATA doesnt exist
         vga::set_init_text_answer(coords, false);
-        kernel_panic("Couldn't find system disk!");
+        vga::warning("Couldn't find system disk for BIOS boot device number %x!\n", bios_drive);
+        vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        vfs::init();
+        ext2::find_ext2_fs();
         return;
     }
     // Checking MBR for 0xAA55
@@ -55,14 +61,18 @@ void sysdisk::get_sysdisk(const multiboot_info* mbi) {
     if(!mbr::read_mbr(dev, mbr)) {
         // TODO: Check AHCI devices if ATA isn't bootable
         vga::set_init_text_answer(coords, false);
-        vga::error("System disk isn't bootable! (LGA 0 ends with 0x%h)\n", mbr->signature);
-        kernel_panic("System disk isn't bootable!");
+        vga::warning("System disk isn't bootable! (LGA 0 ends with 0x%h)\n", mbr->signature);
+        vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        vfs::init();
+        ext2::find_ext2_fs();
         return;
     }
     // Initializing Ext2
     ext2_fs_t* fs = ext2::init_ext2_device(dev, true);
     if(!fs) {
         // TODO: Check AHCI devices if ATA isn't bootable
+        vga::set_init_text_answer(coords, false);
+        vga::warning("System disk doesn't have a valid Ext file system!\n");
         vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();

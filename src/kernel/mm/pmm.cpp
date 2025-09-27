@@ -156,14 +156,21 @@ void pmm::init(struct multiboot_info* _mb_info) {
     mb_info = _mb_info;
     // Calling needed functions
     pmm::manage_mmap(_mb_info);
-
+    
     // Setting up low_alloc_mem_head
     low_alloc_mem_head->addr = LOW_DATA_START_ADDR;
     low_alloc_mem_head->size -= LOW_DATA_START_ADDR; /* We previosly set this as the mmap entry's address + size, 
-                                                      * now we'll just subtract the actual data starting address to just get the size */
+    * now we'll just subtract the actual data starting address to just get the size */
+   
+   vga::set_init_text_answer(coords, low_alloc_mem_head);
+   if(!low_alloc_mem_head) kernel_panic("Failed to set up PMM! (Reason: Low allocable memory not defined)");
 
-    vga::set_init_text_answer(coords, low_alloc_mem_head);
-    if(!low_alloc_mem_head) kernel_panic("Failed to set up PMM! (Reason: Low allocable memory not defined)");
+   // Clearing any junk data from warm boot
+   coords = vga::set_init_text("Cleaning up junk memory");
+   
+   memset((void*)low_alloc_mem_head->addr, 0, low_alloc_mem_head->size);
+   
+   vga::set_init_text_answer(coords, true);
 }
 
 // Alloc and dealloc
