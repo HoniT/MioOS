@@ -30,9 +30,9 @@
 #include <tests/unit_tests.hpp>
 
 data::string kernel_version;
-extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
+extern "C" void kernel_main(uint32_t magic, void* mbi) {
     // Managing GRUB multiboot error
-    if(magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+    if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
         vga::error("Ivalid multiboot magic number: %x\n", magic);
         kernel_panic("Invalid GRUB magic number!");
         return;
@@ -66,6 +66,7 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info* mbi) {
     // Initializing File System, storage drivers...
     device_init();
     ata::init();
+    // Finds system disk (the one MioOS is on) and sets up the VFS accordingly
     sysdisk::get_sysdisk(mbi);
     
     // Kernel CLI and other 

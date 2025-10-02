@@ -7,6 +7,7 @@
 // ========================================
 
 #include <fs/sysdisk.hpp>
+#include <kernel_main.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <device.hpp>
 #include <fs/ext/ext2.hpp>
@@ -29,19 +30,20 @@ void init_sys_files(void) {
 
 /// @brief Finds and sets up system disk
 /// @param mbi GRUB multiboot info
-void sysdisk::get_sysdisk(const multiboot_info* mbi) {
-    vga_coords coords = vga::set_init_text("Getting system disk ready");
+void sysdisk::get_sysdisk(void* mbi) {
+    vga_coords coords = vga::set_init_text("Getting VFS ready");
 
     // Initializing sys file names if not already
     if(!initialized) init_sys_files();
 
+    // Get boot device information
+    multiboot_tag_bootdev* bootdev = Multiboot2::get_bootdev(mbi);
     // Searching for system disk to mount as FS root
-    uint8_t bios_drive = (mbi->boot_device >> 24) & 0xFF;
-    int ata_index = bios_drive - 0x80;
+    int ata_index = bootdev->biosdev - 0x80;
     if (ata_index < 0 || ata_index >= 4) {
         vga::set_init_text_answer(coords, false);
-        vga::warning("Boot device BIOS number (%x) out of ATA range! Device could be AHCI\n", bios_drive);
-        vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        vga::warning("Boot device BIOS number (%x) out of ATA range! Device could be AHCI\n", bootdev->biosdev);
+        vga::printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -50,8 +52,8 @@ void sysdisk::get_sysdisk(const multiboot_info* mbi) {
     if(!dev) {
         // TODO: Check AHCI devices if ATA doesnt exist
         vga::set_init_text_answer(coords, false);
-        vga::warning("Couldn't find system disk for BIOS boot device number %x!\n", bios_drive);
-        vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        vga::warning("Couldn't find system disk for BIOS boot device number %x!\n", bootdev->biosdev);
+        vga::printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -62,7 +64,7 @@ void sysdisk::get_sysdisk(const multiboot_info* mbi) {
         // TODO: Check AHCI devices if ATA isn't bootable
         vga::set_init_text_answer(coords, false);
         vga::warning("System disk isn't bootable! (LGA 0 ends with 0x%h)\n", mbr->signature);
-        vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        vga::printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -73,7 +75,7 @@ void sysdisk::get_sysdisk(const multiboot_info* mbi) {
         // TODO: Check AHCI devices if ATA isn't bootable
         vga::set_init_text_answer(coords, false);
         vga::warning("System disk doesn't have a valid Ext file system!\n");
-        vga::printf(PRINT_COLOR_LIGHT_GREEN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        vga::printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;

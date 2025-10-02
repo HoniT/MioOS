@@ -74,14 +74,9 @@ sudo mount -o loop "$ISO" "$MNT_ISO"
 sudo cp -r "$MNT_ISO"/* "$MNT_HDD"/
 
 # --------------------------
-# Create hardcoded grub.cfg
+# Create grub.cfg
 # --------------------------
-sudo tee "$MNT_HDD/boot/grub/grub.cfg" > /dev/null <<EOF
-menuentry "MioOS" {
-    multiboot /boot/mio_os.elf
-    boot
-}
-EOF
+sudo tee "$MNT_HDD/boot/grub/grub.cfg" > /dev/null < $PWD/iso/boot/grub/grub.cfg
 
 # --------------------------
 # Cleanup

@@ -9,13 +9,32 @@
 ; We're in protected mode already
 [BITS 32]
 
-section .multiboot
+section .multiboot2
+align 8
+multiboot2_header_start:
+    ; Multiboot2 header
+    dd 0xE85250D6                 ; Magic number (multiboot2)
+    dd 0                          ; Architecture 0 = i386
+    dd multiboot2_header_end - multiboot2_header_start ; Header length
+    ; Checksum
+    dd -(0xE85250D6 + 0 + (multiboot2_header_end - multiboot2_header_start))
 
-; GRUB multiboot header
-align 4
-dd 0x1BADB002          ; GRUB magic number
-dd 0x00000003          ; Flags
-dd -(0x1BADB002 + 0x3) ; Checksum
+    ; Framebuffer tag
+    ; align 8
+    ; dw 5                          ; type = framebuffer
+    ; dw 0                          ; flags
+    ; dd 20                         ; size of this tag
+    ; dd 1024                       ; width
+    ; dd 768                        ; height
+    ; dd 32                         ; depth
+
+    ; Required end tag
+    align 8
+    dw 0                          ; Type = end
+    dw 0                          ; Flags
+    dd 8                          ; Size
+
+multiboot2_header_end:
 
 section .text
 
@@ -24,21 +43,27 @@ extern kernel_main ; Kernel function that we're jumping to
 
 ; Entry point
 _start:
-    cli ; Clear interrupts
-    mov esp, stack_space ; Setting stack pointer
-
-    ; Kernel main parameters
-    push ebx
-    push eax
+    ; Clear interrupts
+    cli
+    
+    ; Set up the stack
+    mov esp, stack_top
+    
+    push ebx ; Multiboot2 info structure pointer
+    push eax ; Magic number
+    
+    ; Call the kernel
     call kernel_main
-
+    
+    cli
+.halt_loop:
     hlt
-; Infinite halt loop
-halt_loop:
-    hlt
-    jmp halt_loop
+    jmp .halt_loop
 
-; Stack label for stack pointer
+; Stack allocation
 section .bss
-resb 8192
-stack_space:
+align 16
+stack_bottom:
+    ; 16 KB stack
+    resb 16384
+stack_top:

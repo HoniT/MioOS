@@ -9,20 +9,11 @@
 #define PMM_HPP
 
 #include <stdint.h>
-#include <kernel_main.hpp>
 #include <lib/data/list.hpp>
 #include <lib/data/string.hpp>
 
 #define METADATA_ADDR 0x600000 // 6MiB mark
 #define FRAME_SIZE 0x1000 // 4KiB frames
-
-// Memory map entry structure
-struct multiboot_mmap_entry {
-    uint32_t size;
-    uint64_t addr;
-    uint64_t len;
-    uint32_t type;
-} __attribute__((packed));
 
 // Linked list node for memory metadata
 struct MetadataNode {
@@ -49,9 +40,9 @@ namespace pmm {
     // Prints info of blocks in the allocatable memory regions 
     void print_usable_regions(void);
     // Gets the amount of usable RAM in the system
-    void manage_mmap(struct multiboot_info* _mb_info);
+    void manage_mmap(void* _mb_info);
     // Initializes any additional info for the PMM
-    void init(struct multiboot_info* _mb_info);
+    void init(void* _mb_info);
 
     // Frame alloc / dealloc functions
 

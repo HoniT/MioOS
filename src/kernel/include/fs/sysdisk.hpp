@@ -6,10 +6,8 @@
 #ifndef SYSDISK_HPP
 #define SYSDISK_HPP
 
-#include <kernel_main.hpp>
-
 namespace sysdisk {
-    void get_sysdisk(const multiboot_info* mbi);
+    void get_sysdisk(void* mbi);
 } // namespace sysdisk
 
 #endif // SYSDISK_HPP

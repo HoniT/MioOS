@@ -9,6 +9,7 @@
 #include <mm/pmm.hpp>
 #include <mm/heap.hpp>
 #include <mm/vmm.hpp>
+#include <kernel_main.hpp>
 #include <drivers/vga_print.hpp>
 #include <kterminal.hpp>
 #include <interrupts/kernel_panic.hpp>
@@ -24,8 +25,9 @@ uint64_t pmm::total_usable_ram = 0;
 uint64_t pmm::total_used_ram = 0;
 uint64_t pmm::hardware_reserved_ram = 0;
 uint64_t pmm::total_installed_ram = 0;
+
 // Multiboot info will be saved here
-multiboot_info* mb_info = nullptr;
+void* mb2_info = nullptr;
 
 uint64_t LOW_DATA_START_ADDR = 0;
 uint64_t metadata_reserved = 0; // Space reserved by frame metadata
@@ -38,28 +40,53 @@ MetadataNode* pmm::high_alloc_mem_head = (MetadataNode*)(METADATA_ADDR + sizeof(
 
 // Prints out the memory map: debugging / helper function
 void pmm::print_memory_map(void) {
-    if (!mb_info) {
-        // Memory map not defined
+    if (!mb2_info) {
+        vga::error("Memory map not defined\n");
         return;
     }
 
-    // Getting memory map length and address
-    uint32_t mmap_length = mb_info->mmap_length;
-    uint32_t mmap_addr = mb_info->mmap_addr;
+    // Get the memory map tag
+    multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(mb2_info);
+    if (!mmap_tag) {
+        vga::error("Memory map tag not found\n");
+        return;
+    }
 
     // Iterate over the memory map entries
-    struct multiboot_mmap_entry* mmap = (struct multiboot_mmap_entry*)mmap_addr;
-    while (uint32_t(mmap) < mmap_addr + mmap_length) {
+    uint32_t entry_count = (mmap_tag->size - sizeof(multiboot_tag_mmap)) / mmap_tag->entry_size;
+    
+    for (uint32_t i = 0; i < entry_count; i++) {
+        multiboot_mmap_entry* entry = &mmap_tag->entries[i];
+        
         // Calculate the end address
-        uint64_t end_addr = mmap->addr + mmap->len - 1;
+        uint64_t end_addr = entry->addr + entry->len - 1;
+
+        // Determine type string
+        const char* type_str;
+        switch(entry->type) {
+            case MULTIBOOT_MEMORY_AVAILABLE:
+                type_str = "Available";
+                break;
+            case MULTIBOOT_MEMORY_RESERVED:
+                type_str = "Reserved";
+                break;
+            case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
+                type_str = "ACPI Reclaimable";
+                break;
+            case MULTIBOOT_MEMORY_NVS:
+                type_str = "ACPI NVS";
+                break;
+            case MULTIBOOT_MEMORY_BADRAM:
+                type_str = "Bad RAM";
+                break;
+            default:
+                type_str = "Unknown";
+                break;
+        }
 
         // Print memory region information
         vga::printf("Memory region: %lx - %lx, Type: %s\n",
-               mmap->addr, end_addr,
-               mmap->type == 1 ? "Available" : "Reserved");
-
-        // Move to the next entry
-        mmap = (struct multiboot_mmap_entry*)(uint32_t(mmap) + mmap->size + sizeof(mmap->size));
+                   entry->addr, end_addr, type_str);
     }
 }
 
@@ -68,7 +95,7 @@ void pmm::print_usable_regions(void) {
     // Getting list head
     MetadataNode* current = low_alloc_mem_head;
 
-    // Itterating through blocks
+    // Iterating through blocks
     while(current) {
         // Printing info
         vga::printf("-Block range: %lx-%lx\n", current->addr, current->addr + current->size - 1);
@@ -81,46 +108,47 @@ void pmm::print_usable_regions(void) {
     }
 }
 
-// Getts the total amount of usable RAM in the system and creates head (and other) nodes for memory alloc
-void pmm::manage_mmap(struct multiboot_info* _mb_info) {
-    if (!(_mb_info->flags & (1 << 6))) {
-        // Memory map not available
-        vga::error("Multiboot info not available! Address: %x\n", _mb_info);
+// Gets the total amount of usable RAM in the system and creates head (and other) nodes for memory alloc
+void pmm::manage_mmap(void* _mb2_info) {
+    // Get the memory map tag
+    multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(_mb2_info);
+    if (!mmap_tag) {
+        vga::error("Memory map not available in Multiboot2 info!\n");
         return;
     }
 
-    // Getting memory map length and address
-    uint32_t mmap_length = _mb_info->mmap_length;
-    uint32_t mmap_addr = _mb_info->mmap_addr;
+    // Calculate number of entries
+    uint32_t entry_count = (mmap_tag->size - sizeof(multiboot_tag_mmap)) / mmap_tag->entry_size;
 
-    // Itterating through mmap entries info
-    struct multiboot_mmap_entry* mmap = (struct multiboot_mmap_entry*)mmap_addr;
-    while (uint32_t(mmap) < mmap_addr + mmap_length) {
+    // Iterate through mmap entries
+    for (uint32_t i = 0; i < entry_count; i++) {
+        multiboot_mmap_entry* entry = &mmap_tag->entries[i];
+
         // If the mmap entry is available
-        if(mmap->type == 1) {
+        if(entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
             
             // If the mmap entry is at 4GiB+
-            if(mmap->addr >= 0x100000000 && vmm::pae_paging) {
+            if(entry->addr >= 0x100000000 && vmm::pae_paging) {
                 // Keeping the total RAM amount for stats
-                pmm::total_usable_ram += mmap->len;
+                pmm::total_usable_ram += entry->len;
 
                 // Manage high allocatable ram
                 high_alloc_mem_head = (MetadataNode*)(METADATA_ADDR + sizeof(MetadataNode)); // The second node of the list
                 high_alloc_mem_head->addr = 0x100000000; // 4GiB (High usable region start)
-                high_alloc_mem_head->size = mmap->len;
+                high_alloc_mem_head->size = entry->len;
                 high_alloc_mem_head->free = true; // Noting that this is free
                 high_alloc_mem_head->next = nullptr; // Making this the linked list tail
                 high_alloc_mem_head->prev = low_alloc_mem_head; // Making the low allocatable region the previous
             }
             // If the mmap entry address is at the kernels base
-            else if(mmap->addr == uint64_t(&__kernel_phys_base)) {
+            else if(entry->addr == uint64_t(&__kernel_phys_base)) {
                 // Keeping the total RAM amount for stats
-                pmm::total_usable_ram += mmap->len;
+                pmm::total_usable_ram += entry->len;
 
-                // Creting node for low allocatable ram 
+                // Creating node for low allocatable ram 
                 low_alloc_mem_head = (MetadataNode*)METADATA_ADDR;
                 low_alloc_mem_head->addr = 0; // We will set this later
-                low_alloc_mem_head->size = mmap->addr + mmap->len; // We will change this later
+                low_alloc_mem_head->size = entry->addr + entry->len; // We will change this later
                 low_alloc_mem_head->free = true; // Noting that this is free
                 // Making the high usable region the next node only if PAE paging is enabled, because
                 // 32-bit paging only supports 4GiB of physical RAM
@@ -129,45 +157,38 @@ void pmm::manage_mmap(struct multiboot_info* _mb_info) {
             }
             /* There is one available mmap entry that starts at 0x0, but we will not use this because
              * to not conflict with any BIOS info/memory */
-            else pmm::hardware_reserved_ram += mmap->len;
+            else pmm::hardware_reserved_ram += entry->len;
         }
         // If the entry is reserved we'll add the size to the total amount of reserved ram
-        else pmm::hardware_reserved_ram += mmap->len;
+        else pmm::hardware_reserved_ram += entry->len;
 
         // Adding size to total amount of installed ram
-        pmm::total_installed_ram += mmap->len;
-
-        // Move to the next entry
-        mmap = (struct multiboot_mmap_entry*)(uint32_t(mmap) + mmap->size + sizeof(mmap->size));
+        pmm::total_installed_ram += entry->len;
     }
 
     // Calculating amount of space to reserve for metadata
     metadata_reserved = vmm::pae_paging ? pmm::total_usable_ram : 0x100000000 / FRAME_SIZE * sizeof(MetadataNode);
-    // Keeping the address in where the actual data will be placed and aligning it to ensore page-alignment
+    // Keeping the address in where the actual data will be placed and aligning it to ensure page-alignment
     LOW_DATA_START_ADDR = align_up(METADATA_ADDR + metadata_reserved, PAGE_SIZE);
 }
 
 #pragma endregion
 
 // Initializes any additional info for the PMM
-void pmm::init(struct multiboot_info* _mb_info) {
+void pmm::init(void* _mb2_info) {
     vga_coords coords = vga::set_init_text("Setting up the Physical Memory Manager");
-    // Saving multiboot info globally
-    mb_info = _mb_info;
+    // Saving multiboot2 info globally
+    mb2_info = _mb2_info;
     // Calling needed functions
-    pmm::manage_mmap(_mb_info);
+    pmm::manage_mmap(_mb2_info);
     
     // Setting up low_alloc_mem_head
     low_alloc_mem_head->addr = LOW_DATA_START_ADDR;
-    low_alloc_mem_head->size -= LOW_DATA_START_ADDR; /* We previosly set this as the mmap entry's address + size, 
+    low_alloc_mem_head->size -= LOW_DATA_START_ADDR; /* We previously set this as the mmap entry's address + size, 
     * now we'll just subtract the actual data starting address to just get the size */
-   
-   vga::set_init_text_answer(coords, low_alloc_mem_head);
    if(!low_alloc_mem_head) kernel_panic("Failed to set up PMM! (Reason: Low allocable memory not defined)");
-
-   // Clearing any junk data from warm boot
-   coords = vga::set_init_text("Cleaning up junk memory");
    
+   // Cleaning up any unwanted memory from a warm boot
    memset((void*)low_alloc_mem_head->addr, 0, low_alloc_mem_head->size);
    
    vga::set_init_text_answer(coords, true);
