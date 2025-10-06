@@ -13,7 +13,7 @@
 void kernel_panic(const char* error) {
     asm volatile ("cli"); // Clearing interrupts
 
-    vga::error("%s\nException! system Halted\n", error);
+    printf(LOG_ERROR, "%s\nException! system Halted\n", error);
 
     for(;;) {}
 
@@ -24,39 +24,39 @@ void kernel_panic(const char* error, InterruptRegisters* frame) {
     // (NOTE) Page faults are handled by a page fault handler in vmm.cpp
     asm volatile ("cli"); // Clearing interrupts
 
-    vga::error("%s\nException! System halted\n", error);
+    printf(LOG_ERROR, "%s\nException! System halted\n", error);
     // Printing info
     
-    vga::error("DS: %x\n", frame->ds);
-    vga::error("EDI: %x ", frame->edi);
-    vga::error("ESI: %x ", frame->esi);
-    vga::error("EBP: %x ", frame->ebp);
-    vga::error("ESP: %x\n", frame->manual_esp);
-    vga::error("EBX: %x ", frame->ebx);
-    vga::error("EDX: %x ", frame->edx);
-    vga::error("ECX: %x ", frame->ecx);
-    vga::error("EAX: %x\n", frame->eax);
-    vga::error("Interrupt Number: %x\n", frame->interr_no);
-    vga::error("Error code: %x\n", frame->err_code);
-    vga::error("EIP: %x\n", frame->eip);
-    vga::error("CS: %x\n", frame->cs);
-    vga::error("EFlags: %x\n", frame->eflags);
-    vga::error("ESP (Pushed by CPU): %x\n", frame->esp);
-    vga::error("SS: %x\n", frame->ss);
+    printf(STD_PRINT, "DS: %x\n", frame->ds);
+    printf(STD_PRINT, "EDI: %x ", frame->edi);
+    printf(STD_PRINT, "ESI: %x ", frame->esi);
+    printf(STD_PRINT, "EBP: %x ", frame->ebp);
+    printf(STD_PRINT, "ESP: %x\n", frame->manual_esp);
+    printf(STD_PRINT, "EBX: %x ", frame->ebx);
+    printf(STD_PRINT, "EDX: %x ", frame->edx);
+    printf(STD_PRINT, "ECX: %x ", frame->ecx);
+    printf(STD_PRINT, "EAX: %x\n", frame->eax);
+    printf(STD_PRINT, "Interrupt Number: %x\n", frame->interr_no);
+    printf(STD_PRINT, "Error code: %x\n", frame->err_code);
+    printf(STD_PRINT, "EIP: %x\n", frame->eip);
+    printf(STD_PRINT, "CS: %x\n", frame->cs);
+    printf(STD_PRINT, "EFlags: %x\n", frame->eflags);
+    printf(STD_PRINT, "ESP (Pushed by CPU): %x\n", frame->esp);
+    printf(STD_PRINT, "SS: %x\n", frame->ss);
 
     // Printing major Control Registers
     uint32_t cr0, cr3, cr4;
     asm volatile("mov %%cr0, %0" : "=r"(cr0));
     asm volatile("mov %%cr3, %0" : "=r"(cr3));
     asm volatile("mov %%cr4, %0" : "=r"(cr4));
-    vga::error("CR0: %x\n", cr0);
-    vga::error("CR3: %x\n", cr3);
-    vga::error("CR4: %x\n", cr4);
+    printf(STD_PRINT, "CR0: %x\n", cr0);
+    printf(STD_PRINT, "CR3: %x\n", cr3);
+    printf(STD_PRINT, "CR4: %x\n", cr4);
 
     // If it is a page fault
     if(frame->interr_no == 14) {
         if(frame->interr_no == 14)
-            vga::error("CR2 (Page fault address): %x\n", frame->cr2);
+            printf(STD_PRINT, "CR2 (Page fault address): %x\n", frame->cr2);
 
         // Get the error code from the interrupt frame
         uint32_t errorCode = frame->err_code;
@@ -68,15 +68,15 @@ void kernel_panic(const char* error, InterruptRegisters* frame) {
         bool reservedWrite = errorCode & 0x8;    // Overwrite of a reserved bit
         bool instructionFetch = errorCode & 0x10;  // Instruction fetch
 
-        vga::error("Details for Page fault (#PF): [");
+        printf(STD_PRINT, "Details for Page fault (#PF): [");
 
-        if (present) vga::error(" PRESENT ");
-        if (write) vga::error(" WRITE ");
-        if (userMode) vga::error(" USER ");
-        if (reservedWrite) vga::error(" RESERVED_WRITE ");
-        if (instructionFetch) vga::error(" INSTRUCTION_FETCH ");
+        if (present) printf(STD_PRINT, " PRESENT ");
+        if (write) printf(STD_PRINT, " WRITE ");
+        if (userMode) printf(STD_PRINT, " USER ");
+        if (reservedWrite) printf(STD_PRINT, " RESERVED_WRITE ");
+        if (instructionFetch) printf(STD_PRINT, " INSTRUCTION_FETCH ");
 
-        vga::error("]\n");
+        printf(STD_PRINT, "]\n");
     }
 
     for(;;) {}

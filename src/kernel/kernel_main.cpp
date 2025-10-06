@@ -9,6 +9,7 @@
 #include <kernel_main.hpp>
 #ifndef GFX_HPP
 #include <drivers/vga_print.hpp>
+#include <drivers/vga.hpp>
 #endif // GFX_HPP
 #include <drivers/keyboard.hpp>
 #include <interrupts/idt.hpp>
@@ -30,16 +31,16 @@
 #include <tests/unit_tests.hpp>
 
 data::string kernel_version;
-extern "C" void kernel_main(uint32_t magic, void* mbi) {
+extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     // Managing GRUB multiboot error
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-        vga::error("Ivalid multiboot magic number: %x\n", magic);
+        printf(LOG_ERROR, "Ivalid multiboot magic number: %x\n", magic);
         kernel_panic("Invalid GRUB magic number!");
         return;
     }
     
-    vga::init(); // Setting main VGA text/title
-    
+    vga::init_framebuffer(Multiboot2::get_framebuffer(mbi));
+
     // Descriptor tables
     gdt::init(); // Global Descriptor Table (GDT)
     idt::init(); // Interrupts Descriptor Table (IDT)
@@ -50,7 +51,7 @@ extern "C" void kernel_main(uint32_t magic, void* mbi) {
     heap::init();
     pmm::init(mbi);
     vmm::init();
-    kernel_version = "MioOS kernel 0.3 (Alpha)";
+    kernel_version = "MioOS kernel 0.4 (Alpha)";
     
     // Testing heap
     unittsts::test_heap();

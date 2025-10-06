@@ -20,13 +20,13 @@ multiboot2_header_start:
     dd -(0xE85250D6 + 0 + (multiboot2_header_end - multiboot2_header_start))
 
     ; Framebuffer tag
-    ; align 8
-    ; dw 5                          ; type = framebuffer
-    ; dw 0                          ; flags
-    ; dd 20                         ; size of this tag
-    ; dd 1024                       ; width
-    ; dd 768                        ; height
-    ; dd 32                         ; depth
+    align 8
+    dw 5                          ; type = framebuffer
+    dw 0                          ; flags
+    dd 20                         ; size of this tag
+    dd 1024                       ; width
+    dd 768                        ; height
+    dd 32                         ; depth
 
     ; Required end tag
     align 8

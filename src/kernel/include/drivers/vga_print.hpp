@@ -9,7 +9,6 @@
 #define VGA_PRINT_HPP
 
 #define VGA_ADDRESS 0xB8000 // VGA address
-#define SCROLLBACK_MAX_LINES 100 // Maximum amount of lines that we will store
 
 // Size constraints
 #define NUM_COLS 80
@@ -21,6 +20,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <drivers/vga.hpp>
 
 // 16 available colors with VGA
 enum VGA_PrintColors {
@@ -44,10 +44,10 @@ enum VGA_PrintColors {
 
 };
 
-struct vga_coords {
-	size_t col;
-	size_t row;
-};
+vga_coords printf(const char* fmt, ...);
+vga_coords printf(const uint32_t color, const char* fmt, ...);
+vga_coords printf(const PrintTypes print_type, const char* fmt, ...);
+vga_coords printf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...);
 
 namespace vga {
 	// Current coordinates/address
@@ -55,9 +55,6 @@ namespace vga {
 	extern size_t row;
 
 	void init(void); // Initializes main VGA text
-
-	vga_coords set_init_text(const char* text);
-	void set_init_text_answer(vga_coords coords, bool passed);
 
 	// Helper functions
 
@@ -67,13 +64,16 @@ namespace vga {
 	// VGA printing functions
 
 	// Print formatted
-	vga_coords printf(const char* format, ...);
-	vga_coords printf(const uint8_t color, const char* format, ...);
+	vga_coords primitive_printf(const char* format, ...);
+	vga_coords primitive_printf(const uint8_t color, const char* format, ...);
+	vga_coords primitive_vprintf(const char* format, va_list args);
 
 	// Error messages
-	vga_coords error(const char* format, ...);
+	vga_coords primitive_error(const char* format, ...);
+	vga_coords primitive_verror(const char* format, va_list args);
 	// Warnings
-	vga_coords warning(const char* format, ...);
+	vga_coords primitive_warning(const char* format, ...);
+	vga_coords primitive_vwarning(const char* format, va_list args);
 
 	void print_clear(void); // Clearing screen
 	void backspace(void);

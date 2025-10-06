@@ -173,9 +173,27 @@ data::string rtc::timestamp_to_string(uint32_t ts) {
     return out;
 }
 
-
 // Prints current time
 void rtc::print_time(data::list<data::string> params) {
-    vga::printf("Date (DD/MM/YY): %u/%u/%u (%s) Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), weekdays[rtc::get_weekday() - 1], 
+    printf("Date (DD/MM/YY): %u/%u/%u (%s) Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), weekdays[rtc::get_weekday() - 1], 
     rtc::get_hour(), rtc::get_minute(), rtc::get_second());
+}
+
+char* rtc::get_time() {
+    static char time[64];
+    time[0] = '\0';
+
+    strcat(time, num_to_string(rtc::get_day()));
+    strcat(time, ".");
+    strcat(time, num_to_string(rtc::get_month()));
+    strcat(time, ".");
+    strcat(time, num_to_string(rtc::get_year()));
+    strcat(time, " ");
+    strcat(time, num_to_string(rtc::get_hour()));
+    strcat(time, ":");
+    strcat(time, num_to_string(rtc::get_minute()));
+    strcat(time, ":");
+    strcat(time, num_to_string(rtc::get_second()));
+
+    return time;
 }

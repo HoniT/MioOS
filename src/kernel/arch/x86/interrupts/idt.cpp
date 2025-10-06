@@ -21,7 +21,6 @@ struct idt_ptr idt_ptr;
 
 // Initializing IDT
 void idt::init() {
-    vga_coords coords = vga::set_init_text("Implementing Interrupt Descriptor Table");
     idt_ptr.limit = sizeof(idt_entry) * 256 - 1; // Same operation as gdt_descriptor in boot.asm
     idt_ptr.base = (uint32_t)&idt_entries;
 
@@ -101,8 +100,11 @@ void idt::init() {
 
     // Flushing IDT
     idt_flush((uint32_t)&idt_ptr);
-    vga::set_init_text_answer(coords, idt_entries[0].selector == 0x8);
-    if(idt_entries[0].selector != 0x8) kernel_panic("Failed to initialize IDT! (Reason: Invalid selector on IDT Gate)");
+    if(idt_entries[0].selector != 0x8) {
+        printf(LOG_ERROR, "Failed to initialize IDT!\n");
+        kernel_panic("Fatal component failed to initialize!");
+    }
+    else printf(LOG_INFO, "Implemented Interrupt Descriptor Table\n");
 }
 
 // Sets an IDT gate

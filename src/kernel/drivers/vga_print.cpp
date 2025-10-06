@@ -7,9 +7,11 @@
 // ========================================
 
 #include <drivers/vga_print.hpp>
+#include <drivers/vga.hpp>
 #include <io.hpp>
-#include <lib/data/string.hpp>
+#include <rtc.hpp>
 #include <stdarg.h>
+#include <lib/string_util.hpp>
 
 // ====================
 // Variables
@@ -36,20 +38,158 @@ bool printingString = false;
 #pragma endregion
 
 
+// Print APIs
+
+vga_coords printf(const char* fmt, ...) {
+    VGAMode vga_mode = vga::get_vga_mode(); 
+    if(vga_mode == VGA_TEXT) {
+        va_list args;  // Declare a variable argument list
+        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+        vga_coords coords = vga::primitive_vprintf(fmt, args);
+
+        va_end(args);  // Clean up the argument list
+        return coords;
+    }
+    else if(vga_mode == FRAMEBUFFER) {
+        va_list args;  // Declare a variable argument list
+        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+        vga_coords coords = vga::fb::kvprintf(STD_PRINT, default_rgb_color, fmt, args);
+
+        va_end(args);  // Clean up the argument list
+        return coords;
+    }
+}
+
+vga_coords printf(const uint32_t color, const char* fmt, ...) {
+    VGAMode vga_mode = vga::get_vga_mode(); 
+    if(vga_mode == VGA_TEXT) {
+        va_list args;  // Declare a variable argument list
+        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+        vga_coords coords = vga::primitive_printf(color, fmt, args);
+
+        va_end(args);  // Clean up the argument list
+        return coords;
+    }
+    else if(vga_mode == FRAMEBUFFER) {
+        va_list args;  // Declare a variable argument list
+        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+        vga_coords coords = vga::fb::kvprintf(STD_PRINT, color, fmt, args);
+
+        va_end(args);  // Clean up the argument list
+        return coords;
+    }
+}
+
+vga_coords printf(const PrintTypes print_type, const char* fmt, ...) {
+    VGAMode vga_mode = vga::get_vga_mode(); 
+    vga_coords coords = {0, 0};
+
+    if (vga_mode == VGA_TEXT) {
+        va_list args;
+        va_start(args, fmt);
+
+        switch (print_type) {
+            case STD_PRINT:
+                coords = vga::primitive_vprintf(fmt, args);
+                break;
+
+            case LOG_INFO:
+                vga::primitive_printf("[%s]: ", rtc::get_time());
+                coords = vga::primitive_vprintf(fmt, args);
+                break;
+
+            case LOG_WARNING: {
+                // Make a copy since primitive_warning will consume it
+                coords = vga::primitive_vwarning(fmt, args);
+                break;
+            }
+
+            case LOG_ERROR: {
+                coords = vga::primitive_verror(fmt, args);
+                break;
+            }
+        }
+
+        va_end(args);
+        return coords;
+    }
+
+    else if (vga_mode == FRAMEBUFFER) {
+        va_list args;
+        va_start(args, fmt);
+
+        vga_coords coords = vga::fb::kvprintf(print_type, default_rgb_color, fmt, args);
+
+        va_end(args);
+        return coords;
+    }
+}
+
+
+vga_coords printf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...) {
+    VGAMode vga_mode = vga::get_vga_mode(); 
+    vga_coords coords = {0, 0};
+
+    if (vga_mode == VGA_TEXT) {
+        va_list args;
+        va_start(args, fmt);
+
+        switch (print_type) {
+            case STD_PRINT:
+                coords = vga::primitive_vprintf(fmt, args);
+                break;
+
+            case LOG_INFO:
+                vga::primitive_printf("[%s]: ", rtc::get_time());
+                coords = vga::primitive_vprintf(fmt, args);
+                break;
+
+            case LOG_WARNING: {
+                // Make a copy since primitive_warning will consume it
+                coords = vga::primitive_vwarning(fmt, args);
+                break;
+            }
+
+            case LOG_ERROR: {
+                coords = vga::primitive_verror(fmt, args);
+                break;
+            }
+        }
+
+        va_end(args);
+        return coords;
+    }
+
+    else if (vga_mode == FRAMEBUFFER) {
+        va_list args;
+        va_start(args, fmt);
+
+        vga_coords coords = vga::fb::kvprintf(print_type, color, fmt, args);
+
+        va_end(args);
+        return coords;
+    }
+}
+
+
 // ====================
 // Local functions
 // ====================
 #pragma region Local Functions
 
-// ====================
-// Helper functions
-// ====================
-#pragma region Helper Functions
-
 void update_cursor(const int row, const int col);
 
 // Clears a specific size of symbols from a given coordinate
 void vga::clear_region(const size_t _row, const size_t _col, const uint32_t len) {
+    if(vga::get_vga_mode() == FRAMEBUFFER) {
+        vga::fb::clear_text_region(_col, _row, len);
+        return;
+    }
+
     Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // Getting VGA buffer
 
     // Clearing
@@ -60,6 +200,11 @@ void vga::clear_region(const size_t _row, const size_t _col, const uint32_t len)
 
 // Inserts a string at a given coordinate
 void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor, uint8_t _color) {
+    if(vga::get_vga_mode() == FRAMEBUFFER) {
+        vga::fb::insert(_col, _row, _update_cursor, str);
+        return;
+    }
+
     Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // VGA buffer
 
     // Saving coords
@@ -74,7 +219,7 @@ void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor,
     uint8_t original_color = color;
     color = _color;
 
-    vga::printf(str);
+    vga::primitive_printf(str);
     
     // Returning to old color
     color = original_color;
@@ -90,7 +235,7 @@ void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor,
 
 
 // Clears indicated line
-void clear_row(const size_t row) {
+void _clear_row(const size_t row) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
 
     // Creating an empty struct
@@ -120,19 +265,10 @@ void print_newline(void) {
             }   
         }
 
-        clear_row(NUM_ROWS - 1);
+        _clear_row(NUM_ROWS - 1);
     }
     update_cursor(vga::row, vga::col);
 
-}
-
-// Convert a single nibble (4 bits) to its hex character representation
-char nibble_to_hex(const uint8_t nibble) {
-    if (nibble < 10) {
-        return '0' + nibble;
-    } else {
-        return 'A' + (nibble - 10);
-    }
 }
 
 #ifdef IO_HPP
@@ -152,12 +288,6 @@ void update_cursor(const int row, const int col) {
 
 #endif // IO_HPP
 
-#pragma endregion
-
-// ====================
-// Local Print functions
-// ====================
-#pragma region Local Print Functions
 
 void print_char(const char character) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
@@ -195,38 +325,6 @@ void print_str(const char* str) {
     printingString = false;
 }
 
-void print_hex(const int16_t num) {
-    // print_str("0x"); // Prefix for hex numbers
-
-    // Print each nibble (4 bits) as a hex digit
-    for (int i = 3; i >= 0; i--) {
-        uint8_t nibble = (num >> (i * 4)) & 0xF;  // Extract the current nibble
-        print_char(nibble_to_hex(nibble));        // Print the corresponding hex digit
-    }
-}
-
-void print_hex(const int32_t num) {
-    print_str("0x"); // Prefix for hex numbers
-
-    // Print each nibble (4 bits) as a hex digit
-    for (int i = 7; i >= 0; i--) {
-        uint8_t nibble = (num >> (i * 4)) & 0xF;  // Extract the current nibble
-        print_char(nibble_to_hex(nibble));        // Print the corresponding hex digit
-    }
-}
-
-void print_hex(const int64_t num) {
-    print_str("0x"); // Prefix for hex numbers
-
-    // Print each nibble (4 bits) as a hex digit
-    for (int i = 15; i >= 0; i--) {
-        uint8_t nibble = (num >> (i * 4)) & 0xF;  // Extract the current nibble
-        print_char(nibble_to_hex(nibble));        // Print the corresponding hex digit
-    }
-}
-
-#pragma endregion
-
 #pragma endregion
 
 // ====================
@@ -234,169 +332,54 @@ void print_hex(const int64_t num) {
 // ====================
 namespace vga{
 
-// Sets an initialization text (e.g. "[OK] Initializing GDT")
-vga_coords set_init_text(const char* text) {
-    vga_coords coords = vga::printf("[ ");
-    vga::printf("       ]               %s\n", text);
-    return coords;
-}
-
-// Sets the answer for an initialization text (OK / FAILED)
-void set_init_text_answer(vga_coords coords, bool passed) {
-    if(passed)
-        vga::insert(coords.row, coords.col, "  OK", false, PRINT_COLOR_GREEN | (DEFAULT_BG_COLOR << 4));
-    else {
-        vga::insert(coords.row, coords.col, "FAILED", false, PRINT_COLOR_RED | (DEFAULT_BG_COLOR << 4));
-    }
-}
-
 void init(void) {
     print_clear();
 }
 
 // Print formatted overloads
 
-// Print a number in decimal format
-void print_decimal(uint32_t num) {
-    char buffer[11]; // Maximum digits for a 32-bit uint32_t (10 digits + null terminator)
-    int i = 10;
+vga_coords primitive_vprintf(const char* format, va_list args) {
+    vga_coords coords = {col, row}; // Saving coords
 
-    buffer[i--] = '\0'; // Null-terminate the string
-
-    // Handle 0 explicitly
-    if (num == 0) {
-        buffer[i] = '0';
-        print_char(buffer[i]);
-        return;
-    }
-
-    // Convert number to string
-    while (num > 0 && i >= 0) {
-        buffer[i--] = '0' + (num % 10);
-        num /= 10;
-    }
-
-    // Print the number
-    for (int j = i + 1; buffer[j] != '\0'; j++) {
-        print_char(buffer[j]);
-    }
-}
-
-// Print a number in decimal format
-void print_decimal(uint64_t num) {
-    char buffer[21]; // Maximum digits for a 64-bit uint64_t (20 digits + null terminator)
-    int i = 20;
-
-    buffer[i--] = '\0'; // Null-terminate the string
-
-    // Handle 0 explicitly
-    if (num == 0) {
-        buffer[i] = '0';
-        print_char(buffer[i]);
-        return;
-    }
-
-    // Convert number to string
-    while (num > 0 && i >= 0) {
-        buffer[i--] = '0' + (num % 10);
-        num /= 10;
-    }
-
-    // Print the number
-    for (int j = i + 1; buffer[j] != '\0'; j++) {
-        print_char(buffer[j]);
-    }
-}
-
-// Print a number in decimal format
-void print_decimal(int32_t num) {
-    char buffer[11]; // Maximum digits for a 32-bit uint32_t (10 digits + null terminator)
-    int i = 10;
-
-    buffer[i--] = '\0'; // Null-terminate the string
-
-    // Handle 0 explicitly
-    if (num == 0) {
-        buffer[i] = '0';
-        print_char(buffer[i]);
-        return;
-    }
-
-    // Convert number to string
-    while (num > 0 && i >= 0) {
-        buffer[i--] = '0' + (num % 10);
-        num /= 10;
-    }
-
-    // Print the number
-    for (int j = i + 1; buffer[j] != '\0'; j++) {
-        print_char(buffer[j]);
-    }
-}
-
-// Prints a number in decimal format
-void print_decimal(int64_t num) {
-    char buffer[21]; // Maximum digits for a 64-bit uint64_t (20 digits + null terminator)
-    int i = 20;
-
-    buffer[i--] = '\0'; // Null-terminate the string
-
-    // Handle 0 explicitly
-    if (num == 0) {
-        buffer[i] = '0';
-        print_char(buffer[i]);
-        return;
-    }
-
-    // Convert number to string
-    while (num > 0 && i >= 0) {
-        buffer[i--] = '0' + (num % 10);
-        num /= 10;
-    }
-
-    // Print the number
-    for (int j = i + 1; buffer[j] != '\0'; j++) {
-        print_char(buffer[j]);
-    }
-}
-
-void vprintf(const char* format, va_list args) {
     while (*format) {
         if (*format == '%') {
             format++;  // Move to the format specifier
             switch (*format) {
                 case 'd': {  // Signed 32-bit integer in decimal
                     int32_t num = va_arg(args, int32_t);
-                    print_decimal(num);
+                    print_str(num_to_string(num));
                     break;
                 }
                 case 'u': {  // Unsigned 32-bit integer in decimal
                     uint32_t num = va_arg(args, uint32_t);
-                    print_decimal(num);
+                    print_str(num_to_string(num));
                     break;
                 }
                 case 'l': {  // 64-bit integers (signed or unsigned)
                     format++;
                     if (*format == 'd') {  // Signed 64-bit integer in decimal
                         int64_t num = va_arg(args, int64_t);
-                        print_decimal(num);
+                        print_str(num_to_string(num));
                     } else if (*format == 'u') {  // Unsigned 64-bit integer in decimal
                         uint64_t num = va_arg(args, uint64_t);
-                        print_decimal(num);
+                        print_str(num_to_string(num));
                     } else if (*format == 'x') {  // Unsigned 64-bit integer in hexadecimal
                         uint64_t num = va_arg(args, uint64_t);
-                        print_hex(int64_t(num));
+                        print_str("0x");
+                        print_str(hex_to_string(num));
                     }
                     break;
                 }
                 case 'h': { // Unsigned 16-bit integer
                     uint32_t num = va_arg(args, uint32_t);
-                    print_hex(int16_t(num));
+                    print_str("0x");
+                    print_str(hex_to_string(num));
                     break;
                 }
                 case 'x': {  // Unsigned 32-bit integer in hexadecimal
                     uint32_t num = va_arg(args, uint32_t);
-                    print_hex(int32_t(num));
+                    print_str("0x");
+                    print_str(hex_to_string(num));
                     break;
                 }
                 case 'c': {  // Character
@@ -431,14 +414,15 @@ void vprintf(const char* format, va_list args) {
         }
         format++;
     }
+    return coords;
 }
 
 // Main printf function
-vga_coords printf(const char* format, ...) {
+vga_coords primitive_printf(const char* format, ...) {
     va_list args;  // Declare a variable argument list
     va_start(args, format);  // Initialize the argument list with the last fixed parameter
 
-    vprintf(format, args);
+    primitive_vprintf(format, args);
 
     va_end(args);  // Clean up the argument list
 
@@ -446,7 +430,7 @@ vga_coords printf(const char* format, ...) {
     return {col, row};
 }
 
-vga_coords printf(const uint8_t color, const char* format, ...) {
+vga_coords primitive_printf(const uint8_t color, const char* format, ...) {
     // Saving color and swtching to given color
     uint8_t original_color = ::color;
     ::color = color;
@@ -454,7 +438,7 @@ vga_coords printf(const uint8_t color, const char* format, ...) {
     va_list args;  // Declare a variable argument list
     va_start(args, format);  // Initialize the argument list with the last fixed parameter
 
-    vprintf(format, args);
+    primitive_vprintf(format, args);
 
     va_end(args);  // Clean up the argument list
 
@@ -465,9 +449,22 @@ vga_coords printf(const uint8_t color, const char* format, ...) {
     return {col, row};
 }
 
+vga_coords primitive_printf(const uint8_t color, const char* format, va_list args) {
+    // Saving color and swtching to given color
+    uint8_t original_color = ::color;
+    ::color = color;
+
+    primitive_vprintf(format, args);
+
+    // Returning to original color
+    ::color = original_color;
+
+    // Returning current coordinates
+    return {col, row};
+}
 
 // Main error function
-vga_coords error(const char* format, ...) {
+vga_coords primitive_error(const char* format, ...) {
     // Saving current color
     uint8_t original_color = color;
 
@@ -480,7 +477,7 @@ vga_coords error(const char* format, ...) {
     va_start(args, format);
     
     // Calling print
-    vprintf(format, args);
+    primitive_vprintf(format, args);
     
     va_end(args);
     // Returning to original color
@@ -491,7 +488,7 @@ vga_coords error(const char* format, ...) {
 }
 
 // Main warning function
-vga_coords warning(const char* format, ...) {
+vga_coords primitive_warning(const char* format, ...) {
     // Saving current color
     uint8_t original_color = color;
 
@@ -503,7 +500,7 @@ vga_coords warning(const char* format, ...) {
     va_start(args, format);
 
     // Calling print
-    vprintf(format, args);
+    primitive_vprintf(format, args);
 
     va_end(args);
 
@@ -514,16 +511,58 @@ vga_coords warning(const char* format, ...) {
     return {col, row};
 }
 
+// Main error function
+vga_coords primitive_verror(const char* format, va_list args) {
+    // Saving current color
+    uint8_t original_color = color;
+    // Changing print color to make it more visible
+    print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
+
+    // Calling print
+    primitive_vprintf(format, args);
+    
+    // Returning to original color
+    color = original_color;
+    // Returning current coordinates
+    return {col, row};
+}
+
+// Main warning function
+vga_coords primitive_vwarning(const char* format, va_list args) {
+    // Saving current color
+    uint8_t original_color = color;
+    // Changing print color to make it more visible
+    print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
+
+    // Calling print
+    primitive_vprintf(format, args);
+
+    // Returning to original color
+    color = original_color;
+    // Returning current coordinates
+    return {col, row};
+}
+
 // Clears whole screen
 void print_clear(void) {
+    if(vga::get_vga_mode() == FRAMEBUFFER) {
+        vga::fb::clear_screen();
+        return;
+    }
+
     // Iterating through all of the rows, and using clear_row
     for(size_t row = 0; row < NUM_ROWS; ++row) {
-        clear_row(row);
+        _clear_row(row);
     }
 }
 
 // Backspace
 void backspace(void) {
+    if(vga::get_vga_mode() == FRAMEBUFFER) {
+        vga::fb::backspace();
+        return;
+    }
+
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
 
     if (row * NUM_COLS + col > 0) {

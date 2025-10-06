@@ -11,7 +11,6 @@
 #include <stdint.h>
 #include <mm/heap.hpp>
 #include <lib/mem_util.hpp>
-#include <drivers/vga_print.hpp>
 
 namespace data {
 
@@ -79,7 +78,6 @@ namespace data {
         T& at(uint32_t index) {
             // Bounds checking
             if (index >= length) {
-                vga::error("Index (%u) out of bounds for list!\n", index);
                 return arr[0]; // fallback
             }
             return arr[index];

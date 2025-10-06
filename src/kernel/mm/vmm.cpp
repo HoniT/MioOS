@@ -11,6 +11,7 @@
 #include <interrupts/idt.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <drivers/vga_print.hpp>
+#include <drivers/vga.hpp>
 
 // Getting kernels physical base from linker
 extern "C" uint32_t __kernel_phys_base;
@@ -24,7 +25,6 @@ namespace vmm {
     bool legacy_map = false;
     // Initializes the VMM with 32-bit paging
     void init(void) {
-        vga_coords coords = vga::set_init_text("Setting up Virtual Memory Manager");
         // Allocating memory for PD
         active_pd = (pd_t*)pmm::alloc_frame(2);
 
@@ -33,6 +33,14 @@ namespace vmm {
         identity_map_region(0x0, METADATA_ADDR + PAGE_SIZE, PRESENT | WRITABLE);
         // Mapping PMM's low_alloc_mem_head
         vmm::alloc_page((uint32_t)pmm::low_alloc_mem_head, (uint32_t)pmm::low_alloc_mem_head, PRESENT | WRITABLE);
+        if(vga::framebuffer) {
+            size_t pages = (vga::fb_size + PAGE_SIZE - 1) / PAGE_SIZE; // Pages needed to map VGA framebuffer
+            for (size_t i = 0; i < pages; i++) {
+                vmm::alloc_page((uint32_t)vga::framebuffer + i * PAGE_SIZE,
+                                (uint32_t)vga::framebuffer + i * PAGE_SIZE,
+                                PRESENT | WRITABLE);
+            }
+        }
         // Identity mapping for paging structures
         identity_map_region((uint32_t)active_pd, (uint32_t)active_pd + PAGE_SIZE * 5, PRESENT | WRITABLE);
         legacy_map = false;
@@ -47,7 +55,11 @@ namespace vmm {
         // jump_to_hhk();
         
         enabled_paging = true;
-        vga::set_init_text_answer(coords, vmm::is_mapped((uint32_t)active_pd));
+        if(!vmm::is_mapped((uint32_t)active_pd)) {
+            printf(LOG_ERROR, "Failed to initializ virtual memory manager! (Page directory is not mapped)\n");
+            kernel_panic("Fatal component failed to initialize!");
+        }
+        else printf(LOG_INFO, "Implemented virtual memory manager\n");
         if(!is_mapped((uint32_t)active_pd)) enabled_paging = false;
         return;
     }

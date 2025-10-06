@@ -36,10 +36,10 @@ const char* vfs::ide_device_names[4] = {
 
 // Prints VFS tree node
 void vfs::print_node(const treeNode* node, int depth) {
-    for(int i = 0; i < depth; i++) vga::printf(" ");
-    vga::printf("%S Is dir: %u (%x)", node->data.path, node->data.is_dir, node);
-    if(node->data.path == vfs::currentDir) vga::printf(" <===");
-    vga::printf("\n");
+    for(int i = 0; i < depth; i++) printf(" ");
+    printf("%S Is dir: %u (%x)", node->data.path, node->data.is_dir, node);
+    if(node->data.path == vfs::currentDir) printf(" <===");
+    printf("\n");
 }
 
 // Initializes the VFS
@@ -73,11 +73,11 @@ void vfs::add_node(treeNode* parent, vfsNode node) {
 /// @param inode Inode pointing to actual FS dir entry
 void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs) {
     if(name.empty() || !parent) {
-        vga::warning("add_node: Insufficient parameters for add_node");
+        printf(LOG_WARNING, "add_node: Insufficient parameters for add_node");
         return;
     }
     if(!parent->data.is_dir) {
-        vga::warning("add_node: Parent passed to add_node isn't a dir!\n");
+        printf(LOG_WARNING, "add_node: Parent passed to add_node isn't a dir!\n");
         return;
     }
     

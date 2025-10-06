@@ -13,7 +13,6 @@
 #include <interrupts/kernel_panic.hpp>
 
 void unittsts::test_pmm(void) {
-    vga_coords coords = vga::set_init_text("Testing Physical Memory Manager");
     // Final status (passed or failed)
     bool passed = true;
 
@@ -22,7 +21,7 @@ void unittsts::test_pmm(void) {
     uint32_t block1 = uint32_t(pmm::alloc_frame(1));
 
     if(block1 <= METADATA_ADDR) {
-        vga::error("   Test 1 failed: couldn't allocate frame!\n");
+        printf(LOG_ERROR, "PMM Test 1 failed: couldn't allocate frame!\n");
         passed = false; // Noting that the test failed
     }
 
@@ -32,7 +31,7 @@ void unittsts::test_pmm(void) {
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 != block1 + FRAME_SIZE) {
-        vga::error("   Test 2 failed: couldn't allocate block2! %x\n", block2);
+        printf(LOG_ERROR, "PMM Test 2 failed: couldn't allocate block2! %x\n", block2);
         passed = false; // Noting that the test failed
     }
 
@@ -44,7 +43,7 @@ void unittsts::test_pmm(void) {
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 != block2_addr) { 
-        vga::error("   Test 3 failed: couldn't free block2! %x isn't %x\n", block2, block2_addr);
+        printf(LOG_ERROR, "PMM Test 3 failed: couldn't free block2! %x isn't %x\n", block2, block2_addr);
         passed = false; // Noting that the test failed
     }
 
@@ -52,6 +51,6 @@ void unittsts::test_pmm(void) {
     pmm::free_frame((void*)block1); pmm::free_frame((void*)block2);
 
     // If the test failed we will halt the system
-    vga::set_init_text_answer(coords, passed);
     if(!passed) kernel_panic("PMM failed!");
+    printf(LOG_INFO, "Physical memory manager test passed\n");
 }

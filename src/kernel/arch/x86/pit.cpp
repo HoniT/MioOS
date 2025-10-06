@@ -8,6 +8,7 @@
 
 #include <pit.hpp>
 #include <interrupts/idt.hpp>
+#include <interrupts/kernel_panic.hpp>
 #include <drivers/vga_print.hpp>
 #include <io.hpp>
 #include <lib/math.hpp>
@@ -22,7 +23,6 @@ void onIrq0(InterruptRegisters* regs) {
 }
 
 void pit::init(void) {
-    vga_coords coords = vga::set_init_text("Implementing Programmable Interval Timer");
     ticks = 0; // Zeroing ticks
     // Installing handler
     idt::irq_install_handler(0, &onIrq0);
@@ -34,7 +34,11 @@ void pit::init(void) {
     io::outPortB(0x40,(uint8_t)(divisor & 0xFF));
     io::outPortB(0x40,(uint8_t)((divisor >> 8) & 0xFF));
 
-    vga::set_init_text_answer(coords, divisor == 11931);
+    if(!idt::check_irq(0, &onIrq0)) {
+        printf(LOG_ERROR, "Failed to initialize Programmable Interval Timer! (IRQ 0 not installed)\n");
+        kernel_panic("Fatal component failed to initialize!");
+    }
+    printf(LOG_INFO, "Implemented Programmable Interval Timer\n");
 }
 
 void pit::delay(const uint64_t ms) {
@@ -58,9 +62,9 @@ void pit::getuptime(data::list<data::string> params) {
     uint64_t minutes = udiv64(umod64(total_seconds, 3600), 60);
     uint64_t seconds = umod64(total_seconds, 60);
 
-    vga::printf("Hours: %lu\n", hours);
-    vga::printf("Minutes: %lu\n", minutes);
-    vga::printf("Seconds: %lu\n", seconds);
+    printf("Hours: %lu\n", hours);
+    printf("Minutes: %lu\n", minutes);
+    printf("Seconds: %lu\n", seconds);
 }
 
 #pragma endregion

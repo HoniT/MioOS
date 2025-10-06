@@ -8,6 +8,7 @@
 
 #include <mm/heap.hpp>
 #include <drivers/vga_print.hpp>
+#include <interrupts/kernel_panic.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/math.hpp>
 #include <kterminal.hpp>
@@ -17,7 +18,6 @@ static HeapBlock* heap_head = nullptr;
 
 // Heap initialization function
 void heap::init(void) {
-    vga_coords coords = vga::set_init_text("Setting up kernel Heap Memory Manager");
     memset((void*)HEAP_START, 0, HEAP_SIZE);
     // Gets the start of the heap
     heap_head = (HeapBlock*)HEAP_START;
@@ -29,7 +29,11 @@ void heap::init(void) {
     heap_head->free = true;
     heap_head->next = nullptr;
 
-    vga::set_init_text_answer(coords, heap_head && heap_head->free);
+    if(!heap_head || !heap_head->free) {
+        printf(LOG_ERROR, "Failed to initialize kernel heap memory manager!\n");
+        kernel_panic("Fatal component failed to initialize!");
+    }
+    else printf(LOG_INFO, "Implemented kernel heap memory manager\n");
 }
 
 // Heap memory allocating / deallocating functions
@@ -66,7 +70,7 @@ void* kmalloc(const size_t size) {
         current = current->next;
     }
 
-    vga::error("Not enough heap memory for %u bytes!\n", size);
+    printf(LOG_ERROR, "Not enough heap memory for %u bytes!\n", size);
     return nullptr;
 }
 
@@ -106,7 +110,7 @@ void* kcalloc(const size_t num, const size_t size) {
     // Getting the ptr from malloc
     void* ptr = kmalloc(num * size);
     if(!ptr) {
-        vga::error("Out of heap memory!\n");
+        printf(LOG_ERROR, "Out of heap memory!\n");
         return nullptr; // Safety check
     }
 
@@ -119,7 +123,7 @@ void* kcalloc(const size_t num, const size_t size) {
 }
 
 void heap::heap_dump(data::list<data::string> params) {
-    vga::printf("--------------- Heap Dump ---------------\n");
+    printf("--------------- Heap Dump ---------------\n");
 
     HeapBlock* current = heap_head; // Setting the current block as the head
     uint64_t bytes_in_use = 0;
@@ -132,6 +136,6 @@ void heap::heap_dump(data::list<data::string> params) {
         current = current->next;
     }
     // Printing final status of heap
-    vga::printf("Heap status: %lu bytes used out of %lu (%u%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
-    vga::printf("-----------------------------------------\n");
+    printf("Heap status: %llu bytes used out of %llu (%u%%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
+    printf("-----------------------------------------\n");
 }

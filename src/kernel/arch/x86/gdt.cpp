@@ -17,7 +17,6 @@ gdt_ptr _gdt_ptr;
 tss_entry _tss_entry;
 
 void gdt::init(void) {
-    vga_coords coords = vga::set_init_text("Implementing Global Descriptor Table");
     // Set up GDT pointer
     _gdt_ptr.limit = (sizeof(struct gdt_entry) * GDT_SEGMENT_QUANTITY) - 1;
     _gdt_ptr.base = uint32_t(&gdt_entries); // Address of gdt_entries[0]
@@ -35,8 +34,11 @@ void gdt::init(void) {
     // Checking DS to confirm GDT flush
     uint8_t value;
     asm volatile ("mov %%ds, %0" : "=m"(value));
-    vga::set_init_text_answer(coords, value == 0x10);
-    if(value != 0x10) kernel_panic("Failed to initialize GDT! (Reason: Invalid value for Data Segment)");
+    if(value != 0x10) {
+        printf(LOG_ERROR, "Failed to initialize GDT! (Data Segment wasn't set properly)\n");
+        kernel_panic("Fatal component failed to initialize!");
+    }
+    else printf(LOG_INFO, "Implemented Global Descriptor Table\n");
 
     // coords = vga::printf("[ ");
     // vga::printf(" ]    Implementing Task State Segment\n");

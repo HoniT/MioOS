@@ -109,11 +109,13 @@ void keyboardHandler(InterruptRegisters* regs) {
 
 // Sets IRQ1 to the keyboard handler
 void kbrd::init(void) {
-    vga_coords coords = vga::set_init_text("Setting up keyboard drivers");
     // Setting to lowercase originally
     shift = false; capsLock = false;
 
     // Setting up IRQ handler
     idt::irq_install_handler(1, &keyboardHandler);
-    vga::set_init_text_answer(coords, idt::check_irq(1, &keyboardHandler));
+    if(!idt::check_irq(1, &keyboardHandler)) {
+        printf(LOG_ERROR, "Failed to initialize keyboard driver! (IRQ 1 not installed)\n");
+    }
+    printf(LOG_INFO, "Implemented keyboard driver\n");
 }

@@ -27,6 +27,7 @@ namespace rtc {
 
     uint32_t get_unix_timestamp();
     data::string timestamp_to_string(uint32_t ts);
+    char* get_time();
     // Terminal functions
     void print_time(data::list<data::string> params);
 }

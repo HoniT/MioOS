@@ -199,6 +199,6 @@ public:
 // MioOS kernel version
 extern data::string kernel_version;
 
-extern "C" void kernel_main(uint32_t magic, void* mbi);
+extern "C" void kernel_main(const uint32_t magic, void* mbi);
 
 #endif // KERNEL_MAIN_HPP

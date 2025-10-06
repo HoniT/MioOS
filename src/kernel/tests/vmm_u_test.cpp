@@ -13,41 +13,39 @@
 #include <drivers/vga_print.hpp>
 
 void unittsts::test_vmm(void) {
-    vga_coords coords = vga::set_init_text("Testing Virtual Memory Manager");
-
     #ifdef VMM_HPP
     // If this test is called before initializing the VMM/enabling paging
     if(!vmm::enabled_paging) {
-        vga::error("Paging not enabled! Please enable paging!\n");
+        printf(LOG_ERROR, "VMM test: Paging not enabled! Please enable paging!\n");
         return;
     }
 
     bool passed = true;
 
     // Testing mapping
-    uint32_t address = 0x0;
-    uint32_t phys_addr = 0xB8000;
+    uint32_t address = 0x1000;
+    uint32_t phys_addr = (uint32_t)pmm::alloc_frame(1);
     vmm::alloc_page(address, phys_addr, PRESENT | WRITABLE); // Mapping VGA address to 0
     bool is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(!is_mapped) {
-        vga::error("   Test 1 failed: couldn't map page at v. address: %x!\n", address);
+        printf(LOG_ERROR, "VMM Test 1 failed: couldn't map page at v. address: %x!\n", address);
         passed = false; // Noting that the test failed
     }
 
     // Testing putting in a value
     uint16_t value = 0x072D;
-    uint16_t original_val = *(uint16_t*)(address + 0xA);
-    *(uint16_t*)(address + 0xA) = value; // Writing in a value
-    if(*(uint16_t*)(phys_addr + 0xA) != value) { // If the value at the physical corresponding address is the same
-        vga::error("   Test 2 failed: it set the wrong value (%x)!\n", *(uint32_t*)(phys_addr + 0xA));
+    uint16_t original_val = *(uint16_t*)(address);
+    *(uint16_t*)(address) = value; // Writing in a value
+    if(*(uint16_t*)(phys_addr) != value) { // If the value at the physical corresponding address is the same
+        printf(LOG_ERROR, "VMM Test 2 failed: it set the wrong value (Set: %x Expected: %x Original value: %x)!\n", *(uint32_t*)(phys_addr), value, original_val);
         passed = false;
     }
-    *(uint16_t*)(address + 0xA) = original_val;
+    *(uint16_t*)(address) = original_val;
 
     // Testing translation of virtual to physical
     uint64_t phys_address = (uint64_t)vmm::virtual_to_physical(address);
     if(phys_address != phys_addr) {
-        vga::error("   Test 3 failed: couldn't translate a virtual to a physical address!\n");
+        printf(LOG_ERROR, "VMM Test 3 failed: couldn't translate a virtual address to a physical address!\n");
         passed = false;
     }
 
@@ -55,7 +53,7 @@ void unittsts::test_vmm(void) {
     vmm::free_page(address); // Unmaping
     is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(is_mapped) {
-        vga::error("   Test 4 failed: couldn't unmap page at v. address: %x!\n", address);
+        printf(LOG_ERROR, "VMM Test 4 failed: couldn't unmap page at v. address: %x!\n", address);
         passed = false; // Noting that the test failed
     }
 
@@ -68,15 +66,16 @@ void unittsts::test_vmm(void) {
     *virt_4mb = 0xDEADBEEF;
 
     if (*(uint32_t*)virt_4mb != 0xDEADBEEF) {
-        vga::error("   Test 5 failed: 4MiB page did not map correctly!\n");
+        printf(LOG_ERROR, "VMM Test 5 failed: 4MiB page did not map correctly!\n");
         passed = false;
     }
 
     // Freeing page
     vmm::free_page((uint32_t)virt_4mb);
+    pmm::free_frame((void*)phys_addr);
 
     // If this didn't pass al test we'll initialize kernel panic
-    vga::set_init_text_answer(coords, passed);
     if(!passed) kernel_panic("VMM failed!");
+    printf(LOG_INFO, "Virtual memory manager test passed\n");
     #endif
 }

@@ -119,7 +119,7 @@ void kterminal_handle_input() {
                     size_t len = strlen(currentInput);
                     currentInput[len] = (char)ev.character;
                     currentInput[len + 1] = '\0';
-                    vga::printf("%c", ev.character);
+                    printf("%c", ev.character);
                 }
                 break;
         }
@@ -133,15 +133,12 @@ void cmd::init(void) {
     vfs::currentDir = "/";
 
     // Setting up VGA enviorment for terminal
-    vga::printf("\n =====================Type \"help\" to get available commands==================== \n");
-    vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-    vga::printf("%s@MioOS: %S# ", currentUser, vfs::currentDir);
-    vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
-
+    printf("\n =====================Type \"help\" to get available commands==================== \n");
+    printf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
 
     // Saving the current screen coordinates
-    input_col = vga::col;
-    input_row = vga::row;
+    input_col = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::col_num : vga::col;
+    input_row = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::row_num : vga::row;
 
     for(uint8_t i = 0; i < INPUTS_TO_SAVE; i++) 
         saved_inputs[i] = (char*)kmalloc(255);
@@ -155,8 +152,8 @@ void cmd::init(void) {
 
 // Runs a command
 void cmd::run_cmd(void) {
+    printf("\n");
     if(strcmp(get_first_word(currentInput), "") == 0) {
-        vga::printf("\n");
         goto new_cmd;
     }
 
@@ -167,16 +164,13 @@ void cmd::run_cmd(void) {
     for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
         // If the current input and the command at this index match well execute
         if(strcmp(get_first_word(currentInput), commands[i].name) == 0) {
-            vga::printf("\n");
             commands[i].function(split_string_tokens(get_remaining_string(get_current_input())));
             
-            vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-            vga::printf("%s@MioOS: %S# ", currentUser, vfs::currentDir);
-            vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
+            printf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
             
             // Saving the current screen coordinates
-            input_col = vga::col;
-            input_row = vga::row;
+            input_col = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::col_num : vga::col;
+            input_row = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::row_num : vga::row;
 
             // Clearing the input
             kfree(currentInput);
@@ -186,15 +180,13 @@ void cmd::run_cmd(void) {
     }
 
     // If we made it to here that means that the inputted command could not be found
-    vga::warning("\n%s isn't a valid command!\n", get_first_word(currentInput));
+    printf(LOG_WARNING, "%s isn't a valid command!\n", get_first_word(currentInput));
     new_cmd:
-    vga::print_set_color(PRINT_COLOR_LIGHT_GRAY, PRINT_COLOR_BLACK);
-    vga::printf("%s@MioOS: %S# ", currentUser, vfs::currentDir);
-    vga::print_set_color(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR);
+    printf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
 
     // Saving the current screen coordinates
-    input_col = vga::col;
-    input_row = vga::row;
+    input_col = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::col_num : vga::col;
+    input_row = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::row_num : vga::row;
 
     // Clearing the input
     kfree(currentInput);
@@ -276,9 +268,9 @@ void cmd::cmd_down(void) {
 void help(data::list<data::string> params) {
     // Itterating through the commands
     for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
-        vga::printf(PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4), "%s", commands[i].name);
-        vga::printf(PRINT_COLOR_BLUE | (PRINT_COLOR_BLACK << 4), "%s", commands[i].params);
-        vga::printf("%s\n", commands[i].description);
+        printf(RGB_COLOR_LIGHT_BLUE, "%s", commands[i].name);
+        printf(RGB_COLOR_BLUE, "%s", commands[i].params);
+        printf("%s\n", commands[i].description);
     }
 
     return;
@@ -286,20 +278,20 @@ void help(data::list<data::string> params) {
 
 void getsysinfo(data::list<data::string> params) {
     // RAM
-    vga::printf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
+    printf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
 
     // CPU
-    vga::printf("CPU Vendor: %s\n", cpu_vendor);
-    vga::printf("CPU Model: %s\n", cpu_model_name);
+    printf("CPU Vendor: %s\n", cpu_vendor);
+    printf("CPU Model: %s\n", cpu_model_name);
 
     // Kernel
-    vga::printf("\n---Software---\nKernel Version: %S\n", kernel_version);
+    printf("\n---Software---\nKernel Version: %S\n", kernel_version);
 
     // Printing colors (vga color test)
     for (int i = PRINT_COLOR_BLACK; i <= PRINT_COLOR_WHITE; ++i) {
         VGA_PrintColors color = static_cast<VGA_PrintColors>(i);
-        vga::printf(color | (color << 4), "  ");
-        if((i + 1) % 8 == 0) vga::printf("\n");
+        printf(color | (color << 4), "  ");
+        if((i + 1) % 8 == 0) printf("\n");
     }
 
     return;
@@ -308,11 +300,11 @@ void getsysinfo(data::list<data::string> params) {
 void clear(data::list<data::string> params) {
     vga::col = 0; vga::row = 0;
     vga::print_clear();
-    vga::printf(" =====================Type \"help\" to get available commands==================== ");
+    printf(" =====================Type \"help\" to get available commands==================== \n");
 }
 
 void echo(data::list<data::string> params) {
-    vga::printf("%s\n", params.at(0));
+    printf("%S\n", params.at(0));
 }
 
 void peek(data::list<data::string> params) {
@@ -321,17 +313,17 @@ void peek(data::list<data::string> params) {
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
-        vga::error("The given address %x is not mapped in virtual memory!\n", address);
+        printf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
         return;
     }
     #endif
     // Printing the value
-    vga::printf("Value at the given address: %h\n", *(uint8_t*)address);
+    printf("Value at the given address: %x\n", *(uint32_t*)address);
 }
 
 void poke(data::list<data::string> params) {
     if(params.count() != 2) {
-        vga::warning("Syntax: poke <address> <value>\n");
+        printf(LOG_WARNING, "Syntax: poke <address> <value>\n");
         return;
     }
 
@@ -340,7 +332,7 @@ void poke(data::list<data::string> params) {
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
-        vga::error("The given address %x is not mapped in virtual memory!\n", address);
+        printf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
         return;
     }
     #endif

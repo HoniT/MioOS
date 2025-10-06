@@ -21,4 +21,22 @@ uint32_t get_words(const char* str);
 int str_to_int(const char* str);
 char* strcat(char* dest, const char* src);
 
+const char* num_to_string(int8_t num);
+const char* num_to_string(uint8_t num);
+const char* num_to_string(int16_t num);
+const char* num_to_string(uint16_t num);
+const char* num_to_string(int32_t num);
+const char* num_to_string(uint32_t num);
+const char* num_to_string(int64_t num);
+const char* num_to_string(uint64_t num);
+
+const char* hex_to_string(int8_t num);
+const char* hex_to_string(uint8_t num);
+const char* hex_to_string(int16_t num);
+const char* hex_to_string(uint16_t num);
+const char* hex_to_string(int32_t num);
+const char* hex_to_string(uint32_t num);
+const char* hex_to_string(int64_t num);
+const char* hex_to_string(uint64_t num);
+
 #endif // STRING_UTIL_HPP

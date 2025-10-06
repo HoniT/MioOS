@@ -410,7 +410,7 @@ bool ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, 
         pio_28::read_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
     }
     else {
-        vga::error("Ext2 FS doesn't have a device!\n");
+        printf(LOG_ERROR, "Ext2 FS doesn't have a device!\n");
         return false;
     }
     return true;
@@ -424,7 +424,7 @@ bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer,
         pio_28::write_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
     }
     else {
-        vga::error("Ext2 FS doesn't have a device!\n");
+        printf(LOG_ERROR, "Ext2 FS doesn't have a device!\n");
         return false;
     }
     return true;
@@ -444,7 +444,7 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& e
         inode_t* inode = ext2::load_inode(fs, entry->inode);
 
         data::string name(entry->name, entry->name_len);
-        if (!inode) vga::warning("parse_directory_block: No inode for %S\n", name);
+        if (!inode) printf(LOG_WARNING, "parse_directory_block: No inode for %S\n", name);
 
         // Build full path
         data::string path = parent.path;
@@ -476,7 +476,7 @@ data::list<vfsNode> ext2::read_dir(treeNode* tree_node) {
 
     vfsNode node = tree_node->data;
     if (!node.is_dir) {
-        vga::error("read_dir error: node is not a directory!\n");
+        printf(LOG_ERROR, "read_dir error: node is not a directory!\n");
         return entries;
     }
 
@@ -623,7 +623,7 @@ ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev, bool sysdisk_check) {
     inode_t* root_inode = load_inode(ext2fs, EXT2_ROOT_INO);
     if (!INODE_IS_DIR(root_inode)) {
         // Not a directory, something went wrong
-        vga::error("The root inode wasn't a directory for ATA device!\n");
+        printf(LOG_ERROR, "The root inode wasn't a directory for ATA device!\n");
         // Mounting to VFS
         if(!sysdisk_check) vfs::mount_dev(vfs::ide_device_names[vfs::ide_device_name_index++], nullptr, nullptr);
         return nullptr;
@@ -764,7 +764,7 @@ uint8_t ext2::get_inode_type(const inode_t* inode) {
 /// @return Permissions read / write / execute
 ext2_perms ext2::get_perms(const inode_t* inode, const uint32_t uid, const uint32_t gid) {
     if(!inode) {
-        vga::warning("get_perms: Inode not found!\n");
+        printf(LOG_WARNING, "get_perms: Inode not found!\n");
         return {false, false, false};
     }
     
@@ -794,12 +794,12 @@ bool change_dir(data::string dir) {
     if(dir.equals("..")) {
         // If we're in root
         if(!currNode->parent) {
-            vga::warning("cd: No parent for root dir!\n");
+            printf(LOG_WARNING, "cd: No parent for root dir!\n");
             return false;
         }
         // Checking permission to change
         if(currNode->parent->data.inode && !ext2::get_perms(currNode->parent->data.inode, vfs::currUid, vfs::currGid).execute) {
-            vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", currNode->parent->data.path);
+            printf(LOG_WARNING, "cd: Can't change to dir \"%S\", permission denied!\n", currNode->parent->data.path);
             return false;
         }
 
@@ -815,7 +815,7 @@ bool change_dir(data::string dir) {
     if(found_dir && found_dir->data.is_dir) {
         // Checking permission to change
         if(found_dir->data.inode && !ext2::get_perms(found_dir->data.inode, vfs::currUid, vfs::currGid).execute) {
-            vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", found_dir->data.path);
+            printf(LOG_WARNING, "cd: Can't change to dir \"%S\", permission denied!\n", found_dir->data.path);
             return false;
         }
         vfs::currentDir = found_dir->data.path;
@@ -826,7 +826,7 @@ bool change_dir(data::string dir) {
 
     // If we're in virtual dirs, it's pointless to check again physically
     if (!curr_fs) {
-        vga::warning("cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
+        printf(LOG_WARNING, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
         return false;
     }
     
@@ -839,7 +839,7 @@ bool change_dir(data::string dir) {
         if(node.name == dir && node.is_dir) {
             // Checking permission to change
             if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).execute) {
-                vga::warning("cd: Can't change to dir \"%S\", permission denied!\n", node.path);
+                printf(LOG_WARNING, "cd: Can't change to dir \"%S\", permission denied!\n", node.path);
                 return false;
             }
             vfs::currentDir = node.path;
@@ -852,7 +852,7 @@ bool change_dir(data::string dir) {
         }
     }
 
-    vga::warning("cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
+    printf(LOG_WARNING, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
     return false;
 }
 
@@ -1228,7 +1228,7 @@ void remove_entry(treeNode* node_to_remove) {
     vfsNode parent_node = node_to_remove->parent->data;
     vfsNode node = node_to_remove->data;
     if(!node_to_remove || node.path.empty() || !node.fs || !node.inode) {
-        vga::warning("rm: Invalid node passed to remove_entry!\n");
+        printf(LOG_WARNING, "rm: Invalid node passed to remove_entry!\n");
         return;
     }
     // Reading dir entries to add any missing entries of current dir to the VFS tree
@@ -1238,7 +1238,7 @@ void remove_entry(treeNode* node_to_remove) {
     inode_t* inode_to_check = node.is_dir ? node.inode : parent_node.inode; // If it is a file, we'll check the parent dirs inode
     ext2_perms perms = ext2::get_perms(inode_to_check, vfs::currUid, vfs::currGid);
     if(!(perms.write && perms.execute)) { // We need -wx at least
-        vga::warning("rm: Permission denied to delete \"%S\"\n", node.name);
+        printf(LOG_WARNING, "rm: Permission denied to delete \"%S\"\n", node.name);
         return;
     }
 
@@ -1315,18 +1315,18 @@ data::string ext2::get_file_contents(data::string path) {
 
     uint32_t inode_num = ext2::find_inode(curr_fs, path);
     if (inode_num == EXT2_BAD_INO) {
-        vga::warning("cat: File \"%S\" not found!\n", path);
+        printf(LOG_WARNING, "cat: File \"%S\" not found!\n", path);
         return data;
     }
 
     inode_t* inode = ext2::load_inode(curr_fs, inode_num);
     if (!inode) {
-        vga::warning("cat: Failed to load inode for \"%S\"\n", path);
+        printf(LOG_WARNING, "cat: Failed to load inode for \"%S\"\n", path);
         return data;
     }
 
     if (INODE_IS_DIR(inode)) {
-        vga::warning("cat: \"%S\" is a directory\n", path);
+        printf(LOG_WARNING, "cat: \"%S\" is a directory\n", path);
         return data;
     }
 
@@ -1367,7 +1367,7 @@ data::string ext2::get_file_contents(data::string path) {
 
 /// @brief Prints working directory
 void ext2::pwd(data::list<data::string> params) {
-    vga::printf("%S\n", vfs::currentDir);
+    printf("%S\n", vfs::currentDir);
 }
 
 /// @brief Lists directory entries
@@ -1379,7 +1379,7 @@ void ext2::ls(data::list<data::string> params) {
             if(params.at(0).includes("l")) metadata_print = true;
         }
         else {
-            vga::warning("ls: Invalid parameter \"%S\" passed to ls\n", params.at(0));
+            printf(LOG_WARNING, "ls: Invalid parameter \"%S\" passed to ls\n", params.at(0));
             return;
         }
     }
@@ -1395,9 +1395,9 @@ void ext2::ls(data::list<data::string> params) {
             if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).read) continue;
             // Printing all entries instead of parent and same dir
             if((all_print && (node.name.equals(".") || node.name.equals(".."))) || !(node.name.equals(".") || node.name.equals(".."))) 
-                vga::printf(node.is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S ", node.name);
+                printf(node.is_dir ? RGB_COLOR_LIGHT_BLUE : RGB_COLOR_WHITE, "%S ", node.name);
         }
-        vga::printf("\n");
+        printf("\n");
     }
     // Metadata printing
     else 
@@ -1408,23 +1408,23 @@ void ext2::ls(data::list<data::string> params) {
                 // Printing all entries instead of parent and same dir
                 if(node.inode) {
                     // Type and permissions
-                    vga::printf("%S ", mode_to_string(node.inode->type_and_perm));
+                    printf("%S ", mode_to_string(node.inode->type_and_perm));
                     // Link counts
-                    vga::printf("%u ", node.inode->hard_link_count);
+                    printf("%u ", node.inode->hard_link_count);
                     // UID
-                    vga::printf("%u ", node.inode->uid);
+                    printf("%u ", node.inode->uid);
                     // GID
-                    vga::printf("%u ", node.inode->gid);
+                    printf("%u ", node.inode->gid);
                     // Size
-                    vga::printf("%u ", node.inode->size_low);
+                    printf("%u ", node.inode->size_low);
                     // Inode num
-                    vga::printf("%u ", node.inode_num);
+                    printf("%u ", node.inode_num);
                     // Modify time
-                    vga::printf("%S ", rtc::timestamp_to_string(node.inode->last_mod_time));
+                    printf("%S ", rtc::timestamp_to_string(node.inode->last_mod_time));
                 }
-                else vga::printf("(Couldn't recognize File System / Inode) ");
+                else printf("(Couldn't recognize File System / Inode) ");
                 // Name
-                vga::printf(node.is_dir ? PRINT_COLOR_LIGHT_BLUE | (PRINT_COLOR_BLACK << 4) : PRINT_COLOR_WHITE | (PRINT_COLOR_BLACK << 4), "%S\n", node.name);
+                printf(node.is_dir ? RGB_COLOR_LIGHT_BLUE : RGB_COLOR_WHITE, "%S\n", node.name);
             }
         }
     
@@ -1436,7 +1436,7 @@ void ext2::cd(data::list<data::string> params) {
     // Getting directory to change to
     data::string input = params.at(0);
     if(input.empty()) {
-        vga::warning("cd: Syntax: cd <dir>\n");
+        printf(LOG_WARNING, "cd: Syntax: cd <dir>\n");
         return;
     }
 
@@ -1452,11 +1452,11 @@ void ext2::cd(data::list<data::string> params) {
 void ext2::mkdir(data::list<data::string> params) {
     data::string dir = params.at(0);
     if(dir.empty()) {
-        vga::warning("mkdir: Syntax: mkdir <dir>\n");
+        printf(LOG_WARNING, "mkdir: Syntax: mkdir <dir>\n");
         return;
     }
     if(dir.includes("/")) {
-        vga::warning("mkdir: Please don't use '/' in a directory name\n");
+        printf(LOG_WARNING, "mkdir: Please don't use '/' in a directory name\n");
         return;
     }
 
@@ -1472,12 +1472,12 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a dir
     if(!fs) {
-        vga::warning("mkdir: Can't create directory in \"%S\", because it's not in an Ext2 File System!\n", parent.path);
+        printf(LOG_WARNING, "mkdir: Can't create directory in \"%S\", because it's not in an Ext2 File System!\n", parent.path);
         return;
     }
     // Permission denied
     if(parent.inode && !ext2::get_perms(parent.inode, vfs::currUid, vfs::currGid).write) {
-        vga::warning("mkdir: Can't create directory in \"%S\", permission denied!\n", parent.path);
+        printf(LOG_WARNING, "mkdir: Can't create directory in \"%S\", permission denied!\n", parent.path);
         return;
     }
 
@@ -1486,7 +1486,7 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
     for(vfsNode node : nodes) {
         // Checking if this node is the dir we want to create
         if(node.name == dir && node.is_dir) {
-            vga::warning("mkdir: Directory \"%S\" already exists in \"%S\"\n", dir, parent.path);
+            printf(LOG_WARNING, "mkdir: Directory \"%S\" already exists in \"%S\"\n", dir, parent.path);
             return;
         }
     }
@@ -1494,12 +1494,12 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
     // Allocating inode and block
     uint32_t inode_num = ext2::alloc_inode(fs);
     if(inode_num == (uint32_t)-1) {
-        vga::error("mkdir: Couldn't create directory do to inode allocation fail!\n");
+        printf(LOG_ERROR, "mkdir: Couldn't create directory do to inode allocation fail!\n");
         return;
     }
     uint32_t block_num = ext2::alloc_block(fs);
     if(block_num == (uint32_t)-1) {
-        vga::error("mkdir: Couldn't create directory do to block allocation fail!\n");
+        printf(LOG_ERROR, "mkdir: Couldn't create directory do to block allocation fail!\n");
         return;
     }
     
@@ -1563,11 +1563,11 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
 void ext2::mkfile(data::list<data::string> params) {
     data::string file = params.at(0);
     if(file.empty()) {
-        vga::warning("mkfile: Syntax: mkfile <file>\n");
+        printf(LOG_WARNING, "mkfile: Syntax: mkfile <file>\n");
         return;
     }
     if(file.includes("/")) {
-        vga::warning("mkfile: Please don't use '/' in a file name\n");
+        printf(LOG_WARNING, "mkfile: Please don't use '/' in a file name\n");
         return;
     }
 
@@ -1583,12 +1583,12 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
     ext2_fs_t* fs = parent.fs;
     // Checking if we're in a Ext2 FS to create a file
     if(!fs) {
-        vga::warning("mkfile: Can't create file in \"%S\", because it's not in an Ext2 File System!\n", parent.path);
+        printf(LOG_WARNING, "mkfile: Can't create file in \"%S\", because it's not in an Ext2 File System!\n", parent.path);
         return;
     }
     // Permission denied
     if(parent.inode && !ext2::get_perms(parent.inode, vfs::currUid, vfs::currGid).write) {
-        vga::warning("mkfile: Can't create file in \"%S\", permission denied!\n", parent.path);
+        printf(LOG_WARNING, "mkfile: Can't create file in \"%S\", permission denied!\n", parent.path);
         return;
     }
 
@@ -1597,7 +1597,7 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
     for(vfsNode node : nodes) {
         // Checking if this node is the file we want to create
         if(node.name == file && !node.is_dir) {
-            vga::warning("mkfile: File \"%S\" already exists in \"%S\"\n", file, parent.path);
+            printf(LOG_WARNING, "mkfile: File \"%S\" already exists in \"%S\"\n", file, parent.path);
             return;
         }
     }
@@ -1605,7 +1605,7 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
     // Allocating inode and block
     uint32_t inode_num = ext2::alloc_inode(fs);
     if(inode_num == (uint32_t)-1) {
-        vga::error("mkfile: Couldn't create file do to inode allocation fail!\n");
+        printf(LOG_ERROR, "mkfile: Couldn't create file do to inode allocation fail!\n");
         return;
     }
     
@@ -1658,7 +1658,7 @@ void ext2::rm(data::list<data::string> params) {
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name;}, count);
         params.clear();
         if(!nodes || count == 0) {
-            vga::warning("rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
+            printf(LOG_WARNING, "rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
         }
         for(int i = 0; i < count; i++) {
@@ -1672,7 +1672,7 @@ void ext2::rm(data::list<data::string> params) {
                 return;
             }
         }
-        vga::warning("rm: The object (\"%S\") to delete is a file! Please use rm <file>\n", name);
+        printf(LOG_WARNING, "rm: The object (\"%S\") to delete is a file! Please use rm <file>\n", name);
         return;
     }
     else if(params.count() == 1) {
@@ -1682,7 +1682,7 @@ void ext2::rm(data::list<data::string> params) {
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name; }, count);
         params.clear();
         if(!nodes || count == 0) {
-            vga::warning("rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
+            printf(LOG_WARNING, "rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
         }
         for(int i = 0; i < count; i++) {
@@ -1697,29 +1697,33 @@ void ext2::rm(data::list<data::string> params) {
         }
         
         // We need to recursively delete a directory
-        vga::warning("rm: The object (\"%S\") to delete is a directory! Please use rm -r <dir>\n", name);
+        printf(LOG_WARNING, "rm: The object (\"%S\") to delete is a directory! Please use rm -r <dir>\n", name);
         return;
     }
 
     invalid_params:
-    vga::warning("rm: Invalid parameters passed to rm!\n");
-    vga::printf("rm <file> - Deletes file (doesn't work with directories)\n");
-    vga::printf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
+    printf(LOG_WARNING, "rm: Invalid parameters passed to rm!\n");
+    printf("rm <file> - Deletes file (doesn't work with directories)\n");
+    printf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
     params.clear();
     return;
 }
 
 /// @brief Prints if inode is allocated or free
 void ext2::check_inode_status(data::list<data::string> params) {
+    if(!curr_fs) {
+        printf(LOG_WARNING, "istat: You are not in a Ext FS!\n");
+        return;
+    }
     if(params.empty()) {
-        vga::warning("istat: Syntax: istat <inode_num>");
+        printf(LOG_WARNING, "istat: Syntax: istat <inode_num>");
         return;
     }
     uint32_t inode_num = str_to_int(params.at(0));
     uint8_t* inode_bitmap = ext2::get_inode_bitmap(curr_fs, (inode_num - 1) / curr_fs->inodes_per_group);
 
     if (!inode_bitmap) {
-        vga::error("Error: inode bitmap not provided!\n");
+        printf(LOG_ERROR, "Error: inode bitmap not provided!\n");
         return;
     }
 
@@ -1727,17 +1731,21 @@ void ext2::check_inode_status(data::list<data::string> params) {
     uint32_t allocated = TEST_BIT(inode_bitmap, inode_num - 1);
 
     if (allocated)
-        vga::printf("Inode %u is ALLOCATED.\n", inode_num);
+        printf("Inode %u is ALLOCATED.\n", inode_num);
     else
-        vga::printf("Inode %u is FREE.\n", inode_num);
+        printf("Inode %u is FREE.\n", inode_num);
 }
 
 /// @brief Prints if inode is allocated or free
 bool ext2::check_inode_status(uint32_t inode_num) {
+    if(!curr_fs) {
+        printf(LOG_WARNING, "istat: You are not in a Ext FS!\n");
+        return false;
+    }
     uint8_t* inode_bitmap = ext2::get_inode_bitmap(curr_fs, (inode_num - 1) / curr_fs->inodes_per_group);
 
     if (!inode_bitmap) {
-        vga::error("Error: inode bitmap not provided!\n");
+        printf(LOG_ERROR, "istat: inode bitmap not provided!\n");
         return false;
     }
 
@@ -1749,7 +1757,7 @@ bool ext2::check_inode_status(uint32_t inode_num) {
 void ext2::cat(data::list<data::string> params) {
     // Checking params
     if(params.count() != 1) {
-        vga::warning("cat: Syntax: cat <file>\n");
+        printf(LOG_WARNING, "cat: Syntax: cat <file>\n");
         return;
     }
 
@@ -1757,7 +1765,7 @@ void ext2::cat(data::list<data::string> params) {
     data::string path(vfs::currentDir);
     path.append(params.at(0));
     data::string file = ext2::get_file_contents(path);
-    vga::printf("%S\n", file);
+    printf("%S\n", file);
 }
 
 #pragma endregion
