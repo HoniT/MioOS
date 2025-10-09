@@ -18,6 +18,7 @@ using io::outPortB;
 __attribute__((aligned(8))) idt_entry idt_entries[IDT_SIZE]; // 256 IDT entries in total
 struct idt_ptr idt_ptr;
 
+void dummy_irq_stub(InterruptRegisters* regs);
 
 // Initializing IDT
 void idt::init() {
@@ -100,6 +101,12 @@ void idt::init() {
 
     // Flushing IDT
     idt_flush((uint32_t)&idt_ptr);
+
+    // Installing default IRQ handlers before our drivers implement the real thing
+    for (int i = 0; i < IRQ_QUANTITY; ++i) {
+        irq_install_handler(i, dummy_irq_stub);
+    }
+
     if(idt_entries[0].selector != 0x8) {
         printf(LOG_ERROR, "Failed to initialize IDT!\n");
         kernel_panic("Fatal component failed to initialize!");
@@ -167,6 +174,15 @@ extern "C" void isr_handler(InterruptRegisters* regs) {
 
 #pragma region IRQ Functions
 
+void dummy_irq_stub(InterruptRegisters* regs) {
+    // If this is the keyboard (IRQ1)
+    if (regs->interr_no == 33) { // IRQ1 = IDT entry 32 + 1
+        io::inPortB(0x60); // Read and discard keyboard data
+    }
+
+    // Send End of Interrupt (EOI)
+    pic::send_eoi(regs->interr_no);
+}
 
 // Array
 void* irq_routines[IRQ_QUANTITY] = {
