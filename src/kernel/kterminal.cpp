@@ -8,6 +8,7 @@
 
 #include <kterminal.hpp>
 #include <drivers/vga_print.hpp>
+#include <drivers/vga.hpp>
 #include <drivers/keyboard.hpp>
 #include <mm/heap.hpp>
 #include <mm/pmm.hpp>
@@ -119,7 +120,7 @@ void kterminal_handle_input() {
                     size_t len = strlen(currentInput);
                     currentInput[len] = (char)ev.character;
                     currentInput[len + 1] = '\0';
-                    printf("%c", ev.character);
+                    kprintf("%c", ev.character);
                 }
                 break;
         }
@@ -133,12 +134,12 @@ void cmd::init(void) {
     vfs::currentDir = "/";
 
     // Setting up VGA enviorment for terminal
-    printf("\n =====================Type \"help\" to get available commands==================== \n");
-    printf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
+    kprintf("\n =====================Type \"help\" to get available commands==================== \n");
+    kprintf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
 
     // Saving the current screen coordinates
-    input_col = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::col_num : vga::col;
-    input_row = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::row_num : vga::row;
+    input_col = vga::col_num;
+    input_row = vga::row_num;
 
     for(uint8_t i = 0; i < INPUTS_TO_SAVE; i++) 
         saved_inputs[i] = (char*)kmalloc(255);
@@ -152,7 +153,7 @@ void cmd::init(void) {
 
 // Runs a command
 void cmd::run_cmd(void) {
-    printf("\n");
+    kprintf("\n");
     if(strcmp(get_first_word(currentInput), "") == 0) {
         goto new_cmd;
     }
@@ -166,11 +167,11 @@ void cmd::run_cmd(void) {
         if(strcmp(get_first_word(currentInput), commands[i].name) == 0) {
             commands[i].function(split_string_tokens(get_remaining_string(get_current_input())));
             
-            printf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
+            kprintf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
             
             // Saving the current screen coordinates
-            input_col = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::col_num : vga::col;
-            input_row = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::row_num : vga::row;
+            input_col = vga::col_num;
+            input_row = vga::row_num;
 
             // Clearing the input
             kfree(currentInput);
@@ -180,13 +181,13 @@ void cmd::run_cmd(void) {
     }
 
     // If we made it to here that means that the inputted command could not be found
-    printf(LOG_WARNING, "%s isn't a valid command!\n", get_first_word(currentInput));
+    kprintf(LOG_WARNING, "%s isn't a valid command!\n", get_first_word(currentInput));
     new_cmd:
-    printf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
+    kprintf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
 
     // Saving the current screen coordinates
-    input_col = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::col_num : vga::col;
-    input_row = vga::get_vga_mode() == FRAMEBUFFER ? vga::fb::row_num : vga::row;
+    input_col = vga::col_num;
+    input_row = vga::row_num;
 
     // Clearing the input
     kfree(currentInput);
@@ -227,11 +228,11 @@ void cmd::cmd_up(void) {
      * copy the corresponding saved input to the current input */
     if(input_read_index - 1 >= 0) {
         // Clearing up the old text
-        vga::clear_region(input_row, input_col, strlen(currentInput));
+        vga::clear_text_region(input_col, input_row, strlen(currentInput));
         // Setting the selected command as current
         strcpy(currentInput, saved_inputs[--input_read_index]);
         // Setting up new text
-        vga::insert(input_row, input_col, currentInput, true);
+        vga::insert(input_col, input_row, true, currentInput);
     }
 }
 
@@ -241,20 +242,20 @@ void cmd::cmd_down(void) {
      * copy the corresponding saved input to the current input */
     if(input_read_index < saved_inputs_num) {
         // Clearing up the old text
-        vga::clear_region(input_row, input_col, strlen(currentInput));
+        vga::clear_text_region(input_col, input_row, strlen(currentInput));
         // Setting the selected command as current
         strcpy(currentInput, saved_inputs[++input_read_index]);
         // Setting up new text
-        vga::insert(input_row, input_col, currentInput, true);
+        vga::insert(input_col, input_row, true, currentInput);
     }
     // If we'll go out of the bounds, we will make the current input empty
     else if(input_read_index == saved_inputs_num) {
         // Clearing up the old text
-        vga::clear_region(input_row, input_col, strlen(currentInput));
+        vga::clear_text_region(input_col, input_row, strlen(currentInput));
         // Setting the selected command as current
         strcpy(currentInput, "");
         // Setting up new text
-        vga::insert(input_row, input_col, currentInput, true);
+        vga::insert(input_col, input_row, true, currentInput);
     }
 }
 
@@ -268,9 +269,9 @@ void cmd::cmd_down(void) {
 void help(data::list<data::string> params) {
     // Itterating through the commands
     for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
-        printf(RGB_COLOR_LIGHT_BLUE, "%s", commands[i].name);
-        printf(RGB_COLOR_BLUE, "%s", commands[i].params);
-        printf("%s\n", commands[i].description);
+        kprintf(RGB_COLOR_LIGHT_BLUE, "%s", commands[i].name);
+        kprintf(RGB_COLOR_BLUE, "%s", commands[i].params);
+        kprintf("%s\n", commands[i].description);
     }
 
     return;
@@ -278,33 +279,25 @@ void help(data::list<data::string> params) {
 
 void getsysinfo(data::list<data::string> params) {
     // RAM
-    printf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
+    kprintf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
 
     // CPU
-    printf("CPU Vendor: %s\n", cpu_vendor);
-    printf("CPU Model: %s\n", cpu_model_name);
+    kprintf("CPU Vendor: %s\n", cpu_vendor);
+    kprintf("CPU Model: %s\n", cpu_model_name);
 
     // Kernel
-    printf("\n---Software---\nKernel Version: %S\n", kernel_version);
-
-    // Printing colors (vga color test)
-    for (int i = PRINT_COLOR_BLACK; i <= PRINT_COLOR_WHITE; ++i) {
-        VGA_PrintColors color = static_cast<VGA_PrintColors>(i);
-        printf(color | (color << 4), "  ");
-        if((i + 1) % 8 == 0) printf("\n");
-    }
+    kprintf("\n---Software---\nKernel Version: %S\n", kernel_version);
 
     return;
 }
 
 void clear(data::list<data::string> params) {
-    vga::col = 0; vga::row = 0;
-    vga::print_clear();
-    printf(" =====================Type \"help\" to get available commands==================== \n");
+    vga::clear_screen();
+    kprintf(" =====================Type \"help\" to get available commands==================== \n");
 }
 
 void echo(data::list<data::string> params) {
-    printf("%S\n", params.at(0));
+    kprintf("%s\n", get_remaining_string(currentInput));
 }
 
 void peek(data::list<data::string> params) {
@@ -313,17 +306,17 @@ void peek(data::list<data::string> params) {
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
-        printf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
+        kprintf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
         return;
     }
     #endif
     // Printing the value
-    printf("Value at the given address: %x\n", *(uint32_t*)address);
+    kprintf("Value at the given address: %x\n", *(uint32_t*)address);
 }
 
 void poke(data::list<data::string> params) {
     if(params.count() != 2) {
-        printf(LOG_WARNING, "Syntax: poke <address> <value>\n");
+        kprintf(LOG_WARNING, "Syntax: poke <address> <value>\n");
         return;
     }
 
@@ -332,7 +325,7 @@ void poke(data::list<data::string> params) {
     uint32_t address = hex_to_uint32(strAddress);
     #ifdef VMM_HPP
     if(!vmm::is_mapped(address)) {
-        printf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
+        kprintf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
         return;
     }
     #endif

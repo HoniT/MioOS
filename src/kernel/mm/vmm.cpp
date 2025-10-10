@@ -56,10 +56,10 @@ namespace vmm {
         
         enabled_paging = true;
         if(!vmm::is_mapped((uint32_t)active_pd)) {
-            printf(LOG_ERROR, "Failed to initializ virtual memory manager! (Page directory is not mapped)\n");
+            kprintf(LOG_ERROR, "Failed to initializ virtual memory manager! (Page directory is not mapped)\n");
             kernel_panic("Fatal component failed to initialize!");
         }
-        else printf(LOG_INFO, "Implemented virtual memory manager\n");
+        else kprintf(LOG_INFO, "Implemented virtual memory manager\n");
         if(!is_mapped((uint32_t)active_pd)) enabled_paging = false;
         return;
     }

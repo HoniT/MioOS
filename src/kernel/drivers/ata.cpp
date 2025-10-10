@@ -64,9 +64,9 @@ void ata::init(void) {
     ata::probe();
 
     if(!idt::check_irq(PRIMARY_IDE_IRQ, &primary_ata_handler) || !idt::check_irq(SECONDARY_IDE_IRQ, &secondary_ata_handler)) {
-        printf(LOG_ERROR, "Failed to initialize ATA driver! (IRQ 14 and/or 15 not set)\n");
+        kprintf(LOG_ERROR, "Failed to initialize ATA driver! (IRQ 14 and/or 15 not set)\n");
     }
-    printf(LOG_INFO, "Implemented ATA driver to IRQ mode\n");
+    kprintf(LOG_INFO, "Implemented ATA driver to IRQ mode\n");
 }
 
 // Checks all 4 devices
@@ -111,10 +111,10 @@ bool ata::identify(Bus bus, Drive drive) {
     outPortB(command_port, IDENTIFY_COMMAND);
     ata::delay_400ns(secondary);
 
-    printf(LOG_INFO, "%s bus, %s drive: ", secondary ? "Secondary" : "Primary", slave ? "Slave" : "Master");
+    kprintf(LOG_INFO, "%s bus, %s drive: ", secondary ? "Secondary" : "Primary", slave ? "Slave" : "Master");
     // If we couldn't find an ATA device
     if (inPortB(status_port) == 0) {
-        printf("ATA device couldn't be found!\n");
+        kprintf("ATA device couldn't be found!\n");
         return false;
     }
 
@@ -123,7 +123,7 @@ bool ata::identify(Bus bus, Drive drive) {
 
     // If LBAmid and LBAhi ports are non-zero the device is not ATA
     if (inPortB(lba_low_port) == 0x14 && inPortB(lba_high_port) == 0xEB) {
-        printf("Device was ATAPI or SATA!\n");
+        kprintf("Device was ATAPI or SATA!\n");
         return false;
     }
 
@@ -133,7 +133,7 @@ bool ata::identify(Bus bus, Drive drive) {
         uint8_t status = inPortB(status_port);
         if (status & 0x08) break; // DRQ set, OK
         if (status & 0x01) {
-            printf(LOG_ERROR, "Error while identifying ATA device!\n");
+            kprintf(LOG_ERROR, "Error while identifying ATA device!\n");
             return false;
         }
     }
@@ -148,7 +148,7 @@ bool ata::identify(Bus bus, Drive drive) {
     // Saving to device
     ata::save_ata_device(buffer, bus, drive);
 
-    printf("ATA device successfully found!\n");
+    kprintf("ATA device successfully found!\n");
     return true;
 }
 
@@ -204,7 +204,7 @@ namespace pio_28 {
     // Reads a given amount of sectors starting at a given LBA from a given device
     bool read_sector(ata::device_t* dev, uint32_t lba, uint16_t* buffer, uint32_t sectors) {
         if(strlen(dev->serial) == 0) {
-            printf(LOG_WARNING, "Invalid device passed to READ!\n");
+            kprintf(LOG_WARNING, "Invalid device passed to READ!\n");
             return false;
         }
 
@@ -273,7 +273,7 @@ namespace pio_28 {
     // Writes a value to a given amount of sectors starting at a given LBA from a given device
     bool write_sector(ata::device_t* dev, uint32_t lba, uint16_t* buffer, uint32_t sectors) {
         if(strlen(dev->serial) == 0) {
-            printf(LOG_WARNING, "Invalid device passed to WRITE!\n");
+            kprintf(LOG_WARNING, "Invalid device passed to WRITE!\n");
             return false;
         }
 
@@ -291,35 +291,35 @@ namespace pio_28 {
 // Reads a given sector on a given ATA device 
 void ata::read_ata(data::list<data::string> params) {
     if(params.count() != 4 || !params.at(0).equals("-dev") || !params.at(2).equals("-sect")) {
-        printf(LOG_WARNING, "Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
+        kprintf(LOG_WARNING, "Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
         return;
     }
 
     int device_index = str_to_int(params.at(1));
     if(device_index < 0 || device_index >= 4) {
-        printf(LOG_WARNING, "Please use an integer (0-3) as the device index in decimal format.\n");
+        kprintf(LOG_WARNING, "Please use an integer (0-3) as the device index in decimal format.\n");
         return;
     }
 
     int sector_index = str_to_int(params.at(3));
     if(sector_index < 0 || sector_index >= ata_devices[device_index]->total_sectors) {
-        printf(LOG_WARNING, "Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
+        kprintf(LOG_WARNING, "Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
         return;
     }
 
     uint16_t buffer[256];
     if(pio_28::read_sector(ata_devices[device_index], sector_index, buffer))
         for(uint16_t i = 0; i < 256; i++) 
-            printf("%hx ", buffer[i]);
+            kprintf("%hx ", buffer[i]);
 }
 
 void ata::list_ata(data::list<data::string> params) {
     for(int i = 0; i < 4; i++) {
         if(!ata_devices[i]) continue;
         ata::device_t* device = ata_devices[i]; 
-        printf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
+        kprintf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
             device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
-        printf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");
+        kprintf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");
     }
 }
 

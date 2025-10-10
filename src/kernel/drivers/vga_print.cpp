@@ -13,263 +13,447 @@
 #include <stdarg.h>
 #include <lib/string_util.hpp>
 
-// ====================
-// Variables
-// ====================
-#pragma region Variables
+// Current row and column 
+int vga::col_num = 0;
+int vga::row_num = 0;
 
-// Notes if we initialized the title
-bool initialized_title = false;
+#pragma region Additional screen functions
 
-// Defining structure of a character
-struct Char {
-    uint8_t character;
-    uint8_t color;
-};
+/// @brief Clears a given row
+/// @param row Row index
+void clear_row(const size_t row) {
+    if(row >= vga::screen_row_num) return;
 
-// Current address/location
-size_t vga::col = 0;
-size_t vga::row = 0;
+    // Iterating and clearing
+    for (size_t y = row * vga::font_height; y < (row + 1) * vga::font_height; ++y) {
+        for (size_t x = 0; x < vga::screen_width; ++x) {
+            vga::framebuffer[y * vga::screen_width + x] = 0;
+        }
+    }
+}
 
-uint8_t color = DEFAULT_FG_COLOR | (DEFAULT_BG_COLOR << 4); // Default colors
+/// @brief Goes to a new line
+void newline(void) {
+    vga::col_num = 0;
+    
+    // Only adding new line if possible
+    if(vga::row_num < vga::screen_row_num - 1) {
+        vga::row_num++;
+    } else {
+        // Scroll up by vga::font_height pixels
+        for (size_t y = vga::font_height; y < vga::screen_height; ++y) {
+            for (size_t x = 0; x < vga::screen_width; ++x) {
+                vga::framebuffer[(y - vga::font_height) * vga::screen_width + x] = vga::framebuffer[y * vga::screen_width + x];
+            }
+        }
 
-bool printingString = false;
+        // Clearing up last row for the new lines text
+        clear_row(vga::screen_row_num - 1);
+    }
+}
+
+/// @brief Clears a given region of text
+/// @param col Start column of region to clear
+/// @param row Start row of region to clear
+/// @param len Lengthof region to clear (number of characters)
+void vga::clear_text_region(const size_t col, const size_t row, const size_t len) {
+    if (row >= vga::screen_row_num || col >= vga::screen_col_num) return;
+
+    size_t chars_remaining = len;
+    size_t current_row = row;
+    size_t current_col = col;
+
+    while (chars_remaining > 0 && current_row < vga::screen_row_num) {
+        size_t chars_on_row = vga::screen_col_num - current_col;
+        if (chars_on_row > chars_remaining)
+            chars_on_row = chars_remaining;
+
+        size_t x_start = current_col * vga::font_width;
+        size_t x_end   = x_start + chars_on_row * vga::font_width;
+        size_t y_start = current_row * vga::font_height;
+        size_t y_end   = y_start + vga::font_height;
+
+        if (x_end > vga::screen_width)  x_end = vga::screen_width;
+        if (y_end > vga::screen_height) y_end = vga::screen_height;
+
+        for (size_t y = y_start; y < y_end; ++y) {
+            for (size_t x = x_start; x < x_end; ++x) {
+                vga::framebuffer[y * vga::screen_width + x] = RGB_COLOR_BLACK;
+            }
+        }
+
+        chars_remaining -= chars_on_row;
+        current_row++;
+        current_col = 0;
+    }
+}
+
+/// @brief Deletes last character
+void vga::backspace(void) {
+    if(vga::col_num - 1 < 0) {
+        vga::col_num = vga::screen_col_num - 1;
+        vga::row_num--;
+    } else vga::col_num--;
+
+    clear_text_region(vga::col_num, vga::row_num, 1);
+}
+
+/// @brief Clears whole screen
+void vga::clear_screen(void) {
+    for(uint32_t i = 0; i < vga::fb_size / 4; i++) {
+        vga::framebuffer[i] = 0;
+    }
+    vga::col_num = vga::row_num = 0;
+}
+
+/// @brief Inserts text at a given column and row
+/// @param col Column
+/// @param row Row
+/// @param color RGB(A) color value
+/// @param fmt Format
+void vga::insert(const size_t col, const size_t row, const uint32_t color, const bool update_pos, const char* fmt, ...) {
+    if(col >= vga::screen_col_num || row >= vga::screen_row_num) return;
+
+    va_list args;
+    va_start(args, fmt);
+
+    kvprintf_at(col, row, STD_PRINT, color, update_pos, fmt, args);
+    va_end(args);
+}
+
+/// @brief Inserts text at a given column and row
+/// @param col Column
+/// @param row Row
+/// @param fmt Format
+void vga::insert(const size_t col, const size_t row, const bool update_pos, const char* fmt, ...) {
+    if(col >= vga::screen_col_num || row >= vga::screen_row_num) return;
+
+    va_list args;
+    va_start(args, fmt);
+
+    kvprintf_at(col, row, STD_PRINT, default_rgb_color, update_pos, fmt, args);
+    va_end(args);
+}
 
 #pragma endregion
 
+#pragma region Basic output
 
-// Print APIs
-
-vga_coords printf(const char* fmt, ...) {
-    VGAMode vga_mode = vga::get_vga_mode(); 
-    if(vga_mode == VGA_TEXT) {
-        va_list args;  // Declare a variable argument list
-        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
-
-        vga_coords coords = vga::primitive_vprintf(fmt, args);
-
-        va_end(args);  // Clean up the argument list
-        return coords;
-    }
-    else if(vga_mode == FRAMEBUFFER) {
-        va_list args;  // Declare a variable argument list
-        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
-
-        vga_coords coords = vga::fb::kvprintf(STD_PRINT, default_rgb_color, fmt, args);
-
-        va_end(args);  // Clean up the argument list
-        return coords;
-    }
-}
-
-vga_coords printf(const uint32_t color, const char* fmt, ...) {
-    VGAMode vga_mode = vga::get_vga_mode(); 
-    if(vga_mode == VGA_TEXT) {
-        va_list args;  // Declare a variable argument list
-        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
-
-        vga_coords coords = vga::primitive_printf(color, fmt, args);
-
-        va_end(args);  // Clean up the argument list
-        return coords;
-    }
-    else if(vga_mode == FRAMEBUFFER) {
-        va_list args;  // Declare a variable argument list
-        va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
-
-        vga_coords coords = vga::fb::kvprintf(STD_PRINT, color, fmt, args);
-
-        va_end(args);  // Clean up the argument list
-        return coords;
-    }
-}
-
-vga_coords printf(const PrintTypes print_type, const char* fmt, ...) {
-    VGAMode vga_mode = vga::get_vga_mode(); 
-    vga_coords coords = {0, 0};
-
-    if (vga_mode == VGA_TEXT) {
-        va_list args;
-        va_start(args, fmt);
-
-        switch (print_type) {
-            case STD_PRINT:
-                coords = vga::primitive_vprintf(fmt, args);
-                break;
-
-            case LOG_INFO:
-                vga::primitive_printf("[%s]: ", rtc::get_time());
-                coords = vga::primitive_vprintf(fmt, args);
-                break;
-
-            case LOG_WARNING: {
-                // Make a copy since primitive_warning will consume it
-                coords = vga::primitive_vwarning(fmt, args);
-                break;
-            }
-
-            case LOG_ERROR: {
-                coords = vga::primitive_verror(fmt, args);
-                break;
-            }
-        }
-
-        va_end(args);
-        return coords;
-    }
-
-    else if (vga_mode == FRAMEBUFFER) {
-        va_list args;
-        va_start(args, fmt);
-
-        vga_coords coords = vga::fb::kvprintf(print_type, default_rgb_color, fmt, args);
-
-        va_end(args);
-        return coords;
-    }
-}
-
-
-vga_coords printf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...) {
-    VGAMode vga_mode = vga::get_vga_mode(); 
-    vga_coords coords = {0, 0};
-
-    if (vga_mode == VGA_TEXT) {
-        va_list args;
-        va_start(args, fmt);
-
-        switch (print_type) {
-            case STD_PRINT:
-                coords = vga::primitive_vprintf(fmt, args);
-                break;
-
-            case LOG_INFO:
-                vga::primitive_printf("[%s]: ", rtc::get_time());
-                coords = vga::primitive_vprintf(fmt, args);
-                break;
-
-            case LOG_WARNING: {
-                // Make a copy since primitive_warning will consume it
-                coords = vga::primitive_vwarning(fmt, args);
-                break;
-            }
-
-            case LOG_ERROR: {
-                coords = vga::primitive_verror(fmt, args);
-                break;
-            }
-        }
-
-        va_end(args);
-        return coords;
-    }
-
-    else if (vga_mode == FRAMEBUFFER) {
-        va_list args;
-        va_start(args, fmt);
-
-        vga_coords coords = vga::fb::kvprintf(print_type, color, fmt, args);
-
-        va_end(args);
-        return coords;
-    }
-}
-
-
-// ====================
-// Local functions
-// ====================
-#pragma region Local Functions
-
-void update_cursor(const int row, const int col);
-
-// Clears a specific size of symbols from a given coordinate
-void vga::clear_region(const size_t _row, const size_t _col, const uint32_t len) {
-    if(vga::get_vga_mode() == FRAMEBUFFER) {
-        vga::fb::clear_text_region(_col, _row, len);
+/// @brief Prints a string to the screen
+/// @param color RGB(A) color value
+/// @param char Character to print
+void kputchar(const uint32_t color, const char c) {
+    if(c == '\n') {
+        newline();
         return;
     }
-
-    Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // Getting VGA buffer
-
-    // Clearing
-    for(uint32_t i = 0; i < len; i++) {
-        vga[_col + _row * NUM_COLS + i].character = ' ';
+    
+    vga::draw_char(vga::col_num * vga::font_width, vga::row_num * vga::font_height, c, color);
+    vga::col_num++;
+    // New line
+    if(vga::col_num * vga::font_width + vga::font_width >= vga::screen_width) {
+        newline();
     }
 }
 
-// Inserts a string at a given coordinate
-void vga::insert(size_t _row, size_t _col, const char* str, bool _update_cursor, uint8_t _color) {
-    if(vga::get_vga_mode() == FRAMEBUFFER) {
-        vga::fb::insert(_col, _row, _update_cursor, str);
+/// @brief Prints a string to the screen
+/// @param color RGB(A) color value
+/// @param str String to print
+void kputs(const uint32_t color, const char* str) {
+    while (*str) {
+        kputchar(color, *str);
+        str++;
+    }
+}
+
+/// @brief Prints formatted text
+/// @param fmt Format
+/// @param Parameters
+vga_coords kprintf(const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    // Calling base function
+    kvprintf(STD_PRINT, default_rgb_color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {vga::col_num, vga::row_num};
+}
+
+/// @brief Prints formatted text
+/// @param color RGB(A) color value
+/// @param fmt Format
+/// @param Parameters
+vga_coords kprintf(const uint32_t color, const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    // Calling base function
+    kvprintf(STD_PRINT, color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {vga::col_num, vga::row_num};
+}
+
+/// @brief Prints formatted text
+/// @param print_type Print type (enum PrintTypes)
+/// @param fmt Format
+/// @param Parameters
+vga_coords kprintf(const PrintTypes print_type, const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    // Calling base function
+    kvprintf(print_type, default_rgb_color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {vga::col_num, vga::row_num};
+}
+
+/// @brief Prints formatted text
+/// @param color RGB(A) color value
+/// @param print_type Print type (enum PrintTypes)
+/// @param fmt Format
+/// @param Parameters
+vga_coords kprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    // Calling base function
+    kvprintf(print_type, color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {vga::col_num, vga::row_num};
+}
+
+/// @brief Prints at a given column and row
+/// @param col Column to print at
+/// @param row Row to print at
+/// @param print_type Print type
+/// @param color RGB(A) color value
+/// @param update_pos If true we set the current position at the end of the inserted text
+/// @param fmt Format
+/// @param args Variadic list of args
+/// @return Coordinates printed at
+vga_coords kvprintf_at(const size_t col, const size_t row, const PrintTypes print_type, const uint32_t color, const bool update_pos, const char* fmt, va_list args) {
+    if(col >= vga::screen_col_num || row >= vga::screen_row_num) return {0, 0};
+    vga_coords original_coords = {vga::col_num, vga::row_num}; // Saving original coords
+
+    // Changing to given coords
+    vga::col_num = col;
+    vga::row_num = row;
+
+    // Calling base function
+    kvprintf(print_type, color, fmt, args);
+
+    // Returning to old coords
+    if(!update_pos) {
+        vga::col_num = original_coords.col;
+        vga::row_num = original_coords.row;
+    }
+
+    return {vga::col_num, vga::row_num};
+}
+
+/// @brief Base function for formatted printing
+/// @param color RGB(A) color value
+/// @param print_type Print type (enum PrintTypes)
+/// @param fmt Format
+/// @param args Variadic list of arguments
+void kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, const va_list args) {
+    if(vga::get_vga_mode() == TEXT) {
+        vga::vgat_vprintf(fmt, args);
         return;
     }
-
-    Char* vga = reinterpret_cast<Char*>(VGA_ADDRESS); // VGA buffer
-
-    // Saving coords
-    size_t original_row = vga::row;
-    size_t original_col = vga::col;
     
-    // Set global cursor position
-    vga::row = _row;
-    vga::col = _col;
+    // Any special additional text depending on the text type
+    switch(print_type) {
+        case STD_PRINT:
+            break;
 
-    // Setting to given color
-    uint8_t original_color = color;
-    color = _color;
+        case LOG_INFO:
+            kprintf("[%s]: ", rtc::get_time());
+            break;
 
-    vga::primitive_printf(str);
-    
-    // Returning to old color
-    color = original_color;
+        case LOG_WARNING:
+            kprintf("[%s]: ", rtc::get_time());
+            kputs(RGB_COLOR_YELLOW, "Warning: ");
+            break;
 
-    if(!_update_cursor) {
-        vga::row = original_row;
-        vga::col = original_col;
+        case LOG_ERROR:
+            kprintf("[%s]: ", rtc::get_time());
+            kputs(RGB_COLOR_RED, "Error: ");
+            break;
+
+        default:
+            // Invalid type
+            return;
     }
 
-    // Update cursor to final position
-    update_cursor(vga::row, vga::col);
-}
-
-
-// Clears indicated line
-void _clear_row(const size_t row) {
-    Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
-
-    // Creating an empty struct
-    Char empty {' ', color};
-
-    // Iterating and clearing
-    for(size_t col = 0; col < NUM_COLS; ++col) {
-        buffer[col + NUM_COLS * row] = empty; // The newly created struct "empty"
-    }
-}
-
-
-void print_newline(void) {
-    Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
-
-    vga::col = 0;
-
-    // Only adding new line if possible
-    if(vga::row < NUM_ROWS - 1) {
-        ++vga::row;
-    } else {
-        // Scrolling the screen up and also keeping the title in screen
-        for(size_t r = 1; r < NUM_ROWS; ++r) {
-            for(size_t c = 0; c < NUM_COLS; ++c) {
-                // Copying this row to the one above
-                buffer[c + NUM_COLS * (r - 1)] = buffer[c + NUM_COLS * r];
-            }   
+    while(*fmt) {
+        // Format specifier
+        if(*fmt == '%') {
+            fmt++;
+            switch(*fmt) {
+                case '%': {
+                    kputchar(color, '%');
+                    break;
+                }
+                // Shorter numbers (char - short) 
+                case 'h': {
+                    fmt++;
+                    if(*fmt == 'h') {
+                        fmt++;
+                        switch(*fmt) {
+                            // Int8_t
+                            case 'd': {
+                                int num = va_arg(args, int);
+                                kputs(color, num_to_string((int8_t)num));
+                                break;
+                            }
+                            // Uint8_t
+                            case 'u': {
+                                unsigned int num = va_arg(args, unsigned int);
+                                kputs(color, num_to_string((uint8_t)num));
+                                break;
+                            }
+                            // Uint8_t (hex)
+                            case 'x': {
+                                unsigned int num = va_arg(args, unsigned int);
+                                kputs(color, "0x");
+                                kputs(color, hex_to_string((uint8_t)num));
+                                break;
+                            }
+                        }
+                    } else {
+                        switch(*fmt) {
+                            // Int16_t
+                            case 'd': {
+                                int num = va_arg(args, int);
+                                kputs(color, num_to_string((int16_t)num));
+                                break;
+                            }
+                            // Uint16_t
+                            case 'u': {
+                                unsigned int num = va_arg(args, unsigned int);
+                                kputs(color, num_to_string((uint16_t)num));
+                                break;
+                            }
+                            // Uint16_t (hex)
+                            case 'x': {
+                                unsigned int num = va_arg(args, unsigned int);
+                                kputs(color, "0x");
+                                kputs(color, hex_to_string((uint16_t)num));
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+                // Large numbers (long - long long)
+                case 'l': {
+                    fmt++;
+                    if(*fmt == 'l') {
+                        fmt++;
+                        switch(*fmt) {
+                            // Int64_t
+                            case 'd': {
+                                long long num = va_arg(args, long long);
+                                kputs(color, num_to_string((int64_t)num));
+                                break;
+                            }
+                            // Uint64_t
+                            case 'u': {
+                                unsigned long long num = va_arg(args, unsigned long long);
+                                kputs(color, num_to_string((uint64_t)num));
+                                break;
+                            }
+                            // Uint64_t (hex)
+                            case 'x': {
+                                unsigned long long num = va_arg(args, unsigned long long);
+                                kputs(color, "0x");
+                                kputs(color, hex_to_string((uint64_t)num));
+                                break;
+                            }
+                        }
+                    } else {
+                        switch(*fmt) {
+                            // Int32_t
+                            case 'd': {
+                                long num = va_arg(args, long);
+                                kputs(color, num_to_string((int32_t)num));
+                                break;
+                            }
+                            // Uint32_t
+                            case 'u': {
+                                unsigned long num = va_arg(args, unsigned long);
+                                kputs(color, num_to_string((uint32_t)num));
+                                break;
+                            }
+                            // Uint32_t (hex)
+                            case 'x': {
+                                unsigned long num = va_arg(args, unsigned long);
+                                kputs(color, "0x");
+                                kputs(color, hex_to_string((uint32_t)num));
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+                // Int32_t
+                case 'd': {
+                    int32_t num = va_arg(args, int);
+                    kputs(color, num_to_string(num));
+                    break;
+                }
+                // Uint32_t
+                case 'u': {
+                    uint32_t num = va_arg(args, unsigned int);
+                    kputs(color, num_to_string(num));
+                    break;
+                }
+                // Uint32_t (hex)
+                case 'x': {
+                    uint32_t num = va_arg(args, unsigned int);
+                    kputs(color, "0x");
+                    kputs(color, hex_to_string(num));
+                    break;
+                }
+                // Character
+                case 'c': {
+                    char c = (char)va_arg(args, int);
+                    kputchar(color, c);
+                    break;
+                }
+                // String
+                case 's': {
+                    const char* str = va_arg(args, const char*);
+                    kputs(color, str);
+                    break;
+                }
+                case 'S': {
+                    data::string* str = va_arg(args, data::string*);
+                    kputs(color, str->c_str());
+                    break;
+                }
+                // Pointer
+                case 'p': {
+                    void* p = va_arg(args, void*);
+                    kputs(color, "0x");
+                    kputs(color, hex_to_string((uint32_t)p));
+                    break;
+                }
+            }
         }
-
-        _clear_row(NUM_ROWS - 1);
+        else kputchar(color, *fmt);
+        fmt++;
     }
-    update_cursor(vga::row, vga::col);
-
 }
+
+#pragma endregion
+
+#pragma region VGA Text Mode
 
 #ifdef IO_HPP
 
@@ -288,28 +472,74 @@ void update_cursor(const int row, const int col) {
 
 #endif // IO_HPP
 
+struct Char {
+    uint8_t character;
+    uint8_t color;
+};
 
-void print_char(const char character) {
+size_t vgat_col = 0;
+size_t vgat_row = 0;
+
+bool printingString = false;
+
+// Clears indicated line
+void vgat_clear_row(const size_t row) {
+    Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
+
+    // Creating an empty struct
+    Char empty {' ', VGAT_COLOR};
+
+    // Iterating and clearing
+    for(size_t col = 0; col < NUM_COLS; ++col) {
+        buffer[col + NUM_COLS * row] = empty; // The newly created struct "empty"
+    }
+}
+
+
+void print_newline(void) {
+    Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
+
+    vgat_col = 0;
+
+    // Only adding new line if possible
+    if(vgat_row < NUM_ROWS - 1) {
+        ++vgat_row;
+    } else {
+        // Scrolling the screen up and also keeping the title in screen
+        for(size_t r = 1; r < NUM_ROWS; ++r) {
+            for(size_t c = 0; c < NUM_COLS; ++c) {
+                // Copying this row to the one above
+                buffer[c + NUM_COLS * (r - 1)] = buffer[c + NUM_COLS * r];
+            }   
+        }
+
+        vgat_clear_row(NUM_ROWS - 1);
+    }
+    update_cursor(vgat_row, vgat_col);
+
+}
+
+void print_char(const char ch) {
     Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
 
     // Handeling new line character input
-    if(character == '\n') {
+    if(ch == '\n') {
         print_newline();
 
         return;
     }
 
-    if(vga::col >= NUM_COLS) {
+    if(vgat_col >= NUM_COLS) {
         print_newline();
     }
 
-    buffer[vga::col + NUM_COLS * vga::row] = {static_cast<uint8_t>(character), color};
-    vga::col++; // Incrementing character number on this line
+    buffer[vgat_col + NUM_COLS * vgat_row] = {static_cast<uint8_t>(ch), VGAT_COLOR};
+    vgat_col++; // Incrementing character number on this line
 
     /* If its printing a string we will update the cursor at the end of the string 
     // for performance reasons */
     if(!printingString)
-        update_cursor(vga::row, vga::col); 
+        update_cursor(vgat_row, vgat_col); 
 }
 
 // Printing string to the screen
@@ -321,26 +551,14 @@ void print_str(const char* str) {
         print_char(str[i]);
     }
 
-    update_cursor(vga::row, vga::col); 
+    update_cursor(vgat_row, vgat_col);
     printingString = false;
 }
 
-#pragma endregion
-
-// ====================
-// Global functions
-// ====================
-namespace vga{
-
-void init(void) {
-    print_clear();
-}
-
-// Print formatted overloads
-
-vga_coords primitive_vprintf(const char* format, va_list args) {
-    vga_coords coords = {col, row}; // Saving coords
-
+/// @brief VGA text mode printf
+/// @param format Format
+/// @param args Variadic list of arguments
+void vga::vgat_vprintf(const char* format, va_list args) {
     while (*format) {
         if (*format == '%') {
             format++;  // Move to the format specifier
@@ -414,175 +632,6 @@ vga_coords primitive_vprintf(const char* format, va_list args) {
         }
         format++;
     }
-    return coords;
 }
 
-// Main printf function
-vga_coords primitive_printf(const char* format, ...) {
-    va_list args;  // Declare a variable argument list
-    va_start(args, format);  // Initialize the argument list with the last fixed parameter
-
-    primitive_vprintf(format, args);
-
-    va_end(args);  // Clean up the argument list
-
-    // Returning current coordinates
-    return {col, row};
-}
-
-vga_coords primitive_printf(const uint8_t color, const char* format, ...) {
-    // Saving color and swtching to given color
-    uint8_t original_color = ::color;
-    ::color = color;
-
-    va_list args;  // Declare a variable argument list
-    va_start(args, format);  // Initialize the argument list with the last fixed parameter
-
-    primitive_vprintf(format, args);
-
-    va_end(args);  // Clean up the argument list
-
-    // Returning to original color
-    ::color = original_color;
-
-    // Returning current coordinates
-    return {col, row};
-}
-
-vga_coords primitive_printf(const uint8_t color, const char* format, va_list args) {
-    // Saving color and swtching to given color
-    uint8_t original_color = ::color;
-    ::color = color;
-
-    primitive_vprintf(format, args);
-
-    // Returning to original color
-    ::color = original_color;
-
-    // Returning current coordinates
-    return {col, row};
-}
-
-// Main error function
-vga_coords primitive_error(const char* format, ...) {
-    // Saving current color
-    uint8_t original_color = color;
-
-    // Changing print color to make it more visible
-    print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
-    
-    
-    // Retreiving arguments
-    va_list args;
-    va_start(args, format);
-    
-    // Calling print
-    primitive_vprintf(format, args);
-    
-    va_end(args);
-    // Returning to original color
-    color = original_color;
-
-    // Returning current coordinates
-    return {col, row};
-}
-
-// Main warning function
-vga_coords primitive_warning(const char* format, ...) {
-    // Saving current color
-    uint8_t original_color = color;
-
-    // Changing print color to make it more visible
-    print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-
-    // Retreiving arguments
-    va_list args;
-    va_start(args, format);
-
-    // Calling print
-    primitive_vprintf(format, args);
-
-    va_end(args);
-
-    // Returning to original color
-    color = original_color;
-
-    // Returning current coordinates
-    return {col, row};
-}
-
-// Main error function
-vga_coords primitive_verror(const char* format, va_list args) {
-    // Saving current color
-    uint8_t original_color = color;
-    // Changing print color to make it more visible
-    print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
-
-    // Calling print
-    primitive_vprintf(format, args);
-    
-    // Returning to original color
-    color = original_color;
-    // Returning current coordinates
-    return {col, row};
-}
-
-// Main warning function
-vga_coords primitive_vwarning(const char* format, va_list args) {
-    // Saving current color
-    uint8_t original_color = color;
-    // Changing print color to make it more visible
-    print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-
-    // Calling print
-    primitive_vprintf(format, args);
-
-    // Returning to original color
-    color = original_color;
-    // Returning current coordinates
-    return {col, row};
-}
-
-// Clears whole screen
-void print_clear(void) {
-    if(vga::get_vga_mode() == FRAMEBUFFER) {
-        vga::fb::clear_screen();
-        return;
-    }
-
-    // Iterating through all of the rows, and using clear_row
-    for(size_t row = 0; row < NUM_ROWS; ++row) {
-        _clear_row(row);
-    }
-}
-
-// Backspace
-void backspace(void) {
-    if(vga::get_vga_mode() == FRAMEBUFFER) {
-        vga::fb::backspace();
-        return;
-    }
-
-    Char* buffer = reinterpret_cast<Char*>(VGA_ADDRESS);
-
-    if (row * NUM_COLS + col > 0) {
-        // Decrementing column variable
-        col--;
-        // If it gets bellow 0
-        if(col <= 0) {
-            row--;
-            col = NUM_COLS;
-        }
-
-        // Replacing the standing character with a space and updating cursor
-        buffer[col + NUM_COLS * row] = {static_cast<uint8_t>(' '), color};
-        update_cursor(row, col);
-    }
-}
-
-// Changing text color
-void print_set_color(const uint8_t foreground, const uint8_t background) {
-    color = foreground | (background << 4);
-}
-
-} // Namespace vga_print
+#pragma endregion

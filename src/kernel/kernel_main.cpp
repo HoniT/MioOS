@@ -34,7 +34,6 @@ data::string kernel_version;
 extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     // Managing GRUB multiboot error
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-        printf(LOG_ERROR, "Ivalid multiboot magic number: %x\n", magic);
         kernel_panic("Invalid GRUB magic number!");
         return;
     }

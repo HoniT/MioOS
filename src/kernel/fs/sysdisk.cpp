@@ -10,6 +10,7 @@
 #include <kernel_main.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <drivers/vga_print.hpp>
+#include <drivers/vga.hpp>
 #include <device.hpp>
 #include <fs/ext/ext2.hpp>
 #include <fs/ext/vfs.hpp>
@@ -40,8 +41,8 @@ void sysdisk::get_sysdisk(void* mbi) {
     // Searching for system disk to mount as FS root
     int ata_index = bootdev->biosdev - 0x80;
     if (ata_index < 0 || ata_index >= 4) {
-        printf(LOG_WARNING, "Boot device BIOS number (%x) out of ATA range! Device could be AHCI\n", bootdev->biosdev);
-        printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        kprintf(LOG_WARNING, "Boot device BIOS number (%x) out of ATA range! Device could be AHCI\n", bootdev->biosdev);
+        kprintf(RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -49,8 +50,8 @@ void sysdisk::get_sysdisk(void* mbi) {
     ata::device_t* dev = ata_devices[ata_index];
     if(!dev) {
         // TODO: Check AHCI devices if ATA doesnt exist
-        printf(LOG_WARNING, "Couldn't find system disk for BIOS boot device number %x!\n", bootdev->biosdev);
-        printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        kprintf(LOG_WARNING, "Couldn't find system disk for BIOS boot device number %x!\n", bootdev->biosdev);
+        kprintf(RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -59,8 +60,8 @@ void sysdisk::get_sysdisk(void* mbi) {
     mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
     if(!mbr::read_mbr(dev, mbr)) {
         // TODO: Check AHCI devices if ATA isn't bootable
-        printf(LOG_WARNING, "System disk isn't bootable! (LGA 0 ends with 0x%h)\n", mbr->signature);
-        printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        kprintf(LOG_WARNING, "System disk isn't bootable! (LGA 0 ends with 0x%h)\n", mbr->signature);
+        kprintf(RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -69,8 +70,8 @@ void sysdisk::get_sysdisk(void* mbi) {
     ext2_fs_t* fs = ext2::init_ext2_device(dev, true);
     if(!fs) {
         // TODO: Check AHCI devices if ATA isn't bootable
-        printf(LOG_WARNING, "System disk doesn't have a valid Ext file system!\n");
-        printf(PRINT_COLOR_BROWN | (PRINT_COLOR_BLACK << 4), "GOING INTO MOBILE MODE");
+        kprintf(LOG_WARNING, "System disk doesn't have a valid Ext file system!\n");
+        kprintf(RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -87,5 +88,5 @@ void sysdisk::get_sysdisk(void* mbi) {
         if(!found) ext2::make_dir(dir, node->data, node, RESTRICTED_PERMS);
     }
 
-    printf(LOG_INFO, "Implemented VFS to system disk\n");
+    kprintf(LOG_INFO, "Implemented VFS to system disk\n");
 }

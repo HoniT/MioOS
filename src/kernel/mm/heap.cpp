@@ -31,10 +31,10 @@ void heap::init(void) {
     heap_head->next = nullptr;
 
     if(!heap_head || !heap_head->free) {
-        printf(LOG_ERROR, "Failed to initialize kernel heap memory manager!\n");
+        kprintf(LOG_ERROR, "Failed to initialize kernel heap memory manager!\n");
         kernel_panic("Fatal component failed to initialize!");
     }
-    else printf(LOG_INFO, "Implemented kernel heap memory manager\n");
+    else kprintf(LOG_INFO, "Implemented kernel heap memory manager\n");
 }
 
 // Heap memory allocating / deallocating functions
@@ -71,7 +71,7 @@ void* kmalloc(const size_t size) {
         current = current->next;
     }
 
-    printf(LOG_ERROR, "Not enough heap memory for %u bytes!\n", size);
+    kprintf(LOG_ERROR, "Not enough heap memory for %u bytes!\n", size);
     heap::heap_dump();
     return nullptr;
 }
@@ -112,7 +112,7 @@ void* kcalloc(const size_t num, const size_t size) {
     // Getting the ptr from malloc
     void* ptr = kmalloc(num * size);
     if(!ptr) {
-        printf(LOG_ERROR, "Out of heap memory!\n");
+        kprintf(LOG_ERROR, "Out of heap memory!\n");
         return nullptr; // Safety check
     }
 
@@ -125,7 +125,7 @@ void* kcalloc(const size_t num, const size_t size) {
 }
 
 void heap::heap_dump() {
-    printf("--------------- Heap Dump ---------------\n");
+    kprintf("--------------- Heap Dump ---------------\n");
 
     HeapBlock* current = heap_head; // Setting the current block as the head
     uint64_t bytes_in_use = 0;
@@ -138,8 +138,8 @@ void heap::heap_dump() {
         current = current->next;
     }
     // Printing final status of heap
-    printf("Heap status: %llu bytes used out of %lu (%u%%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
-    printf("-----------------------------------------\n");
+    kprintf("Heap status: %llu bytes used out of %lu (%u%%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
+    kprintf("-----------------------------------------\n");
 }
 
 void heap::heap_dump(data::list<data::string> params) {

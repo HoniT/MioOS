@@ -8,78 +8,59 @@
 #ifndef VGA_PRINT_HPP
 #define VGA_PRINT_HPP
 
+#pragma region VGA Text Mode
+
 #define VGA_ADDRESS 0xB8000 // VGA address
 
 // Size constraints
 #define NUM_COLS 80
 #define NUM_ROWS 25
 
-// Default colors
-#define DEFAULT_FG_COLOR PRINT_COLOR_WHITE
-#define DEFAULT_BG_COLOR PRINT_COLOR_BLACK
+// VGA text mode default color (white on black)
+#define VGAT_COLOR 15 | (0 << 4)
+
+#pragma endregion
 
 #include <stdint.h>
 #include <stddef.h>
-#include <drivers/vga.hpp>
+#include <stdarg.h>
 
-// 16 available colors with VGA
-enum VGA_PrintColors {
-
-    PRINT_COLOR_BLACK = 0,
-	PRINT_COLOR_BLUE = 1,
-	PRINT_COLOR_GREEN = 2,
-	PRINT_COLOR_CYAN = 3,
-	PRINT_COLOR_RED = 4,
-	PRINT_COLOR_MAGENTA = 5,
-	PRINT_COLOR_BROWN = 6,
-	PRINT_COLOR_LIGHT_GRAY = 7,
-	PRINT_COLOR_DARK_GRAY = 8,
-	PRINT_COLOR_LIGHT_BLUE = 9,
-	PRINT_COLOR_LIGHT_GREEN = 10,
-	PRINT_COLOR_LIGHT_CYAN = 11,
-	PRINT_COLOR_LIGHT_RED = 12,
-	PRINT_COLOR_PINK = 13,
-	PRINT_COLOR_YELLOW = 14,
-	PRINT_COLOR_WHITE = 15
-
+enum PrintTypes {
+    STD_PRINT,
+    LOG_INFO,
+    LOG_WARNING,
+    LOG_ERROR
 };
 
-vga_coords printf(const char* fmt, ...);
-vga_coords printf(const uint32_t color, const char* fmt, ...);
-vga_coords printf(const PrintTypes print_type, const char* fmt, ...);
-vga_coords printf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...);
+struct vga_coords {
+	size_t col;
+	size_t row;
+};
 
 namespace vga {
-	// Current coordinates/address
-	extern size_t col;
-	extern size_t row;
+    extern int col_num;
+    extern int row_num;
 
-	void init(void); // Initializes main VGA text
+    // Screen features
+    void clear_text_region(const size_t col, const size_t row, const size_t len);
+    void backspace(void);
+    void clear_screen(void);
+    void insert(const size_t col, const size_t row, const uint32_t color, const bool update_pos, const char* fmt, ...);
+    void insert(const size_t col, const size_t row, const bool update_pos, const char* fmt, ...);
 
-	// Helper functions
+    void vgat_vprintf(const char* format, va_list args);
+} // namespace vga
 
-	void clear_region(const size_t _row, const size_t _col, const uint32_t len);
-	void insert(size_t _row, size_t _col, const char* str, bool _update_cursor = false, uint8_t color = DEFAULT_FG_COLOR | (DEFAULT_BG_COLOR << 4));
 
-	// VGA printing functions
+// Print functions
+void kputchar(const uint32_t color, const char c);
+void kputs(const uint32_t color, const char* str);
+vga_coords kprintf(const char* fmt, ...);
+vga_coords kprintf(const uint32_t color, const char* fmt, ...);
+vga_coords kprintf(const PrintTypes print_type, const char* fmt, ...);
+vga_coords kprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...);
+void kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, const va_list args);
 
-	// Print formatted
-	vga_coords primitive_printf(const char* format, ...);
-	vga_coords primitive_printf(const uint8_t color, const char* format, ...);
-	vga_coords primitive_vprintf(const char* format, va_list args);
-
-	// Error messages
-	vga_coords primitive_error(const char* format, ...);
-	vga_coords primitive_verror(const char* format, va_list args);
-	// Warnings
-	vga_coords primitive_warning(const char* format, ...);
-	vga_coords primitive_vwarning(const char* format, va_list args);
-
-	void print_clear(void); // Clearing screen
-	void backspace(void);
-
-	void print_set_color(const uint8_t foreground, const uint8_t background); // Changing text color
-
-} // Namespace vga
+vga_coords kvprintf_at(const size_t col, const size_t row, const PrintTypes print_type, const uint32_t color, const bool update_pos, const char* fmt, va_list args);
 
 #endif // VGA_PRINT_HPP

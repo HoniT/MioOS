@@ -30,23 +30,6 @@
 #define RGB_COLOR_YELLOW       0xFFFF55
 #define RGB_COLOR_WHITE        0xFFFFFF
 
-enum PrintTypes {
-    STD_PRINT,
-    LOG_INFO,
-    LOG_WARNING,
-    LOG_ERROR
-};
-
-enum VGAMode {
-    VGA_TEXT,
-    FRAMEBUFFER
-};
-
-struct vga_coords {
-	size_t col;
-	size_t row;
-};
-
 // 8x8 font, 95 printable ASCII characters (32 to 126)
 const uint8_t font8x8_basic[95][8] = {
     // ' ' (32)
@@ -243,43 +226,34 @@ const uint8_t font8x8_basic[95][8] = {
 
 extern uint32_t default_rgb_color;
 
+enum VGA_Modes {
+    TEXT,
+    FRAMEBUFFER
+};
+
 namespace vga {
     extern uint32_t* framebuffer;
     extern uint32_t fb_size;
 
+    extern uint32_t screen_width;
+    extern uint32_t screen_height;
+    extern uint32_t screen_pitch;
+    extern uint8_t screen_bpp; // Bits per pixel
+    
+    extern uint8_t font_height;
+    extern uint8_t font_width;
+    extern uint32_t screen_col_num;
+    extern uint32_t screen_row_num;
+
+    VGA_Modes get_vga_mode(void);
+    
     // Initialization
     void init_framebuffer(const multiboot_tag_framebuffer* fb_tag);
-    VGAMode get_vga_mode(void);
 
-    namespace fb {
-        extern int col_num;
-        extern int row_num;
-
-        // Primitive print functions
-        void put_pixel(const uint32_t x, const uint32_t y, const uint32_t color);
-        void draw_char(const uint32_t x, const uint32_t y, const char c, const uint32_t color);
-        void draw_text(uint32_t x, uint32_t y, const char* str, const uint32_t color);
-        
-        // Screen features
-        void clear_text_region(const size_t col, const size_t row, const size_t len);
-        void backspace(void);
-        void clear_screen(void);
-        void insert(const size_t col, const size_t row, const uint32_t color, const bool update_pos, const char* fmt, ...);
-        void insert(const size_t col, const size_t row, const bool update_pos, const char* fmt, ...);
-
-        // Basic output
-        void kputchar(const uint32_t color, const char c);
-        void kputs(const uint32_t color, const char* str);
-
-        vga_coords kprintf(const char* fmt, ...);
-        vga_coords kprintf(const uint32_t color, const char* fmt, ...);
-        vga_coords kprintf(const PrintTypes print_type, const char* fmt, ...);
-        vga_coords kprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...);
-        vga_coords kprintf_at(const size_t col, const size_t row, const PrintTypes print_type, const uint32_t color, const bool update_pos, const char* fmt, ...);
-        vga_coords vkprintf_at(const size_t col, const size_t row, const PrintTypes print_type, const uint32_t color, const bool update_pos, const char* fmt, va_list args);
-
-        vga_coords kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, const va_list args);
-    }; // namespace fb
+    // Bare metal output functions
+    void put_pixel(const uint32_t x, const uint32_t y, const uint32_t color);
+    void draw_char(const uint32_t x, const uint32_t y, const char c, const uint32_t color);
+    void draw_text(uint32_t x, uint32_t y, const char* str, const uint32_t color);
 } // namespace vga
 
 #endif // VGA_HPP

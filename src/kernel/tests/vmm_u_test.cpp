@@ -16,7 +16,7 @@ void unittsts::test_vmm(void) {
     #ifdef VMM_HPP
     // If this test is called before initializing the VMM/enabling paging
     if(!vmm::enabled_paging) {
-        printf(LOG_ERROR, "VMM test: Paging not enabled! Please enable paging!\n");
+        kprintf(LOG_ERROR, "VMM test: Paging not enabled! Please enable paging!\n");
         return;
     }
 
@@ -28,7 +28,7 @@ void unittsts::test_vmm(void) {
     vmm::alloc_page(address, phys_addr, PRESENT | WRITABLE); // Mapping VGA address to 0
     bool is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(!is_mapped) {
-        printf(LOG_ERROR, "VMM Test 1 failed: couldn't map page at v. address: %x!\n", address);
+        kprintf(LOG_ERROR, "VMM Test 1 failed: couldn't map page at v. address: %x!\n", address);
         passed = false; // Noting that the test failed
     }
 
@@ -37,7 +37,7 @@ void unittsts::test_vmm(void) {
     uint16_t original_val = *(uint16_t*)(address);
     *(uint16_t*)(address) = value; // Writing in a value
     if(*(uint16_t*)(phys_addr) != value) { // If the value at the physical corresponding address is the same
-        printf(LOG_ERROR, "VMM Test 2 failed: it set the wrong value (Set: %x Expected: %x Original value: %x)!\n", *(uint32_t*)(phys_addr), value, original_val);
+        kprintf(LOG_ERROR, "VMM Test 2 failed: it set the wrong value (Set: %x Expected: %x Original value: %x)!\n", *(uint32_t*)(phys_addr), value, original_val);
         passed = false;
     }
     *(uint16_t*)(address) = original_val;
@@ -45,7 +45,7 @@ void unittsts::test_vmm(void) {
     // Testing translation of virtual to physical
     uint64_t phys_address = (uint64_t)vmm::virtual_to_physical(address);
     if(phys_address != phys_addr) {
-        printf(LOG_ERROR, "VMM Test 3 failed: couldn't translate a virtual address to a physical address!\n");
+        kprintf(LOG_ERROR, "VMM Test 3 failed: couldn't translate a virtual address to a physical address!\n");
         passed = false;
     }
 
@@ -53,7 +53,7 @@ void unittsts::test_vmm(void) {
     vmm::free_page(address); // Unmaping
     is_mapped = vmm::is_mapped(address); // Getting if the page is mapped
     if(is_mapped) {
-        printf(LOG_ERROR, "VMM Test 4 failed: couldn't unmap page at v. address: %x!\n", address);
+        kprintf(LOG_ERROR, "VMM Test 4 failed: couldn't unmap page at v. address: %x!\n", address);
         passed = false; // Noting that the test failed
     }
 
@@ -66,7 +66,7 @@ void unittsts::test_vmm(void) {
     *virt_4mb = 0xDEADBEEF;
 
     if (*(uint32_t*)virt_4mb != 0xDEADBEEF) {
-        printf(LOG_ERROR, "VMM Test 5 failed: 4MiB page did not map correctly!\n");
+        kprintf(LOG_ERROR, "VMM Test 5 failed: 4MiB page did not map correctly!\n");
         passed = false;
     }
 
@@ -76,6 +76,6 @@ void unittsts::test_vmm(void) {
 
     // If this didn't pass al test we'll initialize kernel panic
     if(!passed) kernel_panic("VMM failed!");
-    printf(LOG_INFO, "Virtual memory manager test passed\n");
+    kprintf(LOG_INFO, "Virtual memory manager test passed\n");
     #endif
 }

@@ -115,7 +115,7 @@ void kbrd::init(void) {
     // Setting up IRQ handler
     idt::irq_install_handler(1, &keyboardHandler);
     if(!idt::check_irq(1, &keyboardHandler)) {
-        printf(LOG_ERROR, "Failed to initialize keyboard driver! (IRQ 1 not installed)\n");
+        kprintf(LOG_ERROR, "Failed to initialize keyboard driver! (IRQ 1 not installed)\n");
     }
-    printf(LOG_INFO, "Implemented keyboard driver\n");
+    kprintf(LOG_INFO, "Implemented keyboard driver\n");
 }

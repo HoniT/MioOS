@@ -35,10 +35,10 @@ void gdt::init(void) {
     uint8_t value;
     asm volatile ("mov %%ds, %0" : "=m"(value));
     if(value != 0x10) {
-        printf(LOG_ERROR, "Failed to initialize GDT! (Data Segment wasn't set properly)\n");
+        kprintf(LOG_ERROR, "Failed to initialize GDT! (Data Segment wasn't set properly)\n");
         kernel_panic("Fatal component failed to initialize!");
     }
-    else printf(LOG_INFO, "Implemented Global Descriptor Table\n");
+    else kprintf(LOG_INFO, "Implemented Global Descriptor Table\n");
 
     // coords = vga::printf("[ ");
     // vga::printf(" ]    Implementing Task State Segment\n");

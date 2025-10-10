@@ -35,10 +35,10 @@ void pit::init(void) {
     io::outPortB(0x40,(uint8_t)((divisor >> 8) & 0xFF));
 
     if(!idt::check_irq(0, &onIrq0)) {
-        printf(LOG_ERROR, "Failed to initialize Programmable Interval Timer! (IRQ 0 not installed)\n");
+        kprintf(LOG_ERROR, "Failed to initialize Programmable Interval Timer! (IRQ 0 not installed)\n");
         kernel_panic("Fatal component failed to initialize!");
     }
-    printf(LOG_INFO, "Implemented Programmable Interval Timer\n");
+    kprintf(LOG_INFO, "Implemented Programmable Interval Timer\n");
 }
 
 void pit::delay(const uint64_t ms) {
@@ -62,9 +62,9 @@ void pit::getuptime(data::list<data::string> params) {
     uint64_t minutes = udiv64(umod64(total_seconds, 3600), 60);
     uint64_t seconds = umod64(total_seconds, 60);
 
-    printf("Hours: %lu\n", hours);
-    printf("Minutes: %lu\n", minutes);
-    printf("Seconds: %lu\n", seconds);
+    kprintf("Hours: %lu\n", hours);
+    kprintf("Minutes: %lu\n", minutes);
+    kprintf("Seconds: %lu\n", seconds);
 }
 
 #pragma endregion

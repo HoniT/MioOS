@@ -41,14 +41,14 @@ MetadataNode* pmm::high_alloc_mem_head = (MetadataNode*)(METADATA_ADDR + sizeof(
 // Prints out the memory map: debugging / helper function
 void pmm::print_memory_map(void) {
     if (!mb2_info) {
-        printf(LOG_ERROR, "Memory map not defined\n");
+        kprintf(LOG_ERROR, "Memory map not defined\n");
         return;
     }
 
     // Get the memory map tag
     multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(mb2_info);
     if (!mmap_tag) {
-        printf(LOG_ERROR, "Memory map tag not found\n");
+        kprintf(LOG_ERROR, "Memory map tag not found\n");
         return;
     }
 
@@ -85,7 +85,7 @@ void pmm::print_memory_map(void) {
         }
 
         // Print memory region information
-        printf("Memory region: %llx - %llx, Type: %s\n",
+        kprintf("Memory region: %llx - %llx, Type: %s\n",
                    entry->addr, end_addr, type_str);
     }
 }
@@ -98,10 +98,10 @@ void pmm::print_usable_regions(void) {
     // Iterating through blocks
     while(current) {
         // Printing info
-        printf("-Block range: %lx-%lx\n", current->addr, current->addr + current->size - 1);
-        printf("Block size: %lx\n", current->size);
-        printf("Blocks of memory taken up: %d\n", udiv64(current->size, FRAME_SIZE));
-        printf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
+        kprintf("-Block range: %lx-%lx\n", current->addr, current->addr + current->size - 1);
+        kprintf("Block size: %lx\n", current->size);
+        kprintf("Blocks of memory taken up: %d\n", udiv64(current->size, FRAME_SIZE));
+        kprintf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
 
         // Going to next block
         current = current->next;
@@ -113,7 +113,7 @@ void pmm::manage_mmap(void* _mb2_info) {
     // Get the memory map tag
     multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(_mb2_info);
     if (!mmap_tag) {
-        printf(LOG_ERROR, "Memory map not available in Multiboot2 info!\n");
+        kprintf(LOG_ERROR, "Memory map not available in Multiboot2 info!\n");
         return;
     }
 
@@ -186,14 +186,14 @@ void pmm::init(void* _mb2_info) {
     low_alloc_mem_head->size -= LOW_DATA_START_ADDR; /* We previously set this as the mmap entry's address + size, 
     * now we'll just subtract the actual data starting address to just get the size */
     if(!low_alloc_mem_head) {
-        printf(LOG_ERROR, "Failed to initialize physical memory manager! (Low allocable memory not defined)\n");
+        kprintf(LOG_ERROR, "Failed to initialize physical memory manager! (Low allocable memory not defined)\n");
         kernel_panic("Fatal component failed to initialize!");
     }
    
    // Cleaning up any unwanted memory from a warm boot
    memset((void*)low_alloc_mem_head->addr, 0, low_alloc_mem_head->size);
    
-   printf(LOG_INFO, "Implemented physical memory manager\n");
+   kprintf(LOG_INFO, "Implemented physical memory manager\n");
 }
 
 // Alloc and dealloc
@@ -211,7 +211,7 @@ void* pmm::alloc_frame(const uint64_t num_blocks, bool identity_map) {
     #ifdef VMM_HPP
     // Checks if the list head is mapped
     if (vmm::enabled_paging && !vmm::is_mapped(uint32_t(low_alloc_mem_head))) {
-        printf(LOG_ERROR, "Page fault: pmm_head is not mapped!\n");
+        kprintf(LOG_ERROR, "Page fault: pmm_head is not mapped!\n");
         return nullptr;
     }
     #endif
@@ -264,7 +264,7 @@ void* pmm::alloc_frame(const uint64_t num_blocks, bool identity_map) {
         current = current->next;
     }
 
-    printf(LOG_ERROR, "Not enough memory to allocate %x block(s)!\n", num_blocks);
+    kprintf(LOG_ERROR, "Not enough memory to allocate %x block(s)!\n", num_blocks);
     return nullptr;
 }
 
@@ -340,19 +340,19 @@ void pmm::getmeminfo(data::list<data::string> params) {
     // If there were no flags inputed
     if(params.empty()) {
         // Printing usable and used memory
-        printf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
-        printf("Total installed memory:  %llu bytes (~%llu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
-        printf("Available usable memory: %llu bytes (~%llu GiB)\n", pmm::total_usable_ram, pmm::total_usable_ram / BYTES_IN_GIB);
-        printf("Used memory:                %llu bytes\n", pmm::total_used_ram);
-        printf("Hardware reserved memory:   %llu bytes\n", pmm::hardware_reserved_ram);
+        kprintf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
+        kprintf("Total installed memory:  %llu bytes (~%llu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
+        kprintf("Available usable memory: %llu bytes (~%llu GiB)\n", pmm::total_usable_ram, pmm::total_usable_ram / BYTES_IN_GIB);
+        kprintf("Used memory:                %llu bytes\n", pmm::total_used_ram);
+        kprintf("Hardware reserved memory:   %llu bytes\n", pmm::hardware_reserved_ram);
         return;
     }
 
     // If the user inputed the help flag
     if(params.at(0).equals("-h")) {
         // Printing every available version of getmeminfo
-        printf("-mmap - Prints the memory map given from GRUB\n");
-        printf("-reg - Prints the blocks in the usable memory regions\n");
+        kprintf("-mmap - Prints the memory map given from GRUB\n");
+        kprintf("-reg - Prints the blocks in the usable memory regions\n");
         return;
     }
 
@@ -369,7 +369,7 @@ void pmm::getmeminfo(data::list<data::string> params) {
     }
 
     // If an invalid flag has been entered we'll throw an error
-    printf(LOG_WARNING, "Invalid flag \"%s\"for \"getmeminfo\"!\n", params.at(0));
+    kprintf(LOG_WARNING, "Invalid flag \"%s\"for \"getmeminfo\"!\n", params.at(0));
 }
 
 #pragma endregion

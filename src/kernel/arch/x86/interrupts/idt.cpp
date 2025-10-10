@@ -108,10 +108,10 @@ void idt::init() {
     }
 
     if(idt_entries[0].selector != 0x8) {
-        printf(LOG_ERROR, "Failed to initialize IDT!\n");
+        kprintf(LOG_ERROR, "Failed to initialize IDT!\n");
         kernel_panic("Fatal component failed to initialize!");
     }
-    else printf(LOG_INFO, "Implemented Interrupt Descriptor Table\n");
+    else kprintf(LOG_INFO, "Implemented Interrupt Descriptor Table\n");
 }
 
 // Sets an IDT gate

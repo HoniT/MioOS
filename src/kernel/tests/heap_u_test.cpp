@@ -23,7 +23,7 @@ void unittsts::test_heap(void) {
     uint32_t block1 = uint32_t(kmalloc(40));
 
     if(block1 <= HEAP_START) {
-        printf(LOG_ERROR, "Heap Test 1 failed: couldn't allocate block in heap!\n");
+        kprintf(LOG_ERROR, "Heap Test 1 failed: couldn't allocate block in heap!\n");
         passed = false; // Noting that the test failed
     }
 
@@ -33,7 +33,7 @@ void unittsts::test_heap(void) {
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 != block1 + 40 + sizeof(HeapBlock)) {
-        printf(LOG_ERROR, "Heap Test 2 failed: couldn't allocate block2 in heap!\n");
+        kprintf(LOG_ERROR, "Heap Test 2 failed: couldn't allocate block2 in heap!\n");
         passed = false; // Noting that the test failed
     }
 
@@ -45,7 +45,7 @@ void unittsts::test_heap(void) {
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 != block2_addr) {
-        printf(LOG_ERROR, "Heap Test 3 failed: couldn't free block2!\n");
+        kprintf(LOG_ERROR, "Heap Test 3 failed: couldn't free block2!\n");
         passed = false; // Noting that the test failed
     }
     
@@ -54,7 +54,7 @@ void unittsts::test_heap(void) {
 
     // If the test failed we will halt the system
     if(!passed) kernel_panic("Heap failed!");
-    printf(LOG_INFO, "Kernel heap memory manager test passed\n");
+    kprintf(LOG_INFO, "Kernel heap memory manager test passed\n");
 }
 
 #endif // UNIT_TEST_HPP
