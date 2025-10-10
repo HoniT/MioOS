@@ -18,6 +18,7 @@ static HeapBlock* heap_head = nullptr;
 
 // Heap initialization function
 void heap::init(void) {
+    // Clear any junk memory from warm boot
     memset((void*)HEAP_START, 0, HEAP_SIZE);
     // Gets the start of the heap
     heap_head = (HeapBlock*)HEAP_START;
@@ -71,6 +72,7 @@ void* kmalloc(const size_t size) {
     }
 
     printf(LOG_ERROR, "Not enough heap memory for %u bytes!\n", size);
+    heap::heap_dump();
     return nullptr;
 }
 
@@ -122,7 +124,7 @@ void* kcalloc(const size_t num, const size_t size) {
     return ptr;
 }
 
-void heap::heap_dump(data::list<data::string> params) {
+void heap::heap_dump() {
     printf("--------------- Heap Dump ---------------\n");
 
     HeapBlock* current = heap_head; // Setting the current block as the head
@@ -136,6 +138,10 @@ void heap::heap_dump(data::list<data::string> params) {
         current = current->next;
     }
     // Printing final status of heap
-    printf("Heap status: %llu bytes used out of %llu (%u%%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
+    printf("Heap status: %llu bytes used out of %lu (%u%%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
     printf("-----------------------------------------\n");
+}
+
+void heap::heap_dump(data::list<data::string> params) {
+    heap::heap_dump();
 }

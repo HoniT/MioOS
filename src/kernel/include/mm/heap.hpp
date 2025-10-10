@@ -10,8 +10,8 @@
 
 #include <stddef.h>
 
-constexpr size_t HEAP_START = 0x200000; // Heap start (2 MiB mark)
-constexpr size_t HEAP_SIZE = 0x300000;  // 3 MiB heap size
+const size_t HEAP_START = 0x200000; // Heap start (2 MiB mark)
+const size_t HEAP_SIZE = 0x300000;  // 3 MiB heap size
 
 // Linked list node
 struct HeapBlock {
@@ -22,6 +22,7 @@ struct HeapBlock {
 
 namespace heap {
     void init(void);
+    void heap_dump();
 } // Namespace heap
 
 // Memory allocation and deallocation functions
