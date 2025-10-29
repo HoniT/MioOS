@@ -7,6 +7,8 @@
 // ========================================
 
 #include <fs/ext/ext2.hpp>
+#include <fs/ext/inode.hpp>
+#include <fs/ext/block.hpp>
 #include <fs/ext/vfs.hpp>
 #include <mbr.hpp>
 #include <mm/heap.hpp>
@@ -22,356 +24,6 @@
 #include <lib/path_util.hpp>
 
 #pragma region Read & Write
-
-/// @brief Returns pointer to the inode bitmap of a given block group
-/// @param fs Filesystem pointer
-/// @param group Block group index
-/// @return Pointer to bitmap in memory
-uint8_t* ext2::get_inode_bitmap(ext2_fs_t* fs, uint32_t group) {
-    if(!fs) return nullptr;
-    uint32_t groups_count = (fs->sb->blks_num + fs->sb->blkgroup_blk_num - 1) / fs->sb->blkgroup_blk_num;
-    if(group >= groups_count) return nullptr;
-
-    uint32_t bitmap_block = fs->blk_grp_descs[group].blk_addr_inode_usage_bitmap;
-    uint8_t* buf = (uint8_t*)kmalloc(fs->block_size);
-    ext2::read_block(fs, bitmap_block, buf);
-
-    return buf;
-}
-
-/// @brief Writes inode bitmap back to disk
-/// @param fs Filesystem pointer
-/// @param group Block group index
-/// @param bitmap Pointer to bitmap in memory
-void ext2::write_inode_bitmap(ext2_fs_t* fs, uint32_t group, uint8_t* bitmap) {
-    if(!fs || !bitmap) return;
-    uint32_t groups_count = (fs->sb->blks_num + fs->sb->blkgroup_blk_num - 1) / fs->sb->blkgroup_blk_num;
-    if(group >= groups_count) return;
-
-    uint32_t bitmap_block = fs->blk_grp_descs[group].blk_addr_inode_usage_bitmap;
-    ext2::write_block(fs, bitmap_block, bitmap); // write_block writes memory back to disk
-}
-
-
-// Loads an inode with a given inode number
-inode_t* ext2::load_inode(ext2_fs_t* fs, const uint32_t inode_num) {
-    // Determining which Block Group contains an Inode
-    uint32_t group = (inode_num - 1) / fs->sb->blkgroup_inode_num;
-    // Finding an inode inside of the Block Group
-    uint32_t index = (inode_num - 1) % fs->sb->blkgroup_inode_num;
-    // Retreiving BGD
-    blkgrp_descriptor_t* desc = &fs->blk_grp_descs[group];
-
-    uint32_t inode_size = fs->sb->inode_size;
-    uint32_t inode_table_block = desc->inode_tbl_start_blk_addr;
-    uint32_t offset = index * inode_size;
-
-    uint32_t block_num = inode_table_block + (offset / fs->block_size);
-    uint32_t offset_in_block = offset % fs->block_size;
-
-    uint8_t* buffer = (uint8_t*)kmalloc(fs->block_size);
-    ext2::read_block(fs, block_num, buffer);
-    return (inode_t*)(buffer + offset_in_block);
-}
-
-/// @brief Free an inode in ext2
-/// @param fs Filesystem pointer
-/// @param inode_num The inode number to free
-void ext2::free_inode(ext2_fs_t* fs, const uint32_t inode_num) {
-    if(!fs || inode_num == 0) return;
-
-    // Inodes are 1-based in ext2
-    uint32_t index = inode_num - 1;
-
-    // Locate group and position within group
-    uint32_t inodes_per_group = fs->sb->blkgroup_inode_num;
-    uint32_t group = index / inodes_per_group;
-    uint32_t offset = index % inodes_per_group;
-
-    // Load inode bitmap of this group
-    uint8_t* inode_bitmap = get_inode_bitmap(fs, group);
-
-    // Clear bit
-    clear_bitmap_bit(inode_bitmap, offset);
-
-    // Update group descriptor
-    fs->blk_grp_descs[group].num_unalloc_inodes++;
-
-    // Update superblock
-    fs->sb->unalloc_inode_num++;
-
-    // Write back bitmap + descriptors
-    write_inode_bitmap(fs, group, inode_bitmap);
-    rewrite_bgds(fs);
-    rewrite_sb(fs);
-}
-
-
-/// @brief Allocates a new inode
-/// @param fs File system on where to allocate
-/// @return Allocated inode index
-uint32_t ext2::alloc_inode(ext2_fs_t* fs) {
-    // Compute total number of block groups
-    uint32_t total_groups = (fs->sb->blks_num + fs->sb->blkgroup_blk_num - 1) / fs->sb->blkgroup_blk_num;
-
-    for (uint32_t group = 0; group < total_groups; group++) {
-        // Skip group if no unallocated inodes
-        if (!fs->blk_grp_descs[group].num_unalloc_inodes) continue;
-
-        // Get inode bitmap for this group
-        uint8_t* bitmap = ext2::get_inode_bitmap(fs, group);
-        if (!bitmap) kernel_panic("alloc_inode: failed to get inode bitmap!");
-
-        // Iterate through each inode in this group
-        for (uint32_t ino_offset = 0; ino_offset < fs->inodes_per_group; ino_offset++) {
-            // Compute 1-based inode number
-            uint32_t ino = group * fs->inodes_per_group + ino_offset + 1;
-
-            // Skip reserved inodes
-            if (ino < EXT2_FIRST_NONRESERVED_INO) continue;
-
-            // The bitmap bit for inode `ino` is at index `ino - 1`
-            if (!TEST_BIT(bitmap, ino - 1)) {
-                // Mark as allocated (bit index = ino - 1)
-                SET_BIT(bitmap, ino - 1);
-
-                // Write bitmap back
-                ext2::write_inode_bitmap(fs, group, bitmap);
-
-                // Update metadata
-                fs->blk_grp_descs[group].num_unalloc_inodes--;
-                fs->sb->unalloc_inode_num--;
-                ext2::rewrite_bgds(fs);
-                ext2::rewrite_sb(fs);
-
-                // free bitmap buffer we got from get_inode_bitmap
-                kfree(bitmap);
-
-                return ino; // return 1-based inode number
-            }
-        }
-
-        // nothing found in this group, free bitmap before moving on
-        kfree(bitmap);
-    }
-
-    kernel_panic("No more inodes to allocate!");
-    return (uint32_t)-1;
-}
-
-// Writes inode info to disk
-void ext2::write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode) {
-    // Inode index is 1-based in Ext2
-    uint32_t index = inode_num - 1;
-    uint32_t group = index / fs->inodes_per_group;
-    uint32_t index_in_group = index % fs->inodes_per_group;
-
-    uint32_t inode_table_block = fs->blk_grp_descs[group].inode_tbl_start_blk_addr;
-
-    // Use on-disk inode size, not sizeof(inode_t)
-    uint32_t inode_size = fs->sb->inode_size;
-    uint32_t offset = index_in_group * inode_size;
-
-    uint32_t block_offset = offset / fs->block_size;
-    uint32_t byte_offset  = offset % fs->block_size;
-
-    uint32_t block_num = inode_table_block + block_offset;
-
-    // Reading the block where the inode is
-    uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
-    if (!buf) {
-        return; // allocation failure
-    }
-
-    ext2::read_block(fs, block_num, buf);
-
-    // Copying given info to buffer
-    // Copy only inode_size (truncate or pad relative to sizeof(inode_t))
-    uint32_t copy_size = (sizeof(inode_t) < inode_size) ? sizeof(inode_t) : inode_size;
-    memcpy(buf + byte_offset, inode, copy_size);
-
-    // Rewriting block
-    ext2::write_block(fs, block_num, buf);
-
-    kfree(buf);
-    return; // success
-}
-
-/// @brief Returns pointer to the block bitmap of a given block group
-/// @param fs Filesystem pointer
-/// @param group Block group index
-/// @return Pointer to bitmap in memory
-uint8_t* ext2::get_block_bitmap(ext2_fs_t* fs, uint32_t group) {
-    if (!fs) return nullptr;
-
-    // Compute total number of groups
-    uint32_t total_groups = (fs->sb->blks_num + fs->sb->blkgroup_blk_num - 1) / fs->sb->blkgroup_blk_num;
-    if (group >= total_groups) return nullptr;
-
-    uint32_t bitmap_block = fs->blk_grp_descs[group].blk_addr_blk_usage_bitmap;
-    uint8_t* buf = (uint8_t*)kmalloc(fs->block_size);
-    ext2::read_block(fs, bitmap_block, buf);
-    return buf;
-}
-
-/// @brief Writes block bitmap back to disk
-/// @param fs Filesystem pointer
-/// @param group Block group index
-/// @param bitmap Pointer to bitmap in memory
-void ext2::write_block_bitmap(ext2_fs_t* fs, uint32_t group, uint8_t* bitmap) {
-    if (!fs || !bitmap) return;
-
-    // Compute total number of groups
-    uint32_t total_groups = (fs->sb->blks_num + fs->sb->blkgroup_blk_num - 1) / fs->sb->blkgroup_blk_num;
-    if (group >= total_groups) return;
-
-    uint32_t bitmap_block = fs->blk_grp_descs[group].blk_addr_blk_usage_bitmap;
-    ext2::write_block(fs, bitmap_block, bitmap); // write_block writes memory back to disk
-}
-
-
-/// @brief Allocates a new block
-/// @param fs File system on where to allocate
-/// @return Allocated block index
-uint32_t ext2::alloc_block(ext2_fs_t* fs) {
-    if (!fs) kernel_panic("alloc_block: invalid filesystem pointer!");
-
-    // Compute total number of block groups
-    uint32_t total_groups = (fs->sb->blks_num + fs->sb->blkgroup_blk_num - 1) / fs->sb->blkgroup_blk_num;
-
-    for (uint32_t group = 0; group < total_groups; group++) {
-        // Skip group if no unallocated blocks
-        if (!fs->blk_grp_descs[group].num_unalloc_blks) continue;
-
-        // Get block bitmap for this group
-        uint8_t* bitmap = ext2::get_block_bitmap(fs, group);
-        if (!bitmap) kernel_panic("alloc_block: failed to get block bitmap!");
-
-        // Iterate through each block in this group
-        for (uint32_t blk_offset = 0; blk_offset < fs->blocks_per_group; blk_offset++) {
-            uint32_t byte_index = blk_offset / 8;
-            uint8_t bit_index = blk_offset % 8;
-
-            // Skip if block already allocated
-            if (bitmap[byte_index] & (1 << bit_index)) continue;
-
-            // Mark block as allocated
-            bitmap[byte_index] |= (1 << bit_index);
-            ext2::write_block_bitmap(fs, group, bitmap);
-
-            // Update metadata
-            fs->blk_grp_descs[group].num_unalloc_blks--;
-            fs->sb->unalloc_blk_num--;
-            ext2::rewrite_bgds(fs);
-            ext2::rewrite_sb(fs);
-
-            // Calculate and return absolute block number
-            return group * fs->blocks_per_group + blk_offset + fs->sb->blkgrp_superblk;
-        }
-    }
-
-    // No free blocks found
-    kernel_panic("No more blocks to allocate!");
-    return (uint32_t)-1;
-}
-
-
-/// @brief Free a single block
-/// @param fs Filesystem pointer
-/// @param block_num Absolute block number
-void ext2::free_block(ext2_fs_t* fs, uint32_t block_num) {
-    if (!fs || block_num == 0) return;
-
-    // Compute group and offset
-    uint32_t blocks_per_group = fs->sb->blkgroup_blk_num;
-    uint32_t group = (block_num - fs->sb->blkgrp_superblk) / blocks_per_group;
-    uint32_t offset = (block_num - fs->sb->blkgrp_superblk) % blocks_per_group;
-
-    // Load block bitmap
-    uint8_t* bitmap = get_block_bitmap(fs, group);
-    if (!bitmap) return;
-
-    // Clear bit
-    clear_bitmap_bit(bitmap, offset);
-
-    // Update metadata
-    fs->blk_grp_descs[group].num_unalloc_blks++;
-    fs->sb->unalloc_blk_num++;
-
-    // Write back bitmap + descriptors
-    write_block_bitmap(fs, group, bitmap);
-    rewrite_bgds(fs);
-    rewrite_sb(fs);
-}
-
-/// @brief Free all data blocks used by an inode
-/// @param fs Filesystem pointer
-/// @param inode The inode whose blocks to free
-void ext2::free_blocks(ext2_fs_t* fs, inode_t* inode) {
-    if (!fs || !inode) return;
-
-    // Free direct blocks
-    for (int i = 0; i < 12; i++) {
-        if (inode->direct_blk_ptr[i]) {
-            free_block(fs, inode->direct_blk_ptr[i]);
-            inode->direct_blk_ptr[i] = 0;
-        }
-    }
-
-    // Free singly-indirect
-    if (inode->singly_inderect_blk_ptr) {
-        uint32_t* blocks = (uint32_t*)kmalloc(fs->block_size);
-        read_block(fs, inode->singly_inderect_blk_ptr, (uint8_t*)blocks);
-        for (uint32_t i = 0; i < fs->sb->blk_size / sizeof(uint32_t); i++) {
-            if (blocks[i]) free_block(fs, blocks[i]);
-        }
-        free_block(fs, inode->singly_inderect_blk_ptr);
-        inode->singly_inderect_blk_ptr = 0;
-    }
-
-    // Free doubly-indirect
-    if (inode->doubly_inderect_blk_ptr) {
-        uint32_t* level1 = (uint32_t*)kmalloc(fs->block_size);
-        read_block(fs, inode->doubly_inderect_blk_ptr, (uint8_t*)level1);
-        for (uint32_t i = 0; i < fs->sb->blk_size / sizeof(uint32_t); i++) {
-            if (level1[i]) {
-                uint32_t* level2 = (uint32_t*)kmalloc(fs->block_size);
-                read_block(fs, level1[i], (uint8_t*)level2);
-                for (uint32_t j = 0; j < fs->sb->blk_size / sizeof(uint32_t); j++) {
-                    if (level2[j]) free_block(fs, level2[j]);
-                }
-                free_block(fs, level1[i]);
-            }
-        }
-        free_block(fs, inode->doubly_inderect_blk_ptr);
-        inode->doubly_inderect_blk_ptr = 0;
-    }
-
-    // Free triply-indirect
-    if (inode->triply_inderect_blk_ptr) {
-        uint32_t* level1 = (uint32_t*)kmalloc(fs->block_size);
-        read_block(fs, inode->triply_inderect_blk_ptr, (uint8_t*)level1);
-        for (uint32_t i = 0; i < fs->sb->blk_size / sizeof(uint32_t); i++) {
-            if (level1[i]) {
-                uint32_t* level2 = (uint32_t*)kmalloc(fs->block_size);
-                read_block(fs, level1[i], (uint8_t*)level2);
-                for (uint32_t j = 0; j < fs->sb->blk_size / sizeof(uint32_t); j++) {
-                    if (level2[j]) {
-                        uint32_t* level3 = (uint32_t*)kmalloc(fs->block_size);
-                        read_block(fs, level2[j], (uint8_t*)level3);
-                        for (uint32_t k = 0; k < fs->sb->blk_size / sizeof(uint32_t); k++) {
-                            if (level3[k]) free_block(fs, level3[k]);
-                        }
-                        free_block(fs, level2[j]);
-                    }
-                }
-                free_block(fs, level1[i]);
-            }
-        }
-        free_block(fs, inode->triply_inderect_blk_ptr);
-        inode->triply_inderect_blk_ptr = 0;
-    }
-}
 
 // Rewrites block group descriptors of a FS
 void ext2::rewrite_bgds(ext2_fs_t* fs) {
@@ -401,38 +53,7 @@ void ext2::rewrite_sb(ext2_fs_t* fs) {
     kfree(buf);
 }
 
-bool ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read) {
-    // Translating Ext2 blocks to LBA blocks
-    uint32_t lba = fs->partition_start + ((block_num * fs->block_size) / 512);
-    uint32_t lba_blocks = (blocks_to_read * fs->block_size) / 512;
-
-    if (fs->dev) {
-        // ATA driver expects words, so cast here only
-        pio_28::read_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
-    }
-    else {
-        kprintf(LOG_ERROR, "Ext2 FS doesn't have a device!\n");
-        return false;
-    }
-    return true;
-}
-
-bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write) {
-    uint32_t lba = fs->partition_start + ((block_num * fs->block_size) / 512);
-    uint32_t lba_blocks = (blocks_to_write * fs->block_size) / 512;
-
-    if (fs->dev) {
-        pio_28::write_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
-    }
-    else {
-        kprintf(LOG_ERROR, "Ext2 FS doesn't have a device!\n");
-        return false;
-    }
-    return true;
-}
-
-
-ext2_fs_t* curr_fs = nullptr;
+ext2_fs_t* ext2::curr_fs = nullptr;
 // Parses dir entries in a block and adds them to a list
 void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& entries, treeNode* parentNode, vfsNode parent) {
     uint32_t offset = 0;
@@ -454,7 +75,7 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& e
         if (INODE_IS_DIR(inode)) path.append("/");
 
         // Create VFS node
-        vfsNode node = vfs_tree.create({name, path, INODE_IS_DIR(inode), entry->inode, inode, curr_fs})->data;
+        vfsNode node = vfs_tree.create({name, path, INODE_IS_DIR(inode), entry->inode, inode, ext2::curr_fs})->data;
 
         // Add to VFS tree if not '.' or '..'
         if (!name.equals(".") && !name.equals("..")) {
@@ -651,43 +272,6 @@ void ext2::find_ext2_fs(void) {
 
 #pragma region Helper Functions
 
-/// @brief Get's inode number from path
-/// @param fs Ext2 File system
-/// @param path Path of node
-/// @return Inode num
-uint32_t ext2::find_inode(ext2_fs_t* fs, data::string path) {
-    if (path.empty()) return EXT2_BAD_INO;
-
-    int count;
-    data::string* tokens = split_path_tokens(path, count);
-    if (!tokens || count == 0 || !tokens[0].equals("/")) return EXT2_BAD_INO;
-
-    treeNode* curr = vfs_tree.get_root();
-    for (int i = 1; i < count; i++) {
-        treeNode* parent = curr;
-        bool read_dir = false;
-
-    check:
-        data::string name_to_find = tokens[i];
-        if (parent->data.is_dir) {
-            ext2::read_dir(parent);
-        }
-
-        curr = vfs_tree.find_child_by_predicate(parent, [name_to_find](vfsNode node) { 
-            return node.name == name_to_find; 
-        });
-        if (!curr) {
-            kfree(tokens);
-            return EXT2_BAD_INO;
-        }
-    }
-
-    uint32_t inode_num = curr->data.inode_num;
-    kfree(tokens);
-    return inode_num;
-}
-
-
 /// @brief Clears a specific bit in a bitmap (marks block/inode free)
 /// @param bitmap Pointer to bitmap in memory
 /// @param bit Bit index to clear
@@ -742,22 +326,6 @@ data::string ext2::mode_to_string(const uint16_t mode) {
     return str;
 }
 
-/// @brief Gets inodes type (e.g. Dir, file, symlink...)
-/// @param inode Inode to check
-/// @return Type of inode
-uint8_t ext2::get_inode_type(const inode_t* inode) {
-    switch (inode->type_and_perm & EXT2_S_IFMT) {
-        case EXT2_S_IFREG:  return EXT2_FT_REG_FILE;
-        case EXT2_S_IFDIR:  return EXT2_FT_DIR;     
-        case EXT2_S_IFCHR:  return EXT2_FT_CHRDEV;  
-        case EXT2_S_IFBLK:  return EXT2_FT_BLKDEV;  
-        case EXT2_S_IFIFO:  return EXT2_FT_FIFO;    
-        case EXT2_S_IFSOCK: return EXT2_FT_SOCK;    
-        case EXT2_S_IFLNK:  return EXT2_FT_SYMLINK; 
-        default:            return EXT2_FT_UNKNOWN; 
-    }
-}
-
 /// @brief Gets permissions (rwx) of the current user for an inode
 /// @param inode Inode we're trying to access
 /// @param uid User ID
@@ -805,7 +373,7 @@ bool change_dir(data::string dir) {
         }
 
         // Changing FS if possible
-        if(curr_fs != currNode->parent->data.fs) curr_fs = currNode->parent->data.fs;
+        if(ext2::curr_fs != currNode->parent->data.fs) ext2::curr_fs = currNode->parent->data.fs;
 
         vfs::currentDir = currNode->parent->data.path;
         return true;
@@ -821,12 +389,12 @@ bool change_dir(data::string dir) {
         }
         vfs::currentDir = found_dir->data.path;
         // Changing FS if possible
-        if(curr_fs != found_dir->data.fs) curr_fs = found_dir->data.fs;
+        if(ext2::curr_fs != found_dir->data.fs) ext2::curr_fs = found_dir->data.fs;
         return true;
     }
 
     // If we're in virtual dirs, it's pointless to check again physically
-    if (!curr_fs) {
+    if (!ext2::curr_fs) {
         kprintf(LOG_WARNING, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
         return false;
     }
@@ -845,7 +413,7 @@ bool change_dir(data::string dir) {
             }
             vfs::currentDir = node.path;
             // Changing FS if possible
-            if(curr_fs != node.fs) curr_fs = node.fs;
+            if(ext2::curr_fs != node.fs) ext2::curr_fs = node.fs;
             
             // Adding to VFS tree
             vfs::add_node(currNode, node.name, node.inode_num, node.inode, node.fs);
@@ -1735,23 +1303,6 @@ void ext2::check_inode_status(data::list<data::string> params) {
         kprintf("Inode %u is ALLOCATED.\n", inode_num);
     else
         kprintf("Inode %u is FREE.\n", inode_num);
-}
-
-/// @brief Prints if inode is allocated or free
-bool ext2::check_inode_status(uint32_t inode_num) {
-    if(!curr_fs) {
-        kprintf(LOG_WARNING, "istat: You are not in a Ext FS!\n");
-        return false;
-    }
-    uint8_t* inode_bitmap = ext2::get_inode_bitmap(curr_fs, (inode_num - 1) / curr_fs->inodes_per_group);
-
-    if (!inode_bitmap) {
-        kprintf(LOG_ERROR, "istat: inode bitmap not provided!\n");
-        return false;
-    }
-
-    // In ext filesystems, inode numbers start from 1
-    return TEST_BIT(inode_bitmap, inode_num - 1);
 }
 
 // Reads a file and prints its contents

@@ -78,7 +78,7 @@ namespace data {
         T& at(uint32_t index) {
             // Bounds checking
             if (index >= length) {
-                return arr[0]; // fallback
+                return back(); // fallback
             }
             return arr[index];
         }

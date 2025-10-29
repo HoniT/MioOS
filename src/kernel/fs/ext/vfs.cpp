@@ -7,6 +7,7 @@
 // ========================================
 
 #include <fs/ext/vfs.hpp>
+#include <fs/ext/inode.hpp>
 #include <fs/ext/ext2.hpp>
 #include <drivers/vga_print.hpp>
 #include <kterminal.hpp>
