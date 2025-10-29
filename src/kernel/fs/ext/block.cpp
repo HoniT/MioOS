@@ -110,6 +110,7 @@ uint32_t ext2::alloc_block(ext2_fs_t* fs) {
             fs->sb->unalloc_blk_num--;
             ext2::rewrite_bgds(fs);
             ext2::rewrite_sb(fs);
+            kfree(bitmap);
 
             // Calculate and return absolute block number
             return group * fs->blocks_per_group + blk_offset + fs->sb->blkgrp_superblk;
@@ -146,6 +147,7 @@ void ext2::free_block(ext2_fs_t* fs, uint32_t block_num) {
 
     // Write back bitmap + descriptors
     write_block_bitmap(fs, group, bitmap);
+    kfree(bitmap);
     rewrite_bgds(fs);
     rewrite_sb(fs);
 }
@@ -173,6 +175,7 @@ void ext2::free_blocks(ext2_fs_t* fs, inode_t* inode) {
         }
         free_block(fs, inode->singly_inderect_blk_ptr);
         inode->singly_inderect_blk_ptr = 0;
+        kfree(blocks);
     }
 
     // Free doubly-indirect
@@ -187,10 +190,12 @@ void ext2::free_blocks(ext2_fs_t* fs, inode_t* inode) {
                     if (level2[j]) free_block(fs, level2[j]);
                 }
                 free_block(fs, level1[i]);
+                kfree(level2);
             }
         }
         free_block(fs, inode->doubly_inderect_blk_ptr);
         inode->doubly_inderect_blk_ptr = 0;
+        kfree(level1);
     }
 
     // Free triply-indirect
@@ -209,12 +214,15 @@ void ext2::free_blocks(ext2_fs_t* fs, inode_t* inode) {
                             if (level3[k]) free_block(fs, level3[k]);
                         }
                         free_block(fs, level2[j]);
+                        kfree(level3);
                     }
                 }
                 free_block(fs, level1[i]);
+                kfree(level2);
             }
         }
         free_block(fs, inode->triply_inderect_blk_ptr);
         inode->triply_inderect_blk_ptr = 0;
+        kfree(level1);
     }
 }

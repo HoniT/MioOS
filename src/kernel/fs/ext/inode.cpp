@@ -63,7 +63,11 @@ inode_t* ext2::load_inode(ext2_fs_t* fs, const uint32_t inode_num) {
 
     uint8_t* buffer = (uint8_t*)kmalloc(fs->block_size);
     ext2::read_block(fs, block_num, buffer);
-    return (inode_t*)(buffer + offset_in_block);
+    // Copying into inode to not waste memory
+    inode_t* inode = (inode_t*)kmalloc(sizeof(inode_t));
+    memcpy(inode, buffer + offset_in_block, sizeof(inode_t));
+    kfree(buffer);
+    return inode;
 }
 
 /// @brief Free an inode in ext2
@@ -94,6 +98,7 @@ void ext2::free_inode(ext2_fs_t* fs, const uint32_t inode_num) {
 
     // Write back bitmap + descriptors
     write_inode_bitmap(fs, group, inode_bitmap);
+    kfree(inode_bitmap);
     rewrite_bgds(fs);
     rewrite_sb(fs);
 }
@@ -172,7 +177,7 @@ void ext2::write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode) 
     // Reading the block where the inode is
     uint8_t* buf = (uint8_t*)kcalloc(1, fs->block_size);
     if (!buf) {
-        return; // allocation failure
+        return; // Allocation failure
     }
 
     ext2::read_block(fs, block_num, buf);
@@ -186,7 +191,7 @@ void ext2::write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode) 
     ext2::write_block(fs, block_num, buf);
 
     kfree(buf);
-    return; // success
+    return; // Success
 }
 
 
@@ -252,9 +257,11 @@ bool ext2::check_inode_status(uint32_t inode_num) {
 
     if (!inode_bitmap) {
         kprintf(LOG_ERROR, "istat: inode bitmap not provided!\n");
+        kfree(inode_bitmap);
         return false;
     }
 
+    kfree(inode_bitmap);
     // In ext filesystems, inode numbers start from 1
     return TEST_BIT(inode_bitmap, inode_num - 1);
 }

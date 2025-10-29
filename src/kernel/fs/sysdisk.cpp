@@ -66,6 +66,7 @@ void sysdisk::get_sysdisk(void* mbi) {
         ext2::find_ext2_fs();
         return;
     }
+    kfree(mbr);
     // Initializing Ext2
     ext2_fs_t* fs = ext2::init_ext2_device(dev, true);
     if(!fs) {

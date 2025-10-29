@@ -207,6 +207,7 @@ ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev, bool sysdisk_check) {
     mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
     mbr::read_mbr(dev, mbr);
     uint32_t partition_start = mbr::find_partition_lba(mbr);
+    kfree(mbr);
     
     // Allocating space for the FS metadata and superblock. Adding device 
     ext2_fs_t* ext2fs = (ext2_fs_t*)kcalloc(1, sizeof(ext2_fs_t));
