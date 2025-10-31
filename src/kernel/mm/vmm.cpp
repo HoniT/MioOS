@@ -10,7 +10,7 @@
 #include <mm/pmm.hpp>
 #include <interrupts/idt.hpp>
 #include <interrupts/kernel_panic.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 
 // Getting kernels physical base from linker

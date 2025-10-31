@@ -7,7 +7,7 @@
 // ========================================
 
 #include <interrupts/kernel_panic.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 
 // Kernel panic manager
 void kernel_panic(const char* error) {

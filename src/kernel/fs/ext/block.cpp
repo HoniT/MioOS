@@ -8,7 +8,7 @@
 
 #include <fs/ext/block.hpp>
 #include <fs/ext/inode.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <drivers/ata.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <mm/heap.hpp>

@@ -7,7 +7,7 @@
 // ========================================
 
 #include <cpuid.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 
 // Gets the processor model
 void cpu::get_processor_model(char* buffer) {

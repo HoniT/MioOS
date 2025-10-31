@@ -7,7 +7,7 @@
 // ========================================
 
 #include <kterminal.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 #include <drivers/keyboard.hpp>
 #include <mm/heap.hpp>

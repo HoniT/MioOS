@@ -7,7 +7,7 @@
 // ========================================
 
 #include <mm/heap.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/math.hpp>

@@ -8,6 +8,32 @@
 
 #include <lib/math.hpp>
 
+uint32_t abs(int x) {
+    return x >= 0 ? x : -x;
+}
+
+int min(int a, int b) {
+    return a <= b ? a : b;
+}
+
+int max(int a, int b) {
+    return a >= b ? a : b;
+}
+
+int min(int* nums) {
+    int count = sizeof(nums) / sizeof(int);
+    int min = INT32_MAX;
+    for(int i = 0; i < count; i++) if(nums[i] < min) min = nums[i];
+    return min;
+}
+
+int max(int* nums) {
+    int count = sizeof(nums) / sizeof(int);
+    int max = INT32_MIN;
+    for(int i = 0; i < count; i++) if(nums[i] > max) max = nums[i];
+    return max;
+}
+
 // Turns a char* hex number to a uint32_t
 uint32_t hex_to_uint32(const char* hexStr) {
     uint32_t result = 0;

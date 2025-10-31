@@ -9,7 +9,7 @@
 #include <tests/unit_tests.hpp>
 #include <mm/pmm.hpp>
 #include <mm/vmm.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <interrupts/kernel_panic.hpp>
 
 void unittsts::test_pmm(void) {

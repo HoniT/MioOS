@@ -7,7 +7,7 @@
 // ========================================
 
 #include <tests/unit_tests.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <mm/heap.hpp>
 #include <interrupts/kernel_panic.hpp>
 

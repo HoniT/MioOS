@@ -10,7 +10,7 @@
 #include <mm/heap.hpp>
 #include <mm/vmm.hpp>
 #include <kernel_main.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <kterminal.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <lib/math.hpp>

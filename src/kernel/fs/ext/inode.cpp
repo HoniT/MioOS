@@ -10,7 +10,7 @@
 #include <fs/ext/block.hpp>
 #include <fs/ext/vfs.hpp>
 #include <interrupts/kernel_panic.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <mm/heap.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/path_util.hpp>

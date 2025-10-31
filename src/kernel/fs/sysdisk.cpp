@@ -9,7 +9,7 @@
 #include <fs/sysdisk.hpp>
 #include <kernel_main.hpp>
 #include <interrupts/kernel_panic.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 #include <device.hpp>
 #include <fs/ext/ext2.hpp>
@@ -42,7 +42,7 @@ void sysdisk::get_sysdisk(void* mbi) {
     int ata_index = bootdev->biosdev - 0x80;
     if (ata_index < 0 || ata_index >= 4) {
         kprintf(LOG_WARNING, "Boot device BIOS number (%x) out of ATA range! Device could be AHCI\n", bootdev->biosdev);
-        kprintf(LOG_INFO, RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
+        kprintf(LOG_INFO, RGB_COLOR_LIGHT_RED, "Entering mobile mode");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -51,7 +51,7 @@ void sysdisk::get_sysdisk(void* mbi) {
     if(!dev) {
         // TODO: Check AHCI devices if ATA doesnt exist
         kprintf(LOG_WARNING, "Couldn't find system disk for BIOS boot device number %x!\n", bootdev->biosdev);
-        kprintf(LOG_INFO, RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
+        kprintf(LOG_INFO, RGB_COLOR_LIGHT_RED, "Entering mobile mode");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -61,7 +61,7 @@ void sysdisk::get_sysdisk(void* mbi) {
     if(!mbr::read_mbr(dev, mbr)) {
         // TODO: Check AHCI devices if ATA isn't bootable
         kprintf(LOG_WARNING, "System disk isn't bootable! (LGA 0 ends with 0x%h)\n", mbr->signature);
-        kprintf(LOG_INFO, RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
+        kprintf(LOG_INFO, RGB_COLOR_LIGHT_RED, "Entering mobile mode");
         vfs::init();
         ext2::find_ext2_fs();
         return;
@@ -72,7 +72,7 @@ void sysdisk::get_sysdisk(void* mbi) {
     if(!fs) {
         // TODO: Check AHCI devices if ATA isn't bootable
         kprintf(LOG_WARNING, "System disk doesn't have a valid Ext file system!\n");
-        kprintf(LOG_INFO, RGB_COLOR_BROWN, "GOING INTO MOBILE MODE");
+        kprintf(LOG_INFO, RGB_COLOR_LIGHT_RED, "Entering mobile mode");
         vfs::init();
         ext2::find_ext2_fs();
         return;

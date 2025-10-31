@@ -10,7 +10,7 @@
 #include <mm/vmm.hpp>
 #include <mm/pmm.hpp>
 #include <interrupts/kernel_panic.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 
 void unittsts::test_vmm(void) {
     #ifdef VMM_HPP

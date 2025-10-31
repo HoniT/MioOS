@@ -8,7 +8,7 @@
 
 #include <device.hpp>
 #include <mm/heap.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 
 using ata::device_t;
 

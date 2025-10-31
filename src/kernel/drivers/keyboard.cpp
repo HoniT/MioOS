@@ -8,7 +8,7 @@
 
 #include <drivers/keyboard.hpp>
 #include <io.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <interrupts/idt.hpp>
 #include <lib/string_util.hpp>
 

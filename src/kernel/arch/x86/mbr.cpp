@@ -9,7 +9,7 @@
 #include <mbr.hpp>
 #include <mm/heap.hpp>
 #include <lib/mem_util.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 
 // Validates MBR
 bool mbr::read_mbr(ata::device_t* dev, mbr_t* mbr) {

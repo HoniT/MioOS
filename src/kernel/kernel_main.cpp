@@ -8,7 +8,7 @@
 
 #include <kernel_main.hpp>
 #ifndef GFX_HPP
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 #endif // GFX_HPP
 #include <drivers/keyboard.hpp>
@@ -48,17 +48,13 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     
     // Initializing memory managers
     heap::init();
-    pmm::init(mbi);
-    vmm::init();
-    kernel_version = "MioOS kernel 0.4 (Alpha)";
-    
-    // Testing heap
     unittsts::test_heap();
-    // Testing PMM
+    pmm::init(mbi);
     unittsts::test_pmm();
-    // Testing VMM
+    vmm::init();
     unittsts::test_vmm();
-    
+    kernel_version = "MioOS kernel 0.4 (Alpha)";
+
     // Drivers
     pit::init(); // Programmable Interval Timer
     kbrd::init(); // Keyboard drivers

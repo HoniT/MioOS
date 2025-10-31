@@ -7,7 +7,7 @@
 // ========================================
 
 #include <interrupts/idt.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <pic.hpp>
 #include <io.hpp>

@@ -9,7 +9,7 @@
 #include <pit.hpp>
 #include <interrupts/idt.hpp>
 #include <interrupts/kernel_panic.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <io.hpp>
 #include <lib/math.hpp>
 

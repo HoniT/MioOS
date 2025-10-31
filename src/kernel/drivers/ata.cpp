@@ -10,7 +10,7 @@
 #include <device.hpp>
 #include <pic.hpp>
 #include <interrupts/idt.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <io.hpp>
 #include <kterminal.hpp>
 #include <lib/string_util.hpp>

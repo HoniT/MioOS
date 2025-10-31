@@ -13,7 +13,7 @@
 #include <mbr.hpp>
 #include <mm/heap.hpp>
 #include <drivers/ata.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <rtc.hpp>

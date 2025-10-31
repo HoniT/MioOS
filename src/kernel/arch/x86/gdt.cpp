@@ -8,7 +8,7 @@
 
 #include <gdt.hpp>
 #include <interrupts/kernel_panic.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <lib/mem_util.hpp>
 
 // Arrays and variables

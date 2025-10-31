@@ -7,7 +7,7 @@
 // ========================================
 
 #include <drivers/vga.hpp>
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <lib/math.hpp>
 
@@ -97,47 +97,6 @@ void vga::put_pixel(const uint32_t x, const uint32_t y, const uint32_t color) { 
         default:
             // kernel_panic("Unrecognized screen BPP!");
             return;
-    }
-}
-
-/// @brief Displays an ASCII character on screen
-/// @param x X coordinate
-/// @param y Y coordinate
-/// @param c ASCII character
-/// @param color RGB(A) color value of character
-void vga::draw_char(const uint32_t x, const uint32_t y, const char c, const uint32_t color) {
-    if (c < 0 || c > 127) return; // ASCII bounds
-
-    int font_height = sizeof(font8x8_basic[0]) / sizeof(font8x8_basic[0][0]);
-    int font_width = sizeof(font8x8_basic[0][0]) * 8;
-
-    for (int row = 0; row < font_height; row++) {
-        auto bits = font8x8_basic[(uint8_t)c - 32][row];
-
-        for (int col = 0; col < font_width; col++) {
-            if (bits & (1 << (font_width - 1 - col))) {
-                vga::put_pixel(x + col, y + row, color);
-            }
-        }
-    }
-}
-
-/// @brief Prints text on screen
-/// @param x X coordinate
-/// @param y Y coordinate
-/// @param str String to display
-/// @param color RGB(A) color value of text
-void vga::draw_text(uint32_t x, uint32_t y, const char* str, const uint32_t color) {
-    while (*str) {
-        // New line
-        if(x + font_width >= screen_width) {
-            y += font_height;
-            x = 0;
-        }
-
-        vga::draw_char(x, y, *str, color);
-        x += font_width; // Move right for next char
-        str++;
     }
 }
 

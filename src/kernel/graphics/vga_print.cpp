@@ -6,7 +6,8 @@
 // In charge of printing to VGA buffer
 // ========================================
 
-#include <drivers/vga_print.hpp>
+#include <graphics/vga_print.hpp>
+#include <graphics/render.hpp>
 #include <drivers/vga.hpp>
 #include <io.hpp>
 #include <rtc.hpp>
@@ -148,7 +149,7 @@ void kputchar(const uint32_t color, const char c) {
         return;
     }
     
-    vga::draw_char(vga::col_num * vga::font_width, vga::row_num * vga::font_height, c, color);
+    gui::draw_char(vga::col_num * vga::font_width, vga::row_num * vga::font_height, c, color);
     vga::col_num++;
     // New line
     if(vga::col_num * vga::font_width + vga::font_width >= vga::screen_width) {
