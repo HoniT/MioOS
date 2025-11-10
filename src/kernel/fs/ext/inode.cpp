@@ -199,7 +199,7 @@ void ext2::write_inode(ext2_fs_t* fs, const uint32_t inode_num, inode_t* inode) 
 /// @param fs Ext2 File system
 /// @param path Path of node
 /// @return Inode num
-uint32_t ext2::find_inode(ext2_fs_t* fs, data::string path) {
+uint32_t ext2::find_inode_num(ext2_fs_t* fs, data::string path) {
     if (path.empty()) return EXT2_BAD_INO;
 
     int count;

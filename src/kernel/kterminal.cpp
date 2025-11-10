@@ -130,7 +130,7 @@ void kterminal_handle_input() {
 
 // Initializes the terminal
 void cmd::init(void) {
-    currentInput = (char*)kmalloc(255);
+    currentInput = (char*)kmalloc(INPUT_MAX_SIZE);
     vfs::currentDir = "/";
 
     // Setting up VGA enviorment for terminal
@@ -142,7 +142,7 @@ void cmd::init(void) {
     input_row = vga::row_num;
 
     for(uint8_t i = 0; i < INPUTS_TO_SAVE; i++) 
-        saved_inputs[i] = (char*)kmalloc(255);
+        saved_inputs[i] = (char*)kmalloc(INPUT_MAX_SIZE);
 
     onTerminal = true;
 
@@ -165,7 +165,9 @@ void cmd::run_cmd(void) {
     for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
         // If the current input and the command at this index match well execute
         if(strcmp(get_first_word(currentInput), commands[i].name) == 0) {
-            commands[i].function(split_string_tokens(get_remaining_string(get_current_input())));
+            data::list<data::string> params = split_string_tokens(get_remaining_string(get_current_input())); 
+            commands[i].function(params);
+            params.~list();
             
             kprintf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
             
@@ -174,8 +176,7 @@ void cmd::run_cmd(void) {
             input_row = vga::row_num;
 
             // Clearing the input
-            kfree(currentInput);
-            currentInput = (char*)kmalloc(255);
+            memset(currentInput, 0, INPUT_MAX_SIZE);
             return;
         }
     }
@@ -190,8 +191,7 @@ void cmd::run_cmd(void) {
     input_row = vga::row_num;
 
     // Clearing the input
-    kfree(currentInput);
-    currentInput = (char*)kmalloc(255);
+    memset(currentInput, 0, INPUT_MAX_SIZE);
     return;
 }
 

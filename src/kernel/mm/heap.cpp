@@ -8,6 +8,7 @@
 
 #include <mm/heap.hpp>
 #include <graphics/vga_print.hpp>
+#include <drivers/vga.hpp>
 #include <interrupts/kernel_panic.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/math.hpp>
@@ -64,6 +65,7 @@ void* kmalloc(const size_t size) {
             current->size = size; // Setting the passed size
             current->free = false; // Mark as allocated
 
+            // kprintf(RGB_COLOR_GREEN, " %u", size);
             // Returning the current blocks address plus the metadata size needed
             return (char*)current + sizeof(HeapBlock);
         }
@@ -78,9 +80,13 @@ void* kmalloc(const size_t size) {
 
 void kfree(void* ptr) {
     if(!ptr) return;
+    if(uint32_t(ptr) < HEAP_START || uint32_t(ptr) > HEAP_START + HEAP_SIZE) return;
 
     // Getting the block based of of the given address/pointer
     HeapBlock* block = (HeapBlock*)((char*)ptr - sizeof(HeapBlock));
+    if(block->free) return;
+    // kprintf(RGB_COLOR_BLUE, " %u", block->size);
+    
     block->free = true; // Setting as free
 
     // Merging adjacent free blocks to decrease fragmentation

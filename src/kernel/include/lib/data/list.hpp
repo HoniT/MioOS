@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <mm/heap.hpp>
+#include <graphics/vga_print.hpp>
 #include <lib/mem_util.hpp>
 
 namespace data {
@@ -34,7 +35,7 @@ namespace data {
                 arr[i].~T();                 // Destroy old object
             }
 
-            if (arr) kfree(arr);
+            if (arr) {kfree(arr);}
             arr = new_arr;
             capacity = new_capacity;
         }
@@ -53,7 +54,7 @@ namespace data {
         }
 
         ~list() {
-            if (arr) kfree(arr);
+            clear();
         }
         #pragma endregion
 
@@ -110,8 +111,12 @@ namespace data {
 
         /// @brief Clears list
         void clear() {
-            if (arr) kfree(arr);
-            arr = nullptr;
+            if (arr) {
+                for (uint32_t i = 0; i < length; i++)
+                    arr[i].~T();  // Properly destroy each element
+                kfree(arr);
+                arr = nullptr;
+            }
             length = 0;
             capacity = 0;
         }

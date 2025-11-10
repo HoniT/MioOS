@@ -20,19 +20,20 @@ void unittsts::test_heap(void) {
 
 
     // Allocating first block
-    uint32_t block1 = uint32_t(kmalloc(40));
+    size_t block_size = 40;
+    uint32_t block1 = uint32_t(kmalloc(block_size));
 
-    if(block1 <= HEAP_START) {
+    if(block1 <= HEAP_START || block1 > HEAP_START + HEAP_SIZE) {
         kprintf(LOG_ERROR, "Heap Test 1 failed: couldn't allocate block in heap!\n");
         passed = false; // Noting that the test failed
     }
 
     // Allocating second block
-    uint32_t block2 = uint32_t(kmalloc(40));
+    uint32_t block2 = uint32_t(kmalloc(block_size));
     uint32_t block2_addr = block2;
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
-    if(block2 != block1 + 40 + sizeof(HeapBlock)) {
+    if(block2 != block1 + block_size + sizeof(HeapBlock)) {
         kprintf(LOG_ERROR, "Heap Test 2 failed: couldn't allocate block2 in heap!\n");
         passed = false; // Noting that the test failed
     }
@@ -41,7 +42,7 @@ void unittsts::test_heap(void) {
     kfree((void*)block2);
 
     // Reallocating second block
-    block2 = uint32_t(kmalloc(40));
+    block2 = uint32_t(kmalloc(block_size));
 
     // If block2 is equal to block1 plus the difference and plus the metadata size 
     if(block2 != block2_addr) {

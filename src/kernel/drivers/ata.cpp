@@ -317,7 +317,7 @@ void ata::list_ata(data::list<data::string> params) {
     for(int i = 0; i < 4; i++) {
         if(!ata_devices[i]) continue;
         ata::device_t* device = ata_devices[i]; 
-        kprintf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %h, dma_support: %h ", 
+        kprintf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %u, dma_support: %u ", 
             device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
         kprintf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");
     }

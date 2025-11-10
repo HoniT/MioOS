@@ -62,25 +62,34 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& e
         dir_ent_t* entry = (dir_ent_t*)(block + offset);
         if (entry->inode == 0) break;
         if (entry->entry_size < 8) break; // Corrupted or too small entry
-
-        inode_t* inode = ext2::load_inode(fs, entry->inode);
-
-        data::string name(entry->name, entry->name_len);
-        if (!inode) kprintf(LOG_WARNING, "parse_directory_block: No inode for %S\n", name);
-
+        bool is_dir = entry->type_indicator == EXT2_FT_DIR;
+        
         // Build full path
+        data::string name(entry->name, entry->name_len);
         data::string path = parent.path;
         path.append(name);
+        if (is_dir) path.append("/");
+        
+        treeNode* vfsnode = vfs::get_node(path);
+        if(vfsnode) {
+            inode_t* inode = vfs::find_inode(fs, path);
+            if (!inode) kprintf(LOG_WARNING, "parse_directory_block: No inode for %S\n", name);
+            
+            // Add to VFS tree if not '.' or '..'
+            vfs::add_node(parentNode, vfsnode->data);
+            
+            // Add to dynamic list
+            entries.push_back(vfsnode->data);
+            offset += entry->entry_size;
+            continue;
+        }
 
-        if (INODE_IS_DIR(inode)) path.append("/");
+        inode_t* inode = inode = ext2::load_inode(fs, entry->inode);
+        if (!inode) kprintf(LOG_WARNING, "parse_directory_block: No inode for %S\n", name);
 
         // Create VFS node
-        vfsNode node = vfs_tree.create({name, path, INODE_IS_DIR(inode), entry->inode, inode, ext2::curr_fs})->data;
-
         // Add to VFS tree if not '.' or '..'
-        if (!name.equals(".") && !name.equals("..")) {
-            vfs::add_node(parentNode, node);
-        }
+        vfsNode node = vfs::add_node(parentNode, name, entry->inode, inode, ext2::curr_fs);
 
         // Add to dynamic list
         entries.push_back(node);
@@ -402,7 +411,10 @@ bool change_dir(data::string dir) {
     
     // If we couldnt find the dir in the virtual tree, we'll check physically
     data::list<vfsNode> nodes = ext2::read_dir(currNode);
-    if(nodes.empty()) return false;
+    if(nodes.empty()) {
+        nodes.~list(); 
+        return false;
+    }
 
     for(vfsNode node : nodes) {
         // If we found it here
@@ -410,6 +422,7 @@ bool change_dir(data::string dir) {
             // Checking permission to change
             if(node.inode && !ext2::get_perms(node.inode, vfs::currUid, vfs::currGid).execute) {
                 kprintf(LOG_WARNING, "cd: Can't change to dir \"%S\", permission denied!\n", node.path);
+                nodes.~list();
                 return false;
             }
             vfs::currentDir = node.path;
@@ -418,11 +431,13 @@ bool change_dir(data::string dir) {
             
             // Adding to VFS tree
             vfs::add_node(currNode, node.name, node.inode_num, node.inode, node.fs);
+            nodes.~list();
             return true;
         }
     }
 
     kprintf(LOG_WARNING, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
+    nodes.~list();
     return false;
 }
 
@@ -802,7 +817,7 @@ void remove_entry(treeNode* node_to_remove) {
         return;
     }
     // Reading dir entries to add any missing entries of current dir to the VFS tree
-    if(node_to_remove->data.is_dir) { int count; ext2::read_dir(node_to_remove); }
+    if(node_to_remove->data.is_dir) { int count; data::list<vfsNode> list = ext2::read_dir(node_to_remove); list.~list();}
 
     // Checking permissions to delete
     inode_t* inode_to_check = node.is_dir ? node.inode : parent_node.inode; // If it is a file, we'll check the parent dirs inode
@@ -883,7 +898,7 @@ static void read_indirect_block(ext2_fs_t* fs, uint32_t block_num, int level,
 data::string ext2::get_file_contents(data::string path) {
     data::string data;
 
-    uint32_t inode_num = ext2::find_inode(curr_fs, path);
+    uint32_t inode_num = ext2::find_inode_num(curr_fs, path);
     if (inode_num == EXT2_BAD_INO) {
         kprintf(LOG_WARNING, "cat: File \"%S\" not found!\n", path);
         return data;
@@ -902,10 +917,12 @@ data::string ext2::get_file_contents(data::string path) {
 
     uint64_t file_size = inode->size_low;
     // If ext2 revision supports >4GB files, also include inode->size_high
-    // file_size |= ((uint64_t)inode->size_high) << 32;
+    file_size |= ((uint64_t)inode->size_high) << 32;
 
-    uint32_t block_size = curr_fs->block_size;
-    uint8_t* block = (uint8_t*)kmalloc(block_size);
+    uint8_t* block = (uint8_t*)kmalloc(curr_fs->block_size);
+    if(!block) {
+        kprintf(LOG_ERROR, "cat: Couldnt allocate memory for a block\n");
+    }
     uint32_t bytes_read = 0;
 
     // --- Direct blocks ---
@@ -930,6 +947,7 @@ data::string ext2::get_file_contents(data::string path) {
     }
 
     kfree(block);
+    kfree(inode);
     return data;
 }
 
@@ -997,7 +1015,7 @@ void ext2::ls(data::list<data::string> params) {
                 kprintf(node.is_dir ? RGB_COLOR_LIGHT_BLUE : RGB_COLOR_WHITE, "%S\n", node.name);
             }
         }
-    
+    nodes.~list();
 }
 
 
@@ -1015,6 +1033,8 @@ void ext2::cd(data::list<data::string> params) {
     // Calling logic for all dirs
     for(int i = 0; i < count; i++)
         if(!change_dir(dirs[i])) return;
+    for(int i = 0; i < count; i++) dirs[i].~string();
+    kfree(dirs);
 }
 
 
@@ -1057,6 +1077,7 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
         // Checking if this node is the dir we want to create
         if(node.name == dir && node.is_dir) {
             kprintf(LOG_WARNING, "mkdir: Directory \"%S\" already exists in \"%S\"\n", dir, parent.path);
+            nodes.~list();
             return;
         }
     }
@@ -1065,11 +1086,13 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
     uint32_t inode_num = ext2::alloc_inode(fs);
     if(inode_num == (uint32_t)-1) {
         kprintf(LOG_ERROR, "mkdir: Couldn't create directory do to inode allocation fail!\n");
+        nodes.~list();
         return;
     }
     uint32_t block_num = ext2::alloc_block(fs);
     if(block_num == (uint32_t)-1) {
         kprintf(LOG_ERROR, "mkdir: Couldn't create directory do to block allocation fail!\n");
+        nodes.~list();
         return;
     }
     
@@ -1112,6 +1135,7 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
     int res = insert_directory_entry(fs, parent.inode, dir, inode_num, buf);
     if (res != 0) {
         kfree(buf);
+        nodes.~list();
         return;
     }
 
@@ -1126,6 +1150,7 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
     vfs::add_node(node, dir, inode_num, inode, fs);
 
     kfree(buf);
+    nodes.~list();
     return;
 }
 
@@ -1168,6 +1193,7 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
         // Checking if this node is the file we want to create
         if(node.name == file && !node.is_dir) {
             kprintf(LOG_WARNING, "mkfile: File \"%S\" already exists in \"%S\"\n", file, parent.path);
+            nodes.~list();
             return;
         }
     }
@@ -1176,6 +1202,7 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
     uint32_t inode_num = ext2::alloc_inode(fs);
     if(inode_num == (uint32_t)-1) {
         kprintf(LOG_ERROR, "mkfile: Couldn't create file do to inode allocation fail!\n");
+        nodes.~list();
         return;
     }
     
@@ -1198,6 +1225,7 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
     int res = insert_directory_entry(fs, parent.inode, file, inode_num, buf);
     if (res != 0) {
         kfree(buf);
+        nodes.~list();
         return;
     }
 
@@ -1211,6 +1239,7 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
     vfs::add_node(node, file, inode_num, inode, fs);
 
     kfree(buf);
+    nodes.~list();
     return;
 }
 
@@ -1223,10 +1252,10 @@ void ext2::rm(data::list<data::string> params) {
         if(params.at(0) != "-r") goto invalid_params;
 
         // Reading dir to find the object we want to remove
-        ext2::read_dir(parent);
+        data::list<vfsNode> list = ext2::read_dir(parent);
+        list.~list();
         data::string name = params.at(1);
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name;}, count);
-        params.clear();
         if(!nodes || count == 0) {
             kprintf(LOG_WARNING, "rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
@@ -1247,7 +1276,8 @@ void ext2::rm(data::list<data::string> params) {
     }
     else if(params.count() == 1) {
         // Reading dir to find the object we want to remove
-        ext2::read_dir(parent);
+        data::list<vfsNode> list = ext2::read_dir(parent);
+        list.~list();
         data::string name = params.at(0);
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name; }, count);
         params.clear();
@@ -1293,7 +1323,7 @@ void ext2::check_inode_status(data::list<data::string> params) {
     uint8_t* inode_bitmap = ext2::get_inode_bitmap(curr_fs, (inode_num - 1) / curr_fs->inodes_per_group);
 
     if (!inode_bitmap) {
-        kprintf(LOG_ERROR, "Error: inode bitmap not provided!\n");
+        kprintf(LOG_ERROR, "Error: couldn't retrieve inode bitmap!\n");
         return;
     }
 
@@ -1304,6 +1334,7 @@ void ext2::check_inode_status(data::list<data::string> params) {
         kprintf("Inode %u is ALLOCATED.\n", inode_num);
     else
         kprintf("Inode %u is FREE.\n", inode_num);
+    kfree(inode_bitmap);
 }
 
 // Reads a file and prints its contents

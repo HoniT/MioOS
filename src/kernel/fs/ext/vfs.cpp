@@ -43,6 +43,10 @@ void vfs::print_node(const treeNode* node, int depth) {
     kprintf("\n");
 }
 
+void vfs::print_tree() {
+    vfs_tree.traverse(vfs_tree.get_root(), vfs::print_node);
+}
+
 // Initializes the VFS
 treeNode* vfs::init(ext2_fs_t* fs) {
     // Creating and setting root dir
@@ -64,22 +68,22 @@ treeNode* vfs::init(void) {
 /// @brief Adds a physical node (dir, file...) to the VFS
 /// @param parent Parent of the node to add
 /// @param node VFS Node (dir entry)
-void vfs::add_node(treeNode* parent, vfsNode node) {
-    vfs::add_node(parent, node.name, node.inode_num, node.inode, node.fs);
+vfsNode vfs::add_node(treeNode* parent, vfsNode node) {
+    return vfs::add_node(parent, node.name, node.inode_num, node.inode, node.fs);
 }
 
 /// @brief Adds a physical node (dir, file...) to the VFS
 /// @param parent Parent of the node to add
 /// @param node node to add
 /// @param inode Inode pointing to actual FS dir entry
-void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs) {
+vfsNode vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs) {
     if(name.empty() || !parent) {
         kprintf(LOG_WARNING, "add_node: Insufficient parameters for add_node");
-        return;
+        return vfsNode();
     }
     if(!parent->data.is_dir) {
         kprintf(LOG_WARNING, "add_node: Parent passed to add_node isn't a dir!\n");
-        return;
+        return vfsNode();
     }
     
     // Creating path for new node
@@ -91,7 +95,7 @@ void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inod
     if(!inode || !fs) {
         treeNode* node = vfs_tree.create({name, path, true, EXT2_BAD_INO, nullptr, nullptr});
         vfs_tree.add_child(parent, node);
-        return;
+        return node->data;
     }
 
     // Checking if parent already has a child of node
@@ -100,12 +104,54 @@ void vfs::add_node(treeNode* parent, data::string name, uint32_t inode_num, inod
         // Adding inode and/or fs if it's missing
         if(!child->data.inode && inode) child->data.inode = inode;
         if(!child->data.fs && fs) child->data.fs = fs; 
-        return;
+        return child->data;
     }
     
     // Adding the node
     treeNode* node = vfs_tree.create({name, path, INODE_IS_DIR(inode), inode_num, inode, fs});
     vfs_tree.add_child(parent, node);
+    return node->data;
+}
+
+/// @brief Get's inode number from path
+/// @param fs Ext2 File system
+/// @param path Path of node
+/// @return Inode num
+inode_t* vfs::find_inode(ext2_fs_t* fs, data::string path) {
+    if (path.empty()) {return nullptr;}
+
+    int count;
+    data::string* tokens = split_path_tokens(path, count);
+    if (!tokens) {return nullptr;}
+    if(count == 0 || !tokens[0].equals("/")) {
+        kfree(tokens);
+        return nullptr;
+    }
+    treeNode* curr = vfs_tree.get_root();
+    if(!curr) {
+        for(int i = 0; i < count; i++) tokens[i].~string();
+        kfree(tokens);
+        return nullptr;
+    }
+    
+    for (int i = 1; i < count; i++) {
+        treeNode* parent = curr;
+        bool read_dir = false;
+
+        data::string name_to_find = tokens[i];
+
+        curr = vfs_tree.find_child_by_predicate(parent, [name_to_find](vfsNode node) { 
+            return node.name == name_to_find; 
+        });
+        if (!curr) {
+            for(int i = 0; i < count; i++) tokens[i].~string();
+            kfree(tokens);
+            return nullptr;
+        }
+    }
+    for(int i = 0; i < count; i++) tokens[i].~string();
+    kfree(tokens);
+    return curr->data.inode;
 }
 
 /// @brief Gets a VFS node with a given path
@@ -123,13 +169,17 @@ treeNode* vfs::get_node(const data::string path) {
     for(int i = 1; i < count; i++) {
         data::string name_to_find = tokens[i];
         curr = vfs_tree.find_child_by_predicate(curr, [name_to_find](vfsNode node){return node.name == name_to_find;});
+        name_to_find.~string();
         if(!curr) {
             // Freeing memory
-            name_to_find.~string();
             kfree(tokens);
+            for(int i = 0; i < count; i++) tokens[i].~string();
+            return nullptr;
         }
     }
 
+    for(int i = 0; i < count; i++) tokens[i].~string();
+    kfree(tokens);
     return curr;
 }
 

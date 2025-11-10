@@ -85,11 +85,10 @@ namespace data {
             node->parent = nullptr;
         }
 
-        Node* create(const T& val) {
+        static Node* create(const T& val) {
             Node* node = (Node*)kcalloc(1, sizeof(Node));
             if (!node) return nullptr;
 
-            // Construct data carefully if T has non-trivial ctor (optional)
             node->data = val;
             node->parent = nullptr;
             node->first_child = nullptr;

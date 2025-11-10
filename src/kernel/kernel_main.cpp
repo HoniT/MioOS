@@ -29,6 +29,7 @@
 #include <fs/ext/vfs.hpp>
 #include <fs/sysdisk.hpp>
 #include <tests/unit_tests.hpp>
+#include <lib/path_util.hpp>
 
 data::string kernel_version;
 extern "C" void kernel_main(const uint32_t magic, void* mbi) {

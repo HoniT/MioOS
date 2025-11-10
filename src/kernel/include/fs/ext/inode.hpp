@@ -78,7 +78,7 @@ namespace ext2 {
 
     // Helpers
     uint8_t get_inode_type(const inode_t* inode);
-    uint32_t find_inode(ext2_fs_t* fs, data::string path);
+    uint32_t find_inode_num(ext2_fs_t* fs, data::string path);
     bool check_inode_status(uint32_t inode_num);
 
     uint8_t* get_inode_bitmap(ext2_fs_t* fs, uint32_t group);

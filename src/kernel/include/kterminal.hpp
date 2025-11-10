@@ -15,6 +15,8 @@ typedef void (*CommandFunc)(data::list<data::string>);
 
 #define INPUTS_TO_SAVE 10
 
+#define INPUT_MAX_SIZE 256
+
 // Struct that defines a command
 struct Command {
     const char* name;

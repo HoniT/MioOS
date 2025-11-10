@@ -11,6 +11,7 @@
 #include <lib/data/tree.hpp>
 #include <lib/data/string.hpp>
 #include <fs/ext/ext2.hpp>
+#include <fs/ext/inode.hpp>
 
 typedef data::tree<vfsNode>::Node treeNode;
 
@@ -40,8 +41,10 @@ namespace vfs {
     treeNode* init(void);
     // Prints VFS tree node
     void print_node(const treeNode* node, int depth);
-    void add_node(treeNode* parent, vfsNode node);
-    void add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs);
+    void print_tree();
+    vfsNode add_node(treeNode* parent, vfsNode node);
+    vfsNode add_node(treeNode* parent, data::string name, uint32_t inode_num, inode_t* inode, ext2_fs_t* fs);
+    inode_t* find_inode(ext2_fs_t* fs, data::string path);
     treeNode* get_node(const data::string path);
     void mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs);
 } // namespace vfs
