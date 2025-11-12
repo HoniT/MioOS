@@ -38,9 +38,10 @@ void ata_irq_wait(const bool secondary) {
     volatile bool* irq_ptr = secondary ? &secondary_irq_received : &primary_irq_received;
 
     // Wait for IRQ with timeout
-    int timeout = 5000000;
+    int timeout = 50000000;
     while (!*irq_ptr && --timeout);
     if (timeout <= 0) {
+        kprintf(LOG_ERROR, "ATA IRQ timout\n");
         return;
     }
 

@@ -30,6 +30,7 @@ using namespace kbrd;
 bool cmd::onTerminal = false;
 // Current input
 char* currentInput;
+data::string cmd::get_input() {return data::string(currentInput);}
 
 // Getter
 const char* get_current_input() {
@@ -70,6 +71,7 @@ Command commands[] = {
     {"mkfile", ext2::mkfile, " <file>", " - Creates a file in the current dir"},
     {"rm", ext2::rm, " <file>", " - Removes (deletes) a directory/directory entry"},
     {"cat", ext2::cat, " <file>", " - Prints file contents"},
+    {"write", ext2::write_to_file, " <file> <content>", " - Writes something to a file"},
     {"istat", ext2::check_inode_status, " <inode_num>", " - Prints inode status"}
 };
 

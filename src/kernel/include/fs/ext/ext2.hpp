@@ -12,6 +12,7 @@
 #include <device.hpp>
 #include <lib/data/tree.hpp>
 #include <lib/data/string.hpp>
+#include <lib/data/large_string.hpp>
 #include <lib/data/list.hpp>
 
 // For superblock
@@ -149,7 +150,8 @@ namespace ext2 {
     // Rewrites superblock of a FS
     void rewrite_sb(ext2_fs_t* fs);
 
-    data::string get_file_contents(data::string path);
+    data::large_string get_file_contents(data::string path);
+    bool write_file_content(data::string path, const data::string input);
 
     // Terminal functions
     void pwd(data::list<data::string> params);
@@ -162,6 +164,7 @@ namespace ext2 {
     void rm(data::list<data::string> params);
     void check_inode_status(data::list<data::string> params);
     void cat(data::list<data::string> params);
+    void write_to_file(data::list<data::string> params);
 } // namespace ext2
 
 #endif // EXT2_HPP

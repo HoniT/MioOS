@@ -211,7 +211,6 @@ uint32_t ext2::find_inode_num(ext2_fs_t* fs, data::string path) {
         treeNode* parent = curr;
         bool read_dir = false;
 
-    check:
         data::string name_to_find = tokens[i];
         if (parent->data.is_dir) {
             ext2::read_dir(parent);

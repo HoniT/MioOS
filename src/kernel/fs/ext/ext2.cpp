@@ -20,6 +20,7 @@
 #include <kterminal.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/data/string.hpp>
+#include <lib/data/large_string.hpp>
 #include <lib/string_util.hpp>
 #include <lib/path_util.hpp>
 
@@ -855,7 +856,7 @@ void remove_entry(treeNode* node_to_remove) {
 
 // Helper: append data from one block
 static void read_file_block(ext2_fs_t* fs, uint32_t block_num, uint8_t* block_buf,
-                            data::string& out, uint32_t& bytes_read, uint32_t file_size) {
+                            data::large_string& out, uint32_t& bytes_read, uint32_t file_size) {
     if (!block_num) return;
     if (bytes_read >= file_size) return;
 
@@ -874,7 +875,7 @@ static void read_file_block(ext2_fs_t* fs, uint32_t block_num, uint8_t* block_bu
 
 // Recursive helper: handle indirect blocks of depth `level`
 static void read_indirect_block(ext2_fs_t* fs, uint32_t block_num, int level,
-                                uint8_t* block_buf, data::string& out,
+                                uint8_t* block_buf, data::large_string& out,
                                 uint32_t& bytes_read, uint32_t file_size) {
     if (!block_num) return;
     if (bytes_read >= file_size) return;
@@ -895,8 +896,8 @@ static void read_indirect_block(ext2_fs_t* fs, uint32_t block_num, int level,
     }
 }
 
-data::string ext2::get_file_contents(data::string path) {
-    data::string data;
+data::large_string ext2::get_file_contents(data::string path) {
+    data::large_string data;
 
     uint32_t inode_num = ext2::find_inode_num(curr_fs, path);
     if (inode_num == EXT2_BAD_INO) {
@@ -949,6 +950,151 @@ data::string ext2::get_file_contents(data::string path) {
     kfree(block);
     kfree(inode);
     return data;
+}
+
+// Helper: write data into a single block
+static void write_file_block(ext2_fs_t* fs, uint32_t& block_num, uint8_t* block_buf,
+                             const data::string& in, uint32_t& bytes_written, uint32_t file_size) {
+    uint32_t block_size = fs->block_size;
+    if (bytes_written >= file_size) return;
+
+    // Allocate block if it doesn’t exist yet
+    if (!block_num) {
+        block_num = ext2::alloc_block(fs);
+        if (!block_num) {
+            kprintf(LOG_ERROR, "write_file_block: No free blocks available!\n");
+            return;
+        }
+    }
+
+    uint32_t to_write = file_size - bytes_written;
+    if (to_write > block_size) to_write = block_size;
+
+    // Copy data from input string into block buffer
+    for (uint32_t i = 0; i < to_write; i++) {
+        block_buf[i] = in[bytes_written + i];
+    }
+
+    if (!ext2::write_block(fs, block_num, block_buf)) {
+        kprintf(LOG_ERROR, "write_file_block: Failed to write block %u\n", block_num);
+        return;
+    }
+
+    bytes_written += to_write;
+}
+
+// Recursive helper: handle indirect blocks of depth `level`
+static void write_indirect_block(ext2_fs_t* fs, uint32_t& block_num, int level,
+                                 uint8_t* block_buf, const data::string& in,
+                                 uint32_t& bytes_written, uint32_t file_size) {
+    uint32_t block_size = fs->block_size;
+
+    // Allocate the indirect block itself if missing
+    if (!block_num) {
+        block_num = ext2::alloc_block(fs);
+        if (!block_num) {
+            kprintf(LOG_ERROR, "write_indirect_block: Failed to allocate indirect block (level %d)\n", level);
+            return;
+        }
+        memset(block_buf, 0, block_size);
+        ext2::write_block(fs, block_num, block_buf);
+    }
+
+    // Read existing indirect block entries (so we don’t overwrite old data)
+    if (!ext2::read_block(fs, block_num, block_buf)) return;
+
+    uint32_t entries = block_size / sizeof(uint32_t);
+    uint32_t* blocks = (uint32_t*)block_buf;
+    uint8_t* tmp = (uint8_t*)kmalloc(block_size);
+
+    for (uint32_t i = 0; i < entries; i++) {
+        if (level == 1) {
+            write_file_block(fs, blocks[i], tmp, in, bytes_written, file_size);
+        } else {
+            write_indirect_block(fs, blocks[i], level - 1, tmp, in, bytes_written, file_size);
+        }
+
+        if (bytes_written >= file_size) break;
+    }
+
+    // Write back updated block table (in case new blocks were allocated)
+    ext2::write_block(fs, block_num, block_buf);
+    kfree(tmp);
+}
+
+// Top-level write function
+bool ext2::write_file_content(data::string path, const data::string input) {
+    vfsNode node = vfs::get_node(path)->data;
+
+    uint32_t inode_num = node.inode_num;
+    if (inode_num == EXT2_BAD_INO) {
+        kprintf(LOG_WARNING, "write: File \"%S\" not found!\n", path);
+        return false;
+    }
+
+    inode_t* inode = node.inode;
+    if (!inode) {
+        kprintf(LOG_WARNING, "write: Failed to load inode for \"%S\"\n", path);
+        return false;
+    }
+
+    if (INODE_IS_DIR(inode)) {
+        kprintf(LOG_WARNING, "write: \"%S\" is a directory\n", path);
+        kfree(inode);
+        return false;
+    }
+
+    uint32_t file_size = input.size();
+    uint8_t* block = (uint8_t*)kcalloc(1, ext2::curr_fs->block_size);
+    if (!block) {
+        kprintf(LOG_ERROR, "write: Couldn't allocate memory for a block\n");
+        kfree(inode);
+        return false;
+    }
+
+    uint32_t bytes_written = 0;
+
+    // --- Direct blocks ---
+    for (int i = 0; i < 12 && bytes_written < file_size; i++) {
+        uint32_t block_num = inode->direct_blk_ptr[i];
+        write_file_block(ext2::curr_fs, block_num, block, input, bytes_written, file_size);
+        // store allocated/updated block number back into inode
+        inode->direct_blk_ptr[i] = block_num;
+    }
+
+    // --- Single indirect ---
+    if (bytes_written < file_size) {
+        uint32_t block_num = inode->singly_inderect_blk_ptr;
+        write_indirect_block(ext2::curr_fs, block_num, 1, block, input, bytes_written, file_size);
+        inode->singly_inderect_blk_ptr = block_num;
+    }
+
+    // --- Double indirect ---
+    if (bytes_written < file_size) {
+        uint32_t block_num = inode->doubly_inderect_blk_ptr;
+        write_indirect_block(ext2::curr_fs, block_num, 2, block, input, bytes_written, file_size);
+        inode->doubly_inderect_blk_ptr = block_num;
+    }
+
+    // --- Triple indirect ---
+    if (bytes_written < file_size) {
+        uint32_t block_num = inode->triply_inderect_blk_ptr;
+        write_indirect_block(ext2::curr_fs, block_num, 3, block, input, bytes_written, file_size);
+        inode->triply_inderect_blk_ptr = block_num;
+    }
+
+
+    // Update inode metadata
+    inode->size_low = bytes_written & 0xFFFFFFFF;
+    inode->size_high = (bytes_written >> 32);
+    inode->last_mod_time = rtc::get_unix_timestamp();
+    inode->last_access_time = inode->last_mod_time;
+
+    // Write inode back to disk
+    ext2::write_inode(ext2::curr_fs, inode_num, inode);
+
+    kfree(block);
+    return true;
 }
 
 #pragma region Terminal Functions
@@ -1348,8 +1494,22 @@ void ext2::cat(data::list<data::string> params) {
     // Resolve the path
     data::string path(vfs::currentDir);
     path.append(params.at(0));
-    data::string file = ext2::get_file_contents(path);
+    data::large_string file = ext2::get_file_contents(path);
     kprintf("%S\n", file);
+}
+
+// Writes to a file
+void ext2::write_to_file(data::list<data::string> params) {
+    // Checking params
+    if(params.count() < 2) {
+        kprintf(LOG_WARNING, "write_file: Syntax: write_file <file> <content>\n");
+        return;
+    }
+
+    // Resolve the path
+    data::string path(vfs::currentDir);
+    path.append(params.at(0));
+    ext2::write_file_content(path, get_remaining_string(get_remaining_string(cmd::get_input())));
 }
 
 #pragma endregion

@@ -28,6 +28,8 @@ struct Command {
 const char* get_current_input();
 
 namespace cmd {
+    data::string get_input();
+
     // Info from kterminal
     extern bool onTerminal;
     extern char* currentUser; // Current user using the terminal
