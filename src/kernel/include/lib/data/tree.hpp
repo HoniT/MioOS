@@ -9,6 +9,7 @@
 #define TREE_HPP
 
 #include <mm/heap.hpp>
+#include <lib/data/list.hpp>
 
 namespace data {
 
@@ -144,6 +145,18 @@ namespace data {
         }
 
         // Helper functions
+
+        // Gets all children
+        data::list<T> get_children(Node* parent) {
+            data::list<T> list = data::list<T>();
+
+            Node* curr = parent->first_child;
+            while(curr) {
+                list.push_back(curr->data);
+                curr = curr->next_sibling;
+            }
+            return list;
+        }
 
         // Finds a child node using predicate
         template<typename Func>

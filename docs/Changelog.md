@@ -9,5 +9,5 @@ This file contains the major milestones for MioOS, they're dates and a simple de
 - Heap manager: Jan 4 2025
 - Paging with PAE: Feb 14 2025
 - Returned to 32-bit paging because of complications with KVM: May 16 2025
-- First versions of Ext2: September 20 2025
 - VGA framebuffer driver: October 6 2025
+- First versions of Ext2: November 16 2025

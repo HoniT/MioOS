@@ -24,7 +24,6 @@ bool initialized = false;
 void init_sys_files(void) {
     // List of system directories that are needed
     sys_dirs = data::list<data::string>();
-    sys_dirs.push_back("dev");
     sys_dirs.push_back("mnt");
 
     initialized = true;
@@ -88,6 +87,7 @@ void sysdisk::get_sysdisk(void* mbi) {
         for(vfsNode node : nodes) if(node.name == dir) found = true;
         if(!found) ext2::make_dir(dir, node->data, node, RESTRICTED_PERMS);
     }
+    ext2::find_other_ext2_fs(dev);
 
     kprintf(LOG_INFO, "Implemented VFS to system disk\n");
 }

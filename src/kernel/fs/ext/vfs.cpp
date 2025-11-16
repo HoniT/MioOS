@@ -38,7 +38,7 @@ const char* vfs::ide_device_names[4] = {
 // Prints VFS tree node
 void vfs::print_node(const treeNode* node, int depth) {
     for(int i = 0; i < depth; i++) kprintf(" ");
-    kprintf("%S Is dir: %u (%x)", node->data.path, node->data.is_dir, node);
+    kprintf("%S", node->data.name);
     if(node->data.path == vfs::currentDir) kprintf(" <===");
     kprintf("\n");
 }
@@ -188,7 +188,7 @@ treeNode* vfs::get_node(const data::string path) {
 /// @param fs File System of device
 void vfs::mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs) {
     // Getting device dir
-    treeNode* mntNode = vfs::get_node("/");
+    treeNode* mntNode = vfs::get_node("/mnt/");
     if(!mntNode) return;
     // Adding node
     vfs::add_node(mntNode, name, EXT2_ROOT_INO, root_inode, fs);

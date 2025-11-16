@@ -136,6 +136,7 @@ namespace ext2 {
     ext2_fs_t* init_ext2_device(ata::device_t* dev, bool sysdisk_check);
     // Finds all Ext2 File Systems
     void find_ext2_fs(void);
+    void find_other_ext2_fs(ata::device_t* dev);
 
     data::string mode_to_string(const uint16_t mode);
     ext2_perms get_perms(const inode_t* inode, const uint32_t uid, const uint32_t gid);
@@ -151,7 +152,7 @@ namespace ext2 {
     void rewrite_sb(ext2_fs_t* fs);
 
     data::large_string get_file_contents(data::string path);
-    bool write_file_content(data::string path, const data::string input);
+    bool write_file_content(data::string path, const data::string input, bool overwrite = true);
 
     // Terminal functions
     void pwd(data::list<data::string> params);
@@ -165,6 +166,7 @@ namespace ext2 {
     void check_inode_status(data::list<data::string> params);
     void cat(data::list<data::string> params);
     void write_to_file(data::list<data::string> params);
+    void write_to_file_append(data::list<data::string> params);
 } // namespace ext2
 
 #endif // EXT2_HPP

@@ -29,7 +29,7 @@ echo "Making ISO image..."
 grub-mkrescue -o "$ISO" iso/
 
 # --------------------------
-# Create HDD image
+# Create HDD images
 # --------------------------
 if [ ! -f hdd.img ]; then
     echo "Creating raw HDD image..."
@@ -42,6 +42,19 @@ if [ ! -f hdd.img ]; then
     parted -s "$IMG" mklabel msdos
     parted -s "$IMG" mkpart primary ext2 1MiB 100%
     parted -s "$IMG" set 1 boot on
+fi
+
+if [ ! -f hdd1.img ]; then
+    echo "Creating raw HDD image..."
+    dd if=/dev/zero of="hdd1.img" bs=1M count=$SIZE_MB
+
+    # --------------------------
+    # Partition HDD (single bootable primary)
+    # --------------------------
+    echo "Partitioning hdd1.img..."
+    parted -s "hdd1.img" mklabel msdos
+    parted -s "hdd1.img" mkpart primary ext2 1MiB 100%
+    parted -s "hdd1.img" set 1 boot on
 fi
 
 # --------------------------
@@ -90,4 +103,4 @@ echo "Bootable HDD image created: $IMG"
 # --------------------------
 # Run in QEMU
 # --------------------------
-sudo qemu-system-i386 -enable-kvm -m 8G -drive file="$IMG",format=raw,if=ide,index=0 -boot d
+sudo qemu-system-i386 -enable-kvm -m 8G -drive file="$IMG",format=raw,if=ide,index=0 -drive file="hdd1.img",format=raw,if=ide,index=1 -boot d

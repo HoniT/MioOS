@@ -72,7 +72,7 @@ Command commands[] = {
     {"rm", ext2::rm, " <file>", " - Removes (deletes) a directory/directory entry"},
     {"cat", ext2::cat, " <file>", " - Prints file contents"},
     {"write", ext2::write_to_file, " <file> <content>", " - Writes something to a file"},
-    {"istat", ext2::check_inode_status, " <inode_num>", " - Prints inode status"}
+    {"append", ext2::write_to_file_append, " <file> <content>", " - Append something to a file"}
 };
 
 // Saving inputs
