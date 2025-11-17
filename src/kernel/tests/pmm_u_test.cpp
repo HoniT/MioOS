@@ -10,7 +10,7 @@
 #include <mm/pmm.hpp>
 #include <mm/vmm.hpp>
 #include <graphics/vga_print.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 
 void unittsts::test_pmm(void) {
     // Final status (passed or failed)

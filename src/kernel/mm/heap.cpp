@@ -9,7 +9,7 @@
 #include <mm/heap.hpp>
 #include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/math.hpp>
 #include <kterminal.hpp>

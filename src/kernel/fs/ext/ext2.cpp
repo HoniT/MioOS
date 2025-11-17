@@ -10,13 +10,13 @@
 #include <fs/ext/inode.hpp>
 #include <fs/ext/block.hpp>
 #include <fs/ext/vfs.hpp>
-#include <mbr.hpp>
+#include <x86/mbr.hpp>
 #include <mm/heap.hpp>
 #include <drivers/ata.hpp>
 #include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
-#include <interrupts/kernel_panic.hpp>
-#include <rtc.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
+#include <drivers/rtc.hpp>
 #include <kterminal.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/data/string.hpp>

@@ -6,7 +6,7 @@
 // In charge of CPUID functions
 // ========================================
 
-#include <cpuid.hpp>
+#include <x86/cpuid.hpp>
 #include <graphics/vga_print.hpp>
 
 // Gets the processor model

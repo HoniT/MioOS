@@ -6,7 +6,7 @@
 // In charge of kernel panics
 // ========================================
 
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
 
 // Kernel panic manager

@@ -9,7 +9,7 @@
 #include <fs/ext/inode.hpp>
 #include <fs/ext/block.hpp>
 #include <fs/ext/vfs.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
 #include <mm/heap.hpp>
 #include <lib/mem_util.hpp>

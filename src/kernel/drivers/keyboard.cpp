@@ -7,9 +7,9 @@
 // ========================================
 
 #include <drivers/keyboard.hpp>
-#include <io.hpp>
+#include <x86/io.hpp>
 #include <graphics/vga_print.hpp>
-#include <interrupts/idt.hpp>
+#include <x86/interrupts/idt.hpp>
 #include <lib/string_util.hpp>
 
 using namespace kbrd;

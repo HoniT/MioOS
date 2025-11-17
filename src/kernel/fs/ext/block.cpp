@@ -10,7 +10,7 @@
 #include <fs/ext/inode.hpp>
 #include <graphics/vga_print.hpp>
 #include <drivers/ata.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <mm/heap.hpp>
 
 bool ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_read) {

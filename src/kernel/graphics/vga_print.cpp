@@ -9,8 +9,8 @@
 #include <graphics/vga_print.hpp>
 #include <graphics/render.hpp>
 #include <drivers/vga.hpp>
-#include <io.hpp>
-#include <rtc.hpp>
+#include <x86/io.hpp>
+#include <drivers/rtc.hpp>
 #include <stdarg.h>
 #include <lib/string_util.hpp>
 

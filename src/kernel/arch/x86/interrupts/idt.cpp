@@ -6,11 +6,11 @@
 // In charge of setting up the Interrupts Descriptor Table
 // ========================================
 
-#include <interrupts/idt.hpp>
+#include <x86/interrupts/idt.hpp>
 #include <graphics/vga_print.hpp>
-#include <interrupts/kernel_panic.hpp>
-#include <pic.hpp>
-#include <io.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
+#include <x86/interrupts/pic.hpp>
+#include <x86/io.hpp>
 #include <lib/mem_util.hpp>
 
 using io::outPortB;

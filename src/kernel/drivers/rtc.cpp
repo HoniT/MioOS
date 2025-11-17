@@ -6,8 +6,8 @@
 // Sets up the Real Time Clock
 // ========================================
 
-#include <rtc.hpp>
-#include <io.hpp>
+#include <drivers/rtc.hpp>
+#include <x86/io.hpp>
 #include <graphics/vga_print.hpp>
 
 uint8_t rtc::get_year()

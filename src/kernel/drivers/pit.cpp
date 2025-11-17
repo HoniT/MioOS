@@ -6,11 +6,11 @@
 // In charge of setting up the Programmable Interval Timer
 // ========================================
 
-#include <pit.hpp>
-#include <interrupts/idt.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <drivers/pit.hpp>
+#include <x86/interrupts/idt.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
-#include <io.hpp>
+#include <x86/io.hpp>
 #include <lib/math.hpp>
 
 volatile uint64_t ticks;

@@ -5,7 +5,7 @@ SRC = $(CURDIR)/src
 
 # HPP file includes
 INCLUDE = -I $(SRC)/kernel/include \
-		  -I $(SRC)/kernel/include/arch/x86
+		  -I $(SRC)/kernel/include/arch
 
 # Flags and tools
 NASM = nasm

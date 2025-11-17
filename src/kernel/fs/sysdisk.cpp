@@ -8,13 +8,13 @@
 
 #include <fs/sysdisk.hpp>
 #include <kernel_main.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 #include <device.hpp>
 #include <fs/ext/ext2.hpp>
 #include <fs/ext/vfs.hpp>
-#include <mbr.hpp>
+#include <x86/mbr.hpp>
 #include <lib/data/list.hpp>
 #include <lib/data/string.hpp>
 

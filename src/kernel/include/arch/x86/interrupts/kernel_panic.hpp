@@ -8,7 +8,7 @@
 #ifndef KERNEL_PANIC_HPP
 #define KERNEL_PANIC_HPP
 
-#include <interrupts/idt.hpp>
+#include <x86/interrupts/idt.hpp>
 
 // Kernel panic functions
 void kernel_panic(const char* error);

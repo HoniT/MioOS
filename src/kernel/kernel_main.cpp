@@ -12,12 +12,12 @@
 #include <drivers/vga.hpp>
 #endif // GFX_HPP
 #include <drivers/keyboard.hpp>
-#include <interrupts/idt.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/idt.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <device.hpp>
-#include <gdt.hpp>
-#include <cpuid.hpp>
-#include <pit.hpp>
+#include <x86/gdt.hpp>
+#include <x86/cpuid.hpp>
+#include <drivers/pit.hpp>
 #include <kterminal.hpp>
 #include <mm/pmm.hpp>
 #include <mm/heap.hpp>

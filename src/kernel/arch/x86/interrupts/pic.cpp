@@ -6,8 +6,8 @@
 // Programmable Interrupt Controller functions
 // ========================================
 
-#include <pic.hpp>
-#include <io.hpp>
+#include <x86/interrupts/pic.hpp>
+#include <x86/io.hpp>
 
 // Sends End of Interrupt signal for a given interrupt
 void pic::send_eoi(const uint8_t irq) {

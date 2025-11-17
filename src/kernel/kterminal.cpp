@@ -13,14 +13,14 @@
 #include <mm/heap.hpp>
 #include <mm/pmm.hpp>
 #include <mm/vmm.hpp>
-#include <cpuid.hpp>
-#include <pit.hpp>
+#include <x86/cpuid.hpp>
+#include <drivers/pit.hpp>
 #include <drivers/ata.hpp>
 #include <fs/ext/ext2.hpp>
 #include <fs/ext/vfs.hpp>
 #include <device.hpp>
 #include <kernel_main.hpp>
-#include <rtc.hpp>
+#include <drivers/rtc.hpp>
 #include <lib/string_util.hpp>
 #include <lib/math.hpp>
 

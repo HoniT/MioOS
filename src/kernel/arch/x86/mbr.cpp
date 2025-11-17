@@ -6,7 +6,7 @@
 // Defines MBR structure and MBR partitioning functions
 // ========================================
 
-#include <mbr.hpp>
+#include <x86/mbr.hpp>
 #include <mm/heap.hpp>
 #include <lib/mem_util.hpp>
 #include <graphics/vga_print.hpp>

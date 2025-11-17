@@ -6,8 +6,7 @@
 // In charge of setting up the Global Descriptor Table
 // ========================================
 
-#include <gdt.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/gdt.hpp>
 #include <graphics/vga_print.hpp>
 #include <lib/mem_util.hpp>
 
@@ -36,7 +35,7 @@ void gdt::init(void) {
     asm volatile ("mov %%ds, %0" : "=m"(value));
     if(value != 0x10) {
         kprintf(LOG_ERROR, "Failed to initialize GDT! (Data Segment wasn't set properly)\n");
-        kernel_panic("Fatal component failed to initialize!");
+        while(true); // Legacy kernel_panic (IDT wont be implemented at this point)
     }
     else kprintf(LOG_INFO, "Implemented Global Descriptor Table\n");
 

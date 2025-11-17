@@ -8,8 +8,7 @@
 
 #include <mm/vmm.hpp>
 #include <mm/pmm.hpp>
-#include <interrupts/idt.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 

@@ -8,10 +8,10 @@
 
 #include <drivers/ata.hpp>
 #include <device.hpp>
-#include <pic.hpp>
-#include <interrupts/idt.hpp>
+#include <x86/interrupts/pic.hpp>
+#include <x86/interrupts/idt.hpp>
 #include <graphics/vga_print.hpp>
-#include <io.hpp>
+#include <x86/io.hpp>
 #include <kterminal.hpp>
 #include <lib/string_util.hpp>
 #include <lib/data/string.hpp>

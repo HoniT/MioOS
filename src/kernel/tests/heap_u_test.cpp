@@ -9,7 +9,7 @@
 #include <tests/unit_tests.hpp>
 #include <graphics/vga_print.hpp>
 #include <mm/heap.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 
 #ifdef UNIT_TESTS_HPP
 

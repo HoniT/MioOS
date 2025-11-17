@@ -12,7 +12,7 @@
 #include <kernel_main.hpp>
 #include <graphics/vga_print.hpp>
 #include <kterminal.hpp>
-#include <interrupts/kernel_panic.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 #include <lib/math.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/string_util.hpp>
