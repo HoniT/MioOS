@@ -11,30 +11,46 @@
 #include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
 #include <x86/io.hpp>
+#include <x86/interrupts/pic.hpp>
+#include <sched/scheduler.hpp>
 #include <lib/math.hpp>
 
 volatile uint64_t ticks;
-const uint32_t frequency = 100;
+const uint32_t frequency = 100; // Hz
 
 // PIT is IRQ0
 void onIrq0(InterruptRegisters* regs) {
     ticks++;
-    io::outPortB(0x20, 0x20);  // Send EOI to PIC (if necessary)
+
+    // Acknowledge the interrupt BEFORE scheduling.
+    // If we switch tasks, the new task needs to be able to receive interrupts.
+    // If we don't EOI, the PIC remains blocked on IRQ0.
+    pic::send_eoi(PIT_IRQ);
+
+    // Decrement current task's time slice
+    if (curr_process && curr_process->get_state() == PROCESS_RUNNING) {
+        curr_process->decrement_time_slice();
+        
+        // If time slice expired, trigger rescheduling
+        if (curr_process->get_time_slice() == 0) {
+            sched::schedule();
+        }
+    }
 }
 
 void pit::init(void) {
     ticks = 0; // Zeroing ticks
     // Installing handler
-    idt::irq_install_handler(0, &onIrq0);
+    idt::irq_install_handler(PIT_IRQ, &onIrq0);
 
     // 119318.16666 Mhz
     uint32_t divisor = 1193182 / frequency;
 
-    io::outPortB(0x43,0x36);
-    io::outPortB(0x40,(uint8_t)(divisor & 0xFF));
-    io::outPortB(0x40,(uint8_t)((divisor >> 8) & 0xFF));
+    io::outPortB(0x43, 0x36);
+    io::outPortB(0x40, (uint8_t)(divisor & 0xFF));
+    io::outPortB(0x40, (uint8_t)((divisor >> 8) & 0xFF));
 
-    if(!idt::check_irq(0, &onIrq0)) {
+    if(!idt::check_irq(PIT_IRQ, &onIrq0)) {
         kprintf(LOG_ERROR, "Failed to initialize Programmable Interval Timer! (IRQ 0 not installed)\n");
         kernel_panic("Fatal component failed to initialize!");
     }
@@ -44,11 +60,10 @@ void pit::init(void) {
 void pit::delay(const uint64_t ms) {
     // A simple delay that waits for `ms` milliseconds (approximated)
     uint32_t start = ticks;
-    uint64_t targetTicks = start + ms;  // Target ticks to achieve the delay
+    uint64_t targetTicks = start + udiv64((ms * frequency), 1000);  // Target ticks to achieve the delay
 
     // Wait until the target number of ticks has passed
     while (ticks < targetTicks) {
-        // You could add a small NOP here if you want to reduce CPU usage slightly
         __asm__("nop");
     }
 }
@@ -62,9 +77,7 @@ void pit::getuptime(data::list<data::string> params) {
     uint64_t minutes = udiv64(umod64(total_seconds, 3600), 60);
     uint64_t seconds = umod64(total_seconds, 60);
 
-    kprintf("Hours: %lu\n", hours);
-    kprintf("Minutes: %lu\n", minutes);
-    kprintf("Seconds: %lu\n", seconds);
+    kprintf("Hours: %llu:%llu:%llu\n", hours, minutes, seconds);
 }
 
 #pragma endregion

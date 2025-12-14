@@ -100,6 +100,8 @@ namespace vmm {
     extern bool enabled_paging;
     extern bool pae_paging;
 
+    pd_t* get_active_pd(void);
+
     // Initializes the VMM
     void init(void);
     // Allocates a 4 KiB page

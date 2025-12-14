@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
-#include <kernel_main.hpp>
 
 // The 16 standard VGA colors in RGB values
 
@@ -37,6 +36,7 @@ enum VGA_Modes {
     FRAMEBUFFER
 };
 
+struct multiboot_tag_framebuffer;
 namespace vga {
     extern uint32_t* framebuffer;
     extern uint32_t fb_size;

@@ -9,7 +9,7 @@
 #include <mm/pmm.hpp>
 #include <mm/heap.hpp>
 #include <mm/vmm.hpp>
-#include <kernel_main.hpp>
+#include <multiboot.hpp>
 #include <graphics/vga_print.hpp>
 #include <kterminal.hpp>
 #include <x86/interrupts/kernel_panic.hpp>

@@ -189,7 +189,10 @@ treeNode* vfs::get_node(const data::string path) {
 void vfs::mount_dev(data::string name, inode_t* root_inode, ext2_fs_t* fs) {
     // Getting device dir
     treeNode* mntNode = vfs::get_node("/mnt/");
-    if(!mntNode) return;
+    if(!mntNode) {
+        mntNode = vfs::get_node("/");
+        if(!mntNode) return;
+    }
     // Adding node
     vfs::add_node(mntNode, name, EXT2_ROOT_INO, root_inode, fs);
 }

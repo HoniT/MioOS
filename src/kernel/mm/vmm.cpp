@@ -20,6 +20,8 @@ namespace vmm {
     bool enabled_paging = false;
     bool pae_paging = false;
 
+    pd_t* get_active_pd(void) { return active_pd; }
+
     // Enables mapping before paging is enabled
     bool legacy_map = false;
     // Initializes the VMM with 32-bit paging

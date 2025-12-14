@@ -7,6 +7,7 @@
 // ========================================
 
 #include <kernel_main.hpp>
+#include <multiboot.hpp>
 #ifndef GFX_HPP
 #include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
@@ -28,10 +29,29 @@
 #include <fs/ext/ext2.hpp>
 #include <fs/ext/vfs.hpp>
 #include <fs/sysdisk.hpp>
+#include <sched/process.hpp>
+#include <sched/scheduler.hpp>
 #include <tests/unit_tests.hpp>
-#include <lib/path_util.hpp>
 
-data::string kernel_version;
+void processA() {
+    for(int i = 0; i < 500000; i++) {
+        kprintf(RGB_COLOR_RED, "A");
+        // sched::schedule();
+    }
+    sched::exit_current_process();
+}
+
+void processB() {
+    // int i = 0; i < 5; i++
+    for(int i = 0; i < 500000; i++) {
+        kprintf(RGB_COLOR_BLUE, "B");
+        // sched::schedule();
+    }
+    sched::exit_current_process();
+}
+
+
+const char* kernel_version = "MioOS kernel 1.0 (Alpha)";
 extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     // Managing GRUB multiboot error
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
@@ -54,12 +74,19 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     unittsts::test_pmm();
     vmm::init();
     unittsts::test_vmm();
-    kernel_version = "MioOS kernel 0.4 (Alpha)";
-
+    
     // Drivers
     pit::init(); // Programmable Interval Timer
     kbrd::init(); // Keyboard drivers
     
+    sched::init();
+
+    Process* p1 = Process::create(processA, 10, "Kernel Test Process 1");
+    p1->start();
+    Process* p2 = Process::create(processB, 10, "Kernel Test Process 2");
+    p2->start();
+    sched::schedule();
+
     // Initializing File System, storage drivers...
     device_init();
     ata::init();

@@ -910,13 +910,12 @@ static void read_indirect_block(ext2_fs_t* fs, uint32_t block_num, int level,
 
 data::large_string ext2::get_file_contents(data::string path) {
     data::large_string data;
-    vfsNode node = vfs::get_node(path)->data;
-
-    uint32_t inode_num = node.inode_num;
-    if (inode_num == EXT2_BAD_INO) {
+    treeNode* tnode = vfs::get_node(path);
+    if (!tnode) {
         kprintf(LOG_WARNING, "cat: File \"%S\" not found!\n", path);
         return data;
     }
+    vfsNode node = vfs::get_node(path)->data;
 
     inode_t* inode = node.inode;
     if (!inode) {

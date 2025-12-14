@@ -9,6 +9,7 @@
 #include <x86/gdt.hpp>
 #include <graphics/vga_print.hpp>
 #include <lib/mem_util.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 
 // Arrays and variables
 __attribute__((aligned(8))) gdt_entry gdt_entries[GDT_SEGMENT_QUANTITY];
@@ -35,7 +36,7 @@ void gdt::init(void) {
     asm volatile ("mov %%ds, %0" : "=m"(value));
     if(value != 0x10) {
         kprintf(LOG_ERROR, "Failed to initialize GDT! (Data Segment wasn't set properly)\n");
-        while(true); // Legacy kernel_panic (IDT wont be implemented at this point)
+        kernel_panic("Fatal component failed to initialize!");
     }
     else kprintf(LOG_INFO, "Implemented Global Descriptor Table\n");
 

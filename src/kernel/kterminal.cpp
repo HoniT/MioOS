@@ -63,7 +63,7 @@ Command commands[] = {
     {"heapdump", heap::heap_dump, "", " - Prints the allocation status of blocks in the heap"},
     // Storage commands
     {"read_ata", ata::read_ata, " -dev <device_index> -sect <sector_index>", " - Prints a given sector of a given ATA device"},
-    {"list_ata", ata::list_ata, "", " - Lists available ATA devices"},
+    {"lsata", ata::list_ata, "", " - Lists available ATA devices"},
     {"pwd", ext2::pwd, "", " - Prints working directory"},
     {"ls", ext2::ls, "", " - Lists entries of the current directory"},
     {"cd", ext2::cd, " <dir>", " - Changes directory to given dir"},
@@ -137,7 +137,7 @@ void cmd::init(void) {
 
     // Setting up VGA enviorment for terminal
     kprintf("\n =====================Type \"help\" to get available commands==================== \n");
-    kprintf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
+    kprintf(RGB_COLOR_LIGHT_GRAY, "\n%s@MioOS: %S# ", currentUser, vfs::currentDir);
 
     // Saving the current screen coordinates
     input_col = vga::col_num;
@@ -171,7 +171,7 @@ void cmd::run_cmd(void) {
             commands[i].function(params);
             params.~list();
             
-            kprintf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
+            kprintf(RGB_COLOR_LIGHT_GRAY, "\n%s@MioOS: %S# ", currentUser, vfs::currentDir);
             
             // Saving the current screen coordinates
             input_col = vga::col_num;
@@ -184,9 +184,9 @@ void cmd::run_cmd(void) {
     }
 
     // If we made it to here that means that the inputted command could not be found
-    kprintf(LOG_WARNING, "%s isn't a valid command!\n", get_first_word(currentInput));
+    kprintf(LOG_INFO, "%s isn't a valid command!\n", get_first_word(currentInput));
     new_cmd:
-    kprintf(RGB_COLOR_LIGHT_GRAY, "%s@MioOS: %S# ", currentUser, vfs::currentDir);
+    kprintf(RGB_COLOR_LIGHT_GRAY, "\n%s@MioOS: %S# ", currentUser, vfs::currentDir);
 
     // Saving the current screen coordinates
     input_col = vga::col_num;
@@ -288,7 +288,7 @@ void getsysinfo(data::list<data::string> params) {
     kprintf("CPU Model: %s\n", cpu_model_name);
 
     // Kernel
-    kprintf("\n---Software---\nKernel Version: %S\n", kernel_version);
+    kprintf("\n---Software---\nKernel Version: %s\n", kernel_version);
 
     return;
 }

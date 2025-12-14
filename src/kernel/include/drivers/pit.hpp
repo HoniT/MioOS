@@ -12,6 +12,8 @@
 #include <lib/data/list.hpp>
 #include <lib/data/string.hpp>
 
+#define PIT_IRQ 0
+
 extern volatile uint64_t ticks;
 extern const uint32_t frequency;
 

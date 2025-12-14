@@ -8,7 +8,9 @@
 
 #include <drivers/vga.hpp>
 #include <graphics/vga_print.hpp>
+#include <multiboot.hpp>
 #include <lib/math.hpp>
+#include <x86/interrupts/kernel_panic.hpp>
 
 uint32_t* vga::framebuffer = nullptr;
 uint32_t vga::fb_size;
@@ -37,13 +39,13 @@ VGA_Modes vga::get_vga_mode(void) {
 void vga::init_framebuffer(const multiboot_tag_framebuffer* fb_tag) {  
     if (!fb_tag) {
         kprintf("No framebuffer tag!\n");
-        while(true); // Legacy kernel_panic (IDT wont be implemented at this point)
+        kernel_panic("VGA error!");
         return;
     }  
     // Check if it's RGB mode
     if (fb_tag->framebuffer_type != MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
         kprintf("Invalid framebuffer tag!\n");
-        while(true); // Legacy kernel_panic (IDT wont be implemented at this point)
+        kernel_panic("VGA error!");
         return;
     }
     

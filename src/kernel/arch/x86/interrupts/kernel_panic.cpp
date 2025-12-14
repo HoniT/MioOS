@@ -8,21 +8,23 @@
 
 #include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
+#include <drivers/vga.hpp>
 
 // Kernel panic manager
 void kernel_panic(const char* error) {
     asm volatile ("cli"); // Clearing interrupts
+    kprintf(RGB_COLOR_RED, "\n\n\n");
 
     kprintf(LOG_ERROR, "%s\nException! system Halted\n", error);
 
-    for(;;) {}
+    for(;;) {asm volatile("hlt");}
 
     return;
 }
 
 void kernel_panic(const char* error, InterruptRegisters* frame) {
-    // (NOTE) Page faults are handled by a page fault handler in vmm.cpp
     asm volatile ("cli"); // Clearing interrupts
+    kprintf(RGB_COLOR_RED, "\n\n\n");
 
     kprintf(LOG_ERROR, "%s\nException! System halted\n", error);
     // Printing info
@@ -41,8 +43,8 @@ void kernel_panic(const char* error, InterruptRegisters* frame) {
     kprintf(STD_PRINT, "EIP: %x\n", frame->eip);
     kprintf(STD_PRINT, "CS: %x\n", frame->cs);
     kprintf(STD_PRINT, "EFlags: %x\n", frame->eflags);
-    kprintf(STD_PRINT, "ESP (Pushed by CPU): %x\n", frame->esp);
-    kprintf(STD_PRINT, "SS: %x\n", frame->ss);
+    kprintf(STD_PRINT, "ESP (Only on privilege change): %x\n", frame->esp);
+    kprintf(STD_PRINT, "SS (Only on privilege change): %x\n", frame->ss);
 
     // Printing major Control Registers
     uint32_t cr0, cr3, cr4;
@@ -79,7 +81,7 @@ void kernel_panic(const char* error, InterruptRegisters* frame) {
         kprintf(STD_PRINT, "]\n");
     }
 
-    for(;;) {}
+    for(;;) {asm volatile("hlt");}
 
     return;
 }
