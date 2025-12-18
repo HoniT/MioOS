@@ -1,84 +1,126 @@
-# MioOS
+<div align="center">
 
-MioOS is an Operating System designed for educational reasons.
+<h1 style="font-size: 3em; font-weight: bold; margin: 0;">MioOS</h1>
 
-- [License](LICENSE)
+**A 32-bit hobby operating system for learning low-level systems programming**
 
+*Built with C++ and x86 assembly*
 
-## Table of contents
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
-- [Documentation](#documentation)
+[Features](#features) • [Installation](#installation-and-usage) • [Building](#building-and-running) • [Documentation](#documentation) • [Contributing](#contributing)
 
+---
 
-# Installation
+</div>
 
+# Features
 
-1. Clone the repository:
-    ``` bash
-    git clone https://www.github.com/HoniT/MioOS
-    ```
+- **GRUB Bootloader** - Standard multiboot-compliant bootloader
+- **32-bit Kernel** - Written in modern C++
+- **Memory Management**
+  - Fragmentation handling PMM
+  - Dynamic heap allocation
+  - 32-bit paging and virtual memory manager
+- **File Systems**
+  - IRQ mode PIO ATA driver
+  - Ext2 file system implementation
+  - Virtual file system layer
+- **Process Management** - Basic process scheduling
+- **Hardware Drivers** - Keyboard input support
 
-2. Install dependencies:
-    For Windows users it is better to download WSL (Windows Subsystem for Linux) so you can use linux commands!
+# Project Structure
+```
+MioOS/
+├── boot/              # Bootloader and GRUB configuration
+├── kernel/            # Core kernel implementation
+│   ├── arch/          # Architecture-specific code
+│   │   ├── interrupts/    # IDT and interrupt handling
+│   │   └── sched/         # Architecture-specific scheduling
+│   ├── drivers/       # Hardware drivers
+│   ├── fs/            # File system implementations
+│   ├── graphics/      # Graphics and visual output
+│   ├── lib/           # Helper libraries and utilities
+│   ├── mm/            # Memory management subsystems
+│   ├── sched/         # Process scheduling and management
+│   └── tests/         # Unit tests
+├── docs/              # Additional documentation
+└── scripts/           # Build and toolchain scripts
+```
 
-    - On Linux:
-        Installing QEMU
-        ``` bash
-        sudo apt install qemu qemu-system-i386
-        ```
+# Installation and Usage
 
-        Installing compilers and tools
-        ``` bash
-        sudo apt install nasm gcc g++ gdb grub-common
-        ```
-    
-    - On Windows:
-        You will need to use package managers such as MinGW or Cygwin.
-        To install NASM and QEMU, visit they're site and follow instructions.
+**1. Clone the repository**
+```bash
+git clone https://github.com/HoniT/MioOS.git
+cd MioOS
+```
 
-3. Install the GCC cross-compiler:
-    Follow instructions on the [OSDevOrg](https://wiki.osdev.org/GCC_Cross-Compiler).
+**2. Install the toolchain**
 
-# Usage
+For Debian-based distributions:
+```bash
+bash ./scripts/toolchain/debian_build.sh
+```
 
-To use this project simply use the bash script located in tools. To do so:
+For Arch Linux:
+```bash
+bash ./scripts/toolchain/arch_build.sh
+```
 
-    ``` bash
-    bash ./scripts/build_run.sh
-    ```
+For other distributions, Windows, and macOS, follow the [GCC Cross-Compiler Guide](https://wiki.osdev.org/GCC_Cross-Compiler) and install dependencies manually.
 
-## Features
+# Building and Running
 
-- 32-bit Operating System
-- Kernel written in C++
-- PMM and kernel heap deals with fragmentation
-- 32-bit paging
-- Kernel CLI
-- 28-bit PIO ATA driver (IRQ mode)
-- Ext2 file system
-- Virtual File System
-- Up to ~4 TiB file size support
-(More will come in future)
+### Quick Start
 
+Build and run with a single command:
+```bash
+bash ./scripts/build_run.sh
+```
+
+#### Build Only
+```bash
+bash ./scripts/build.sh
+```
+
+### Run with KVM Acceleration
+
+Automatically uses KVM if available, falls back to standard QEMU otherwise:
+```bash
+bash ./scripts/run_kvm.sh
+```
+
+#### Run without KVM
+```bash
+bash ./scripts/run.sh
+```
 
 # Contributing
 
-Contributioners are welcome to submit there version of my code on my [GitHub](https://www.github.com/HoniT/MioOS).
+Contributors are welcome to submit improvements and bug fixes! Please visit the [GitHub repository](https://github.com/HoniT/MioOS) to:
 
-
-# License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
+- Report issues
+- Submit pull requests
+- Suggest new features
+- Improve documentation
 
 # Documentation
 
-To boot this OS onto real hardware follow [BootingOnHardware](docs/BootingOnHardware.md).
+Additional documentation and technical details can be found in the `/docs/` directory.
+
+# License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+# Credits
+
+- **Project Author:** [Ioane Baidoshvili](https://github.com/HoniT)
+- **Special Thanks:** [Michael Petch](https://github.com/mpetch) for contributing to this project
+
+---
+
+<div align="center">
 
 
-## Credits
-- Project author: [Ioane Baidoshvili](https://www.github.com/HoniT).
-- Thanks to [Michael Petch](https://www.github.com/mpetch) for contributing to this project.
+*Star this repository if you find it interesting!*
+
+</div>

@@ -81,10 +81,10 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     
     sched::init();
 
-    Process* p1 = Process::create(processA, 10, "Kernel Test Process 1");
-    p1->start();
-    Process* p2 = Process::create(processB, 10, "Kernel Test Process 2");
-    p2->start();
+    // Process* p1 = Process::create(processA, 10, "Kernel Test Process 1");
+    // p1->start();
+    // Process* p2 = Process::create(processB, 10, "Kernel Test Process 2");
+    // p2->start();
     sched::schedule();
 
     // Initializing File System, storage drivers...
