@@ -51,5 +51,6 @@ clean:
 	rm -rf $(BUILD)
 	mkdir -p $(BUILD)
 	rm -f $(OS_ELF) iso/mio_os.iso
+	rm -f hdd.img
 
 .PHONY: all clean

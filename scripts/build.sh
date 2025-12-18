@@ -18,7 +18,7 @@ export PATH="$PREFIX/bin:$PATH"
 
 # Building project
 echo "Compiling kernel..."
-# make clean
+make clean
 make all
 
 # Making ISO
