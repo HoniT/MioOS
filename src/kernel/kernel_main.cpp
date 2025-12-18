@@ -34,19 +34,17 @@
 #include <tests/unit_tests.hpp>
 
 void processA() {
-    for(int i = 0; i < 500000; i++) {
-        kprintf(RGB_COLOR_RED, "A");
+    for(;;) 
+        kprintf(RGB_COLOR_RED, "A", curr_process->get_time_slice());
         // sched::schedule();
-    }
     sched::exit_current_process();
 }
 
 void processB() {
     // int i = 0; i < 5; i++
-    for(int i = 0; i < 500000; i++) {
-        kprintf(RGB_COLOR_BLUE, "B");
+    for(;;) 
+        kprintf(RGB_COLOR_BLUE, "B", curr_process->get_time_slice());
         // sched::schedule();
-    }
     sched::exit_current_process();
 }
 

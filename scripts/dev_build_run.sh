@@ -16,6 +16,7 @@ make all
 
 # Making ISO
 echo "Making ISO image..."
+rm -f iso/mio_os.iso iso/
 grub-mkrescue -o iso/mio_os.iso iso/
 
 # Running project with QEMU (KVM) and 8GiB of RAM intialized

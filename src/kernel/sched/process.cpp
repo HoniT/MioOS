@@ -121,5 +121,5 @@ const char* Process::get_name() { return this->name; }
 ProcessState Process::get_state() { return this->state; }
 
 void Process::set_time_slice() { this->time_slice = TIME_QUANTUM; }
-void Process::decrement_time_slice() { this->time_slice--; }
+void Process::decrement_time_slice() { atomic_procedure([this](){this->time_slice--;}); }
 void Process::set_state(ProcessState state) { this->state = state; }

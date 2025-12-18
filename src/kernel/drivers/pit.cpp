@@ -15,8 +15,8 @@
 #include <sched/scheduler.hpp>
 #include <lib/math.hpp>
 
-volatile uint64_t ticks;
-const uint32_t frequency = 100; // Hz
+volatile uint64_t ticks;  
+const uint32_t frequency = 1000; // Hz
 
 // PIT is IRQ0
 void onIrq0(InterruptRegisters* regs) {
@@ -43,7 +43,7 @@ void pit::init(void) {
     // Installing handler
     idt::irq_install_handler(PIT_IRQ, &onIrq0);
 
-    // 119318.16666 Mhz
+    // 1193.182 Mhz
     uint32_t divisor = 1193182 / frequency;
 
     io::outPortB(0x43, 0x36);
