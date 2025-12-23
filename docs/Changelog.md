@@ -11,3 +11,4 @@ This file contains the major milestones for MioOS, they're dates and a simple de
 - Returned to 32-bit paging because of complications with KVM: May 16 2025
 - VGA framebuffer driver: October 6 2025
 - First versions of Ext2: November 16 2025
+- Kernel multitasking: December 23 2025

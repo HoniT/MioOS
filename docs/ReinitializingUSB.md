@@ -1,111 +1,117 @@
 # Reinitializing a USB Drive After Writing a Bootable Image
 
-When you create a bootable USB with a raw `.iso` file, your system may no longer recognize the USB drive in File Explorer (Windows) or File Manager (Linux). This guide explains how to reinitialize the USB to restore it to its original state.
+When you create a bootable USB with a raw `.iso` or binary file, the drive's partition table is often overwritten with a specialized format. This can cause the system to "lose" the drive—it may not appear in File Explorer (Windows) or may show up as having the wrong storage capacity.
+
+This guide explains how to completely wipe and restore the USB drive to a standard, usable state.
 
 ---
 
 ## Warnings
-- **Back up important data**: The process will erase all data on the USB drive.
-- **Correct USB identification**: Be careful when selecting the USB drive to avoid accidentally wiping the wrong disk.
+
+* **DATA LOSS:** This process will **permanently erase** everything on the USB drive.
+* **IDENTIFICATION:** You must be absolutely certain which disk number/identifier corresponds to your USB. **Selecting the wrong disk will wipe your computer's hard drive.**
 
 ---
 
 ## Reinitialize USB Drive on Windows
 
-1. **Open Disk Management**
-   - Press `Win + R`, type `diskmgmt.msc`, and hit Enter.
+The standard Windows "Format" option often fails on bootable USBs. We will use the command-line tool `diskpart` to reset the partition structure.
 
-2. **Identify the USB Drive**
-   - Look for your USB drive in the list of disks. It will usually have "Unallocated" or "RAW" as its file system.
+1.  **Open Command Prompt as Administrator**
+    * Press `Win + S`, type **cmd**, right-click "Command Prompt", and select **Run as Administrator**.
 
-3. **Reinitialize the Drive Using `diskpart`**
-   - Open Command Prompt as Administrator:
-     ```cmd
-     diskpart
-     ```
-   - List all disks:
-     ```cmd
-     list disk
-     ```
-   - Identify the USB drive (e.g., `Disk 1`) and select it:
-     ```cmd
-     select disk X
-     ```
-     Replace `X` with the number of your USB drive.
+2.  **Start Diskpart**
+    Enter the disk partition utility:
+    ```cmd
+    diskpart
+    ```
 
-   - Clean the drive:
-     ```cmd
-     clean
-     ```
+3.  **List and Select the Drive**
+    * View all connected disks:
+        ```cmd
+        list disk
+        ```
+    * **Crucial Step:** Identify your USB drive based on the **Size** column (e.g., 14 GB for a 16GB drive).
+    * Select the drive (replace `X` with your USB's number, e.g., `Disk 2`):
+        ```cmd
+        select disk X
+        ```
 
-   - Create a new partition:
-     ```cmd
-     create partition primary
-     ```
+4.  **Wipe and Reformat**
+    Run the following commands one by one:
 
-   - Format the drive as FAT32:
-     ```cmd
-     format fs=fat32 quick
-     ```
+    * **Wipe the partition table** (This deletes everything):
+        ```cmd
+        clean
+        ```
+    * **Create a new primary partition**:
+        ```cmd
+        create partition primary
+        ```
+    * **Format as FAT32** (Compatible with everything):
+        ```cmd
+        format fs=fat32 quick
+        ```
+    * **Assign a drive letter** (Makes it visible in Explorer):
+        ```cmd
+        assign
+        ```
 
-   - Assign a drive letter:
-     ```cmd
-     assign
-     ```
-
-   - Exit diskpart:
-     ``` cmd
-     exit
-     ```
-
-4. **Verify the USB Drive**
-   - Open File Explorer, and the USB drive should now appear and be usable.
+5.  **Exit**
+    ```cmd
+    exit
+    ```
+    Your USB drive should now appear in File Explorer as a normal, empty drive.
 
 ---
 
 ## Reinitialize USB Drive on Linux
 
-1. **Insert the USB Drive**
-   - Plug your USB drive into the system.
+We will use `fdisk` to create a fresh partition table and `mkfs` to format it.
 
-2. **Identify the USB Drive**
-   - Open a terminal and run:
-     ```bash
-     lsblk
-     ```
-   - Identify your USB drive (e.g., `/dev/sdX`, where `X` is the device letter).
+1.  **Identify the USB Drive**
+    Plug in the USB and check the device list:
+    ```bash
+    lsblk
+    ```
+    Identify your drive (e.g., `/dev/sdb`). **Do not use `/dev/sda`** (usually your OS).
 
-3. **Uninstall the Drive**
-   - Unmount any mounted partitions:
-     ```bash
-     sudo umount /dev/sdX*
-     ```
+2.  **Unmount the Drive**
+    If the OS auto-mounted any partitions, unmount them (replace `/dev/sdX` with your drive identifier):
+    ```bash
+    sudo umount /dev/sdX*
+    ```
 
-4. **Use `fdisk` to Reinitialize**
-   - Open `fdisk`:
-     ```bash
-     sudo fdisk /dev/sdX
-     ```
-   - Delete all existing partitions:
-     - Type `d` to delete a partition. Repeat until all partitions are deleted.
-   - Create a new partition:
-     - Type `n` to create a new partition.
-     - Follow the prompts to accept the defaults.
-   - Write the changes and exit:
-     - Type `w` and hit Enter.
+3.  **Reset Partition Table with `fdisk`**
+    Open the drive in fdisk:
+    ```bash
+    sudo fdisk /dev/sdX
+    ```
 
-5. **Format the USB Drive**
-   - Format the new partition as FAT32:
-     ```bash
-     sudo mkfs.vfat /dev/sdX1
-     ```
+    Inside the `fdisk` prompt, type the following letters in order:
+    1.  **`o`** : Creates a new, empty DOS partition table (this instantly wipes the old hybrid ISO structure).
+    2.  **`n`** : Creates a new partition.
+        * Press **Enter** (Select 'primary').
+        * Press **Enter** (Default partition number).
+        * Press **Enter** (First sector).
+        * Press **Enter** (Last sector / use full disk).
+    3.  **`w`** : Writes the changes to disk and exits.
 
-6. **Verify the USB Drive**
-   - Reinsert the USB, and it should now be usable.
+4.  **Format the New Partition**
+    Format the newly created partition (`sdX1`) to FAT32:
+    ```bash
+    sudo mkfs.vfat -F 32 -n "MY_USB" /dev/sdX1
+    ```
+    *(Note: Ensure you target the partition `sdX1`, not the whole disk `sdX`)*.
+
+5.  **Finished**
+    Remove and re-insert the USB drive. It is now ready for normal use.
 
 ---
 
 ## Additional Notes
 
-- If your USB drive is still not recognized, double-check the device identifier (e.g., `/dev/sdX` or `Disk X`) to ensure you worked on the correct drive.
-- You can also use GUI tools like GParted on Linux or Rufus on Windows for reinitializing the USB drive.
+* **GUI Alternatives:** If you prefer graphical tools:
+    * **Windows:** You can use [Rufus](https://rufus.ie/). Select "Boot selection: Non bootable" to format it back to normal.
+    * **Linux:** You can use **GParted**. Select the USB device -> Device -> Create Partition Table -> msdos -> Apply.
+    
