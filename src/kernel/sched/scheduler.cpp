@@ -68,6 +68,7 @@ void sched::zombie_reaper() {
 
         // If we found a zombie, free it
         if (z) {
+            // kprintf(RGB_COLOR_GREEN, "Reaping process %u (%s)\n", z->get_pid(), z->get_name());
             if (z->get_stack()) {
                 pmm::free_frame(z->get_stack());
             }
@@ -83,7 +84,7 @@ void sched::exit_current_process() {
     if (!curr_process || curr_process->get_pid() == 0) {
         return; // Can't exit idle process
     }
-    
+
     // Just call exit on the process, it handles state change and schedule call
     curr_process->exit();
 }

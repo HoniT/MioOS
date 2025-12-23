@@ -66,9 +66,13 @@ Process* Process::create(void (*entry)(), uint32_t priority, const char* process
     
     // Calculate stack top (stack grows downward)
     uint32_t stack_top = (uint32_t)stack_bottom + KERNEL_PROCESS_STACK_SIZE;
+
+    // AUTOMATIC EXIT
+    stack_top -= sizeof(uint32_t); 
+    *((uint32_t*)stack_top) = (uint32_t)sched::exit_current_process;
     
     // Set context registers
-    proc->ctx.esp = stack_top;  // Top of stack
+    proc->ctx.esp = stack_top;
     proc->ctx.eip = (uint32_t)entry;
     proc->ctx.eflags = KERNEL_PROCESS_EFLAGS;
     proc->ctx.cs = 0x08;
