@@ -15,6 +15,7 @@
 #include <graphics/vga_print.hpp>
 #include <lib/data/queue.hpp>
 #include <lib/string_util.hpp>
+#include <lib/math.hpp>
 
 template <typename Func>
 inline void atomic_procedure(Func function) {
@@ -34,16 +35,22 @@ static uint32_t next_pid = 0;
 uint32_t alloc_pid() { return next_pid++; }
 
 /// @brief Creates a kernel process
-Process* Process::create(void (*entry)(), const uint32_t priority, const char* process_name) {
+/// @param entry Function that the process will do
+/// @param priority Process priority 1-10
+Process* Process::create(void (*entry)(), uint32_t priority, const char* process_name) {
     Process* proc = (Process*)kcalloc(1, sizeof(Process));
 
     proc->pid = alloc_pid();
     proc->name = (strcmp(process_name, "") == 0) ? 
         strcat("Kernel Process ", num_to_string(proc->pid)) : process_name;
+
+    // Putting valid priority
+    priority = range(priority, PROCESS_MIN_PRIORITY, PROCESS_MAX_PRIORITY);
     
     proc->state = PROCESS_READY;
     proc->priority = priority;
-    proc->time_slice = TIME_QUANTUM;
+    // Weighted round robin
+    proc->time_slice = TIME_QUANTUM * priority;
 
     proc->pd = vmm::get_active_pd();
     proc->ctx.cr3 = (uint32_t)vmm::virtual_to_physical((uint32_t)proc->pd);
@@ -84,7 +91,7 @@ Process* Process::create(void (*entry)(), const uint32_t priority, const char* p
 
 /// @brief Starts executing a kernel process
 void Process::start(void) {
-    this->state = PROCESS_RUNNING;
+    this->state = PROCESS_READY;
 
     // Adding to process queue, scheduler will do the rest
     atomic_procedure([this](){
@@ -101,7 +108,7 @@ void Process::exit(void) {
     sched::schedule();
     
     // Should never reach here
-    for(;;);
+    for(;;) asm volatile("hlt");
 }
 
 void Process::yield(void) {
@@ -120,6 +127,7 @@ uint32_t Process::get_time_slice() { return this->time_slice; }
 const char* Process::get_name() { return this->name; }
 ProcessState Process::get_state() { return this->state; }
 
-void Process::set_time_slice() { this->time_slice = TIME_QUANTUM; }
-void Process::decrement_time_slice() { atomic_procedure([this](){this->time_slice--;}); }
+void Process::set_time_slice() { this->time_slice = TIME_QUANTUM * this->priority; }
+void Process::decrement_time_slice() { if(this->time_slice > 0) this->time_slice--; }
 void Process::set_state(ProcessState state) { this->state = state; }
+void Process::set_priority(uint8_t p) { priority = p; }

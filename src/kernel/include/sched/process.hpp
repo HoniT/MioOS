@@ -14,7 +14,10 @@
 #define KERNEL_PROCESS_STACK_SIZE 8192
 #define KERNEL_PROCESS_EFLAGS 0x202
 
-#define TIME_QUANTUM 10
+#define TIME_QUANTUM 5
+
+#define PROCESS_MIN_PRIORITY 1
+#define PROCESS_MAX_PRIORITY 10
 
 #define KERNEL_ERROR_PID 0xFFFFFFFF
 
@@ -44,14 +47,14 @@ private:
 
 public:
     // Creates a process
-    static Process* create(void (*entry)(), const uint32_t priority, const char* name = "");
+    static Process* create(void (*entry)(), uint32_t priority, const char* name = "");
     Process() 
         : pid(KERNEL_ERROR_PID), stack(nullptr), pd(nullptr), name(""), state(PROCESS_READY),
-        priority(0), time_slice(TIME_QUANTUM) { }
+        priority(PROCESS_MIN_PRIORITY), time_slice(TIME_QUANTUM) { }
     
     void start(void);
     void exit(void);
-    void yield(void);
+    static void yield(void);
 
     // Getters
     context_t* get_ctx();
@@ -67,6 +70,7 @@ public:
     void set_time_slice();
     void decrement_time_slice();
     void set_state(ProcessState state);
+    void set_priority(uint8_t p);
 };
 
 #endif // PROCESS_HPP

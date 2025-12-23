@@ -34,6 +34,16 @@ int max(int* nums) {
     return max;
 }
 
+/// @brief Puts a given number into a range
+/// @param num Number to put in range
+/// @param start Range start
+/// @param end Range end
+int range(int num, int start, int end) {
+    if(num >= start && num <= end) return num;
+    else if(num < start) return start;
+    else return end;
+}
+
 // Turns a char* hex number to a uint32_t
 uint32_t hex_to_uint32(const char* hexStr) {
     uint32_t result = 0;

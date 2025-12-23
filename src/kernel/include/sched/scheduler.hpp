@@ -18,6 +18,7 @@ struct InterruptRegisters;
 namespace sched {
     void init();
     void exit_current_process();
+    void zombie_reaper();
     void schedule();
 } // namespace sched
 

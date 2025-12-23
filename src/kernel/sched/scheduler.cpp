@@ -12,7 +12,7 @@
 #include <x86/interrupts/kernel_panic.hpp>
 #include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
-#include <mm/pmm.hpp> // Required for pmm::free_frame
+#include <mm/pmm.hpp>
 
 // Helper funcitons
 
@@ -25,12 +25,11 @@ inline void atomic_procedure(Func function) {
 
 Process* curr_process;
 data::queue<Process*> process_queue;
-static Process* zombie_process = nullptr; // Process waiting to be reaped
+static data::queue<Process*> zombie_queue; // Processes waiting to be reaped
 
 /// Idle process used to have a valid curr_process when nothing else runs
 static void kernel_idle(void) {
     for (;;) {
-        // Must enable interrupts so the Timer IRQ can wake us up to switch tasks!
         asm volatile("sti"); 
         asm volatile("hlt");
     }
@@ -42,15 +41,42 @@ static Process* kernel_idle_process;
 /// @brief Initializes scheduler
 void sched::init() {
     // Creating kernel idle process to keep scheduler busy
-    kernel_idle_process = Process::create(kernel_idle, 0, "Kernel Idle Process");
+    kernel_idle_process = Process::create(kernel_idle, 1, "Kernel Idle Process");
     curr_process = kernel_idle_process;
-    // curr_process->start();
+    curr_process->start();
 
+    Process* zombie_reaper = Process::create(sched::zombie_reaper, 1, "Zombie Process Reaper");
+    zombie_reaper->start();
+    
     if(!curr_process || curr_process->get_pid() == KERNEL_ERROR_PID) {
         kprintf(LOG_ERROR, "Failed to initialize Scheduler! (Couldn't create kernel idle process)\n");
         kernel_panic("Fatal component failed to initialize!");
     }
     else kprintf(LOG_INFO, "Implemented Scheduler\n");
+    sched::schedule();
+}
+
+/// @brief Terminates zombie processes, will run on seperate kernel thread
+void sched::zombie_reaper() {
+    while (true) {
+        Process* z = nullptr;
+        asm volatile("cli");
+        if (!zombie_queue.empty()) {
+            z = zombie_queue.pop();
+        }
+        asm volatile("sti");
+
+        // If we found a zombie, free it
+        if (z) {
+            if (z->get_stack()) {
+                pmm::free_frame(z->get_stack());
+            }
+            kfree(z);
+        } 
+        else {
+            Process::yield();
+        }
+    }
 }
 
 void sched::exit_current_process() {
@@ -63,96 +89,49 @@ void sched::exit_current_process() {
 }
 
 void sched::schedule() {
-    // 1. REAP ZOMBIES
-    // If we have a process that died in the previous switch, free it now
-    if (zombie_process) {
-        if (zombie_process->get_stack()) {
-             pmm::free_frame(zombie_process->get_stack());
-        }
-        kfree(zombie_process);
-        zombie_process = nullptr;
-    }
-
     if(!curr_process) {
         return;
     }
 
     Process* old_process = curr_process;
-    // If empty continue with old task (unless it terminated)
-    if(process_queue.empty()) {
-        if(old_process->get_state() == PROCESS_RUNNING) {
-            old_process->set_time_slice();
-            return; 
-        } else if (old_process->get_state() == PROCESS_TERMINATED) {
-             // Terminated but queue empty, switch to idle
-        } else {
-             return;
-        }
-    }
-
-    // Finding next valid process by priotrity
-    data::queue<Process*> temp_queue;
-    uint32_t highest_priority = 0;
     Process* next = nullptr;
 
-    while (!process_queue.empty()) {
-        Process* p = process_queue.pop();
-
-        // Skip terminated processes that might be lingering
-        if (p->get_state() == PROCESS_TERMINATED) {
-            // Free the process
-            if (p->get_stack()) pmm::free_frame(p->get_stack());
-            kfree(p);
-            continue;
-        }
-
-        temp_queue.push(p);
-        
-        if (p->get_priority() >= highest_priority) {
-            highest_priority = p->get_priority();
-            next = p;
-        }
-    }
-    // Restore queue and remove selected task
-    while (!temp_queue.empty()) {
-        Process* p = temp_queue.pop();
-        if (p != next) {
-            process_queue.push(p);
-        }
+    // 2. SELECT NEXT PROCESS
+    if (!process_queue.empty()) {
+        // Standard Round Robin: Pop the head. 
+        // We will push old_process to the tail later if it's still running.
+        next = process_queue.pop(); 
     }
 
-    // If no valid process found, switch to idle
+    // 3. HANDLE NO NEXT PROCESS FOUND
     if (!next) {
-        // If old_process is running, just keep running it
+        // If queue is empty, checks if the OLD process can still run
         if (old_process->get_state() == PROCESS_RUNNING && old_process != kernel_idle_process) {
-             old_process->set_time_slice();
-             return;
+            old_process->set_time_slice();
+            return;
         }
-
-        kprintf(LOG_INFO, "[SCHED] No runnable processes, switching to idle\n");
         
         next = kernel_idle_process;
-        next->set_state(PROCESS_RUNNING);
     }
 
-    // Updating states
-    if(old_process->get_state() == PROCESS_RUNNING && old_process != next) {
-        // Not adding kernel idle
-        if(old_process->get_pid() != 0) {
+    // 4. UPDATE OLD PROCESS STATE
+    if(old_process->get_state() == PROCESS_RUNNING) {
+        // If it was running, and we are switching away, put it back in queue (Tail)
+        if (old_process != next && old_process != kernel_idle_process) {
             old_process->set_state(PROCESS_READY);
             process_queue.push(old_process);
         }
     }
     else if (old_process->get_state() == PROCESS_TERMINATED) {
-        // Mark for reaping on next schedule
-        zombie_process = old_process;
+        // Mark for reaping
+        zombie_queue.push(old_process);
     }
 
+    // 5. CONTEXT SWITCH
     next->set_state(PROCESS_RUNNING);
     next->set_time_slice();
     curr_process = next;
 
-    // Perform context switch
     if (old_process != next) {
         ctx_switch(old_process->get_ctx(), next->get_ctx());
     }

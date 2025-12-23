@@ -33,20 +33,20 @@
 #include <sched/scheduler.hpp>
 #include <tests/unit_tests.hpp>
 
-void processA() {
-    for(;;) 
-        kprintf(RGB_COLOR_RED, "A", curr_process->get_time_slice());
-        // sched::schedule();
-    sched::exit_current_process();
-}
+// void processA() {
+//     for(int i = 0; i < 50000; i++) 
+//         kprintf(RGB_COLOR_RED, "A", curr_process->get_time_slice());
+//         // sched::schedule();
+//     sched::exit_current_process();
+// }
 
-void processB() {
-    // int i = 0; i < 5; i++
-    for(;;) 
-        kprintf(RGB_COLOR_BLUE, "B", curr_process->get_time_slice());
-        // sched::schedule();
-    sched::exit_current_process();
-}
+// void processB() {
+//     // int i = 0; i < 5; i++
+//     for(int i = 0; i < 50000; i++) 
+//         kprintf(RGB_COLOR_BLUE, "B", curr_process->get_time_slice());
+//         // sched::schedule();
+//     sched::exit_current_process();
+// }
 
 
 const char* kernel_version = "MioOS kernel 1.0 (Alpha)";
@@ -77,20 +77,19 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     pit::init(); // Programmable Interval Timer
     kbrd::init(); // Keyboard drivers
     
-    sched::init();
-
-    // Process* p1 = Process::create(processA, 10, "Kernel Test Process 1");
-    // p1->start();
-    // Process* p2 = Process::create(processB, 10, "Kernel Test Process 2");
-    // p2->start();
-    sched::schedule();
-
     // Initializing File System, storage drivers...
     device_init();
     ata::init();
     // Finds system disk (the one MioOS is on) and sets up the VFS accordingly
     sysdisk::get_sysdisk(mbi);
+
+    // Scheduler/multitasking
+    sched::init();
     
     // Kernel CLI and other 
-    cmd::init();
+    // Process::create(processA, 1, "Kernel test")->start();
+    // Process::create(processB, 1, "Kernel test 2")->start();
+    Process::create(cmd::init, 10, "Kernel Command Line")->start();
+    
+    for(;;);
 }

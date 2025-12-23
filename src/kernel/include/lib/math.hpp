@@ -17,6 +17,7 @@ int min(int a, int b);
 int max(int a, int b);
 int min(int* nums);
 int max(int* nums);
+int range(int num, int start, int end);
 
 uint32_t hex_to_uint32(const char* hexStr);
 uint64_t hex_to_uint64(const char* hexStr);

@@ -12,11 +12,12 @@ export PATH="$PREFIX/bin:$PATH"
 
 # Building project
 echo "Compiling kernel..."
+rm -f iso/mio_os.iso
+rm -f iso/boot/mio_os.elf
 make all
 
 # Making ISO
 echo "Making ISO image..."
-rm -f iso/mio_os.iso iso/
 grub-mkrescue -o iso/mio_os.iso iso/
 
 # Running project with QEMU (KVM) and 8GiB of RAM intialized
