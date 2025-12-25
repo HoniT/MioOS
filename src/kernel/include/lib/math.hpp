@@ -8,7 +8,6 @@
 
 #include <stdint.h>
 
-#define BYTES_IN_GIB 1073741824
 
 // Math utility functions 
 

@@ -30,6 +30,9 @@ namespace pmm {
     extern uint64_t total_used_ram;
     extern uint64_t hardware_reserved_ram;
     extern uint64_t total_installed_ram;
+    uint32_t get_kernel_addr();
+    uint32_t get_kernel_end();
+    uint32_t get_kernel_size();
 
     // Linked list heads
     extern MetadataNode* low_alloc_mem_head;
@@ -48,8 +51,6 @@ namespace pmm {
     void* alloc_frame(const uint64_t num_blocks, bool identity_map = true);
     void free_frame(void* ptr);
 
-    // Terminal functions
-    void getmeminfo(data::list<data::string> params);
 } // Namespace pmm
 
 #endif // PMM_HPP

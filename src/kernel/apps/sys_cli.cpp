@@ -40,6 +40,6 @@ void cmd::sys_cli::uptime() {
 }
 
 void cmd::sys_cli::currtime() {
-    kprintf("Date (DD/MM/YY): %u/%u/%u Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), 
+    kprintf("Date (DD/MM/YY): %u/%u/%u (%s) Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), weekdays[rtc::get_weekday()],
     rtc::get_hour(), rtc::get_minute(), rtc::get_second());
 }

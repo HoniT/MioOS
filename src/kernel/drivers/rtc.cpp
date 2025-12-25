@@ -56,16 +56,6 @@ inline uint8_t rtc::bcd_to_bin(uint8_t val) {
     return ((val >> 4) * 10) + (val & 0x0F);
 }
 
-char* weekdays[7] = {
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday"
-};
-
 // Gets UNIX timestamp time 
 uint32_t rtc::get_unix_timestamp() {
     // Read CMOS values
@@ -171,12 +161,6 @@ data::string rtc::timestamp_to_string(uint32_t ts) {
     append_number(seconds, 2);
 
     return out;
-}
-
-// Prints current time
-void rtc::print_time(data::list<data::string> params) {
-    kprintf("Date (DD/MM/YY): %u/%u/%u (%s) Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), weekdays[rtc::get_weekday() - 1], 
-    rtc::get_hour(), rtc::get_minute(), rtc::get_second());
 }
 
 char* rtc::get_time() {

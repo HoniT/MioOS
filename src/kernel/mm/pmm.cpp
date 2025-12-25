@@ -18,6 +18,11 @@
 
 // Getting the kernels physical starting address from the linker script
 extern "C" uint32_t __kernel_phys_base;
+uint32_t pmm::get_kernel_addr() {return uint32_t(&__kernel_phys_base);}
+extern "C" uint32_t __kernel_end;
+uint32_t pmm::get_kernel_end() {return uint32_t(&__kernel_end);}
+extern "C" uint32_t __kernel_size;
+uint32_t pmm::get_kernel_size() {return uint32_t(&__kernel_size);}
 
 // Amount of certain types of memory
 uint64_t pmm::total_usable_ram = 0;
@@ -136,9 +141,9 @@ void pmm::manage_mmap(void* _mb2_info) {
                 low_alloc_mem_head->next = vmm::pae_paging ? high_alloc_mem_head : nullptr; 
                 low_alloc_mem_head->prev = nullptr; // Making this the linked list head
             }
-            /* There is one available mmap entry that starts at 0x0, but we will not use this because
-             * to not conflict with any BIOS info/memory */
-            else pmm::hardware_reserved_ram += entry->len;
+            // /* There is one available mmap entry that starts at 0x0, but we will not use this because
+            //  * to not conflict with any BIOS info/memory */
+            // else pmm::hardware_reserved_ram += entry->len;
         }
         // If the entry is reserved we'll add the size to the total amount of reserved ram
         else pmm::hardware_reserved_ram += entry->len;
@@ -315,35 +320,3 @@ void pmm::free_frame(void* ptr) {
     #endif // VMM_HPP
 }
 
-#pragma region Terminal Functions
-
-void pmm::getmeminfo(data::list<data::string> params) {
-    // If there were no flags inputed
-    if(params.empty()) {
-        // Printing usable and used memory
-        kprintf("Use flag \"-h\" to get evry specific version of getmeminfo.\n");
-        kprintf("Total installed memory:  %llu bytes (~%llu GiB)\n", pmm::total_installed_ram, pmm::total_installed_ram / BYTES_IN_GIB);
-        kprintf("Available usable memory: %llu bytes (~%llu GiB)\n", pmm::total_usable_ram, pmm::total_usable_ram / BYTES_IN_GIB);
-        kprintf("Used memory:                %llu bytes\n", pmm::total_used_ram);
-        kprintf("Hardware reserved memory:   %llu bytes\n", pmm::hardware_reserved_ram);
-        return;
-    }
-
-    // If the user inputed the help flag
-    if(params.at(0).equals("-h")) {
-        // Printing every available version of getmeminfo
-        kprintf("-mmap - Prints the memory map given from GRUB\n");
-        return;
-    }
-
-    // Prints the memory map
-    if(params.at(0).equals("-mmap")) {
-        pmm::print_memory_map();
-        return;
-    }
-
-    // If an invalid flag has been entered we'll throw an error
-    kprintf(LOG_WARNING, "Invalid flag \"%s\"for \"getmeminfo\"!\n", params.at(0));
-}
-
-#pragma endregion

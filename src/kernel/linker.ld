@@ -27,4 +27,7 @@ SECTIONS {
     {
         *(.bss*)
     }
+
+    __kernel_end = .;
+    __kernel_size = . - __kernel_phys_base;
 }

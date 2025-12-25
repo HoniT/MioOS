@@ -8,8 +8,18 @@
 #ifndef MEM_UTIL_HPP
 #define MEM_UTIL_HPP
 
+#define BYTES_IN_GIB 1073741824
+#define BYTES_IN_MIB 1048576
+#define BYTES_IN_KIB 1024
+
 #include <stdint.h>
 #include <stddef.h>
+
+namespace data {
+    class string;
+}
+
+data::string get_units(uint64_t bytes);
 
 // Memory utility functions
 void memset(const void *dest, const char val, uint32_t count);

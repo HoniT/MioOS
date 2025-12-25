@@ -14,6 +14,16 @@
 
 #define RTC_PORT 0x70
 
+constexpr const char* weekdays[7] = {
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday"
+};
+
 namespace rtc {
     uint8_t get_year();
     uint8_t get_month();
@@ -28,8 +38,6 @@ namespace rtc {
     uint32_t get_unix_timestamp();
     data::string timestamp_to_string(uint32_t ts);
     char* get_time();
-    // Terminal functions
-    void print_time(data::list<data::string> params);
 }
 
 #endif // RTC_HPP

@@ -157,19 +157,8 @@ namespace ext2 {
     data::large_string get_file_contents(data::string path);
     bool write_file_content(data::string path, const data::string input, bool overwrite = true);
 
-    // Terminal functions
-    void pwd(data::list<data::string> params);
-    void ls(data::list<data::string> params);
-    void cd(data::list<data::string> params);
-    void mkdir(data::list<data::string> params);
     void make_dir(data::string dir, vfsNode parent, data::tree<vfsNode>::Node* node, uint16_t perms);
-    void mkfile(data::list<data::string> params);
     void make_file(data::string file, vfsNode parent, data::tree<vfsNode>::Node* node, uint16_t perms);
-    void rm(data::list<data::string> params);
-    void check_inode_status(data::list<data::string> params);
-    void cat(data::list<data::string> params);
-    void write_to_file(data::list<data::string> params);
-    void write_to_file_append(data::list<data::string> params);
 } // namespace ext2
 
 #endif // EXT2_HPP

@@ -63,9 +63,6 @@ namespace ata {
     // 400 ns delay
     void delay_400ns(const bool secondary);
     
-    // Terminal Functions
-    void list_ata(data::list<data::string> params);
-    void read_ata(data::list<data::string> params);
 } // namespace ata
 
 // 28 bit PIO mode functions
