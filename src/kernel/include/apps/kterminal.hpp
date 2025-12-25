@@ -11,7 +11,7 @@
 #include <lib/data/list.hpp>
 #include <lib/data/string.hpp>
 
-typedef void (*CommandFunc)(data::list<data::string>);
+typedef void (*CommandFunc)();
 
 #define INPUTS_TO_SAVE 10
 
@@ -35,14 +35,11 @@ namespace cmd {
     extern char* currentUser; // Current user using the terminal
 
     void init(void);
+    void register_command(const char*, const CommandFunc, const char*, const char*);
     void run_cmd(void);
     void save_cmd(void);
     void cmd_up(void);
     void cmd_down(void);
 } // namespace cmd
-
-namespace heap {
-    void heap_dump(data::list<data::string> params);
-}
 
 #endif // KTERMINAL_HPP

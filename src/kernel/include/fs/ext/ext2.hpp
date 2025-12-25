@@ -143,6 +143,7 @@ namespace ext2 {
 
     // Returns a list of VFS nodes of entries in the given dir
     data::list<vfsNode> read_dir(data::tree<vfsNode>::Node* node);
+    bool change_dir(data::string dir);
 
     void clear_bitmap_bit(uint8_t* bitmap, uint32_t bit);
 
@@ -150,6 +151,8 @@ namespace ext2 {
     void rewrite_bgds(ext2_fs_t* fs);
     // Rewrites superblock of a FS
     void rewrite_sb(ext2_fs_t* fs);
+
+    void remove_entry(data::tree<vfsNode>::Node* node_to_remove);
 
     data::large_string get_file_contents(data::string path);
     bool write_file_content(data::string path, const data::string input, bool overwrite = true);

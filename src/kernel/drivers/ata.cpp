@@ -12,7 +12,6 @@
 #include <x86/interrupts/idt.hpp>
 #include <graphics/vga_print.hpp>
 #include <x86/io.hpp>
-#include <kterminal.hpp>
 #include <lib/string_util.hpp>
 #include <lib/data/string.hpp>
 

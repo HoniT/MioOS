@@ -32,6 +32,7 @@
 MioOS/
 ├── boot/              # Bootloader and GRUB configuration
 ├── kernel/            # Core kernel implementation
+|   ├── apps/          # Kernel CLI, CLI apps...
 │   ├── arch/          # Architecture-specific code
 │   │   ├── interrupts/    # IDT and interrupt handling
 │   │   └── sched/         # Architecture-specific scheduling

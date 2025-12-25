@@ -6,3 +6,5 @@
 *.elf
 *.iso
 *.img
+
+/build/

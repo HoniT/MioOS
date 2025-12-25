@@ -102,6 +102,11 @@ namespace data {
             length++;
         }
 
+        /// @brief Adds a value to list
+        void add(const T& value) {
+            push_back(value);
+        }
+
         /// @brief Removes last element from list
         void pop_back() {
             if (length > 0) {

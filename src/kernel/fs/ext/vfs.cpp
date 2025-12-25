@@ -10,7 +10,6 @@
 #include <fs/ext/inode.hpp>
 #include <fs/ext/ext2.hpp>
 #include <graphics/vga_print.hpp>
-#include <kterminal.hpp>
 #include <lib/data/tree.hpp>
 #include <lib/data/string.hpp>
 #include <lib/path_util.hpp>

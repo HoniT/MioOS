@@ -17,7 +17,7 @@
 #include <drivers/vga.hpp>
 #include <x86/interrupts/kernel_panic.hpp>
 #include <drivers/rtc.hpp>
-#include <kterminal.hpp>
+#include <apps/kterminal.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/data/string.hpp>
 #include <lib/data/large_string.hpp>
@@ -370,7 +370,7 @@ ext2_perms ext2::get_perms(const inode_t* inode, const uint32_t uid, const uint3
 /// @brief cd (Change directory) logic
 /// @param dir Dir to change to
 /// @return If we could change to the dir
-bool change_dir(data::string dir) {
+bool ext2::change_dir(data::string dir) {
     // Current dir, no need to change anything
     if(dir.equals(".")) return true;
     
@@ -818,7 +818,7 @@ void remove_dir_entry(ext2_fs_t* fs, inode_t* parent_inode, data::string name, u
 
 /// @brief Removes a directory entry
 /// @param node_to_remove Node to remove
-void remove_entry(treeNode* node_to_remove) {
+void ext2::remove_entry(treeNode* node_to_remove) {
     vfsNode parent_node = node_to_remove->parent->data;
     vfsNode node = node_to_remove->data;
     if(!node_to_remove || node.path.empty() || !node.fs || !node.inode) {

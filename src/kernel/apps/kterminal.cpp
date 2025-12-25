@@ -6,11 +6,14 @@
 // In charge of the legacy kernel level terminal
 // ========================================
 
-#include <kterminal.hpp>
+#include <apps/kterminal.hpp>
 #include <graphics/vga_print.hpp>
 #include <drivers/vga.hpp>
 #include <drivers/keyboard.hpp>
 #include <mm/heap.hpp>
+#include <apps/mem_cli.hpp>
+#include <apps/sys_cli.hpp>
+#include <apps/storage_cli.hpp>
 #include <mm/pmm.hpp>
 #include <mm/vmm.hpp>
 #include <x86/cpuid.hpp>
@@ -38,42 +41,12 @@ const char* get_current_input() {
 }
 
 // Basic command function declarations
-void help(data::list<data::string> params);
-void clear(data::list<data::string> params);
-void echo(data::list<data::string> params);
-// System info commands
-void getsysinfo(data::list<data::string> params);
-// Memory debugging commands
-void peek(data::list<data::string> params);
-void poke(data::list<data::string> params);
+void help();
+void clear();
+void echo();
 
 // List of commands
-Command commands[] = {
-    {"help", help, "", " - Prints available commands"},
-    {"clear", clear, "", " - Clears the screen"},
-    {"echo", echo, " <message>", " - Writes a given message back to the terminal"},
-    // For system information
-    {"getsysinfo", getsysinfo, "", " - Prints system software and hardware information"},
-    {"getmeminfo", pmm::getmeminfo, "", " - Prints system memory info"},
-    {"getuptime", pit::getuptime, "", " - Prints how much time the systems been on since booting"},
-    {"gettime", rtc::print_time, "", " - Prints current time"},
-    // Memory debugging commands
-    {"peek", peek, " <address>", " - Prints a value at a given physical address"},
-    {"poke", poke, " <address> <value>", " - Writes to a given address a given value"},
-    {"heapdump", heap::heap_dump, "", " - Prints the allocation status of blocks in the heap"},
-    // Storage commands
-    {"read_ata", ata::read_ata, " -dev <device_index> -sect <sector_index>", " - Prints a given sector of a given ATA device"},
-    {"lsata", ata::list_ata, "", " - Lists available ATA devices"},
-    {"pwd", ext2::pwd, "", " - Prints working directory"},
-    {"ls", ext2::ls, "", " - Lists entries of the current directory"},
-    {"cd", ext2::cd, " <dir>", " - Changes directory to given dir"},
-    {"mkdir", ext2::mkdir, " <dir>", " - Creates a directory in the current dir"},
-    {"mkfile", ext2::mkfile, " <file>", " - Creates a file in the current dir"},
-    {"rm", ext2::rm, " <file>", " - Removes (deletes) a directory/directory entry"},
-    {"cat", ext2::cat, " <file>", " - Prints file contents"},
-    {"write", ext2::write_to_file, " <file> <content>", " - Writes something to a file"},
-    {"append", ext2::write_to_file_append, " <file> <content>", " - Append something to a file"}
-};
+data::list<Command> commands = data::list<Command>();
 
 // Saving inputs
 char* saved_inputs[INPUTS_TO_SAVE]; // This is the saved inputs
@@ -129,11 +102,28 @@ void kterminal_handle_input() {
     }
 }
 
+/// @brief Adds/Registers a command to kterminal command list
+void cmd::register_command(const char* name,
+    CommandFunc function,
+    const char* params,
+    const char* description) {
+    if(!name || strcmp(name, ""), !function) return;
+
+    commands.add({name, function, params, description});
+}
 
 // Initializes the terminal
 void cmd::init(void) {
     currentInput = (char*)kmalloc(INPUT_MAX_SIZE);
     vfs::currentDir = "/";
+
+    // Registering apps
+    cmd::register_command("help", help, "", " - Prints available command");
+    cmd::register_command("clear", clear, "", " - Clears screen");
+    cmd::register_command("echo", echo, " <message>", " - Prints a message");
+    cmd::mem_cli::register_app();
+    cmd::storage_cli::register_app();
+    cmd::sys_cli::register_app();
 
     // Setting up VGA enviorment for terminal
     kprintf("\n =====================Type \"help\" to get available commands==================== \n");
@@ -164,12 +154,10 @@ void cmd::run_cmd(void) {
     input_read_index = saved_inputs_num;
 
     // Itterating through the commands
-    for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
+    for(int i = 0; i < commands.count(); i++) {
         // If the current input and the command at this index match well execute
         if(strcmp(get_first_word(currentInput), commands[i].name) == 0) {
-            data::list<data::string> params = split_string_tokens(get_remaining_string(get_current_input())); 
-            commands[i].function(params);
-            params.~list();
+            commands[i].function();
             
             kprintf(RGB_COLOR_LIGHT_GRAY, "\n%s@MioOS: %S# ", currentUser, vfs::currentDir);
             
@@ -268,9 +256,9 @@ void cmd::cmd_down(void) {
 
 #pragma region Basic Commands
 
-void help(data::list<data::string> params) {
+void help() {
     // Itterating through the commands
-    for(int i = 0; i < sizeof(commands) / sizeof(Command); i++) {
+    for(int i = 0; i < commands.count(); i++) {
         kprintf(RGB_COLOR_LIGHT_BLUE, "%s", commands[i].name);
         kprintf(RGB_COLOR_BLUE, "%s", commands[i].params);
         kprintf("%s\n", commands[i].description);
@@ -279,63 +267,14 @@ void help(data::list<data::string> params) {
     return;
 }
 
-void getsysinfo(data::list<data::string> params) {
-    // RAM
-    kprintf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
 
-    // CPU
-    kprintf("CPU Vendor: %s\n", cpu_vendor);
-    kprintf("CPU Model: %s\n", cpu_model_name);
-
-    // Kernel
-    kprintf("\n---Software---\nKernel Version: %s\n", kernel_version);
-
-    return;
-}
-
-void clear(data::list<data::string> params) {
+void clear() {
     vga::clear_screen();
     kprintf(" =====================Type \"help\" to get available commands==================== \n");
 }
 
-void echo(data::list<data::string> params) {
+void echo() {
     kprintf("%s\n", get_remaining_string(currentInput));
-}
-
-void peek(data::list<data::string> params) {
-    // Getting the address from the input
-    const char* strAddress = params.at(0);
-    uint32_t address = hex_to_uint32(strAddress);
-    #ifdef VMM_HPP
-    if(!vmm::is_mapped(address)) {
-        kprintf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
-        return;
-    }
-    #endif
-    // Printing the value
-    kprintf("Value at the given address: %x\n", *(uint32_t*)address);
-}
-
-void poke(data::list<data::string> params) {
-    if(params.count() != 2) {
-        kprintf(LOG_WARNING, "Syntax: poke <address> <value>\n");
-        return;
-    }
-
-    // Getting address and value from the input
-    const char* strAddress = params.at(0);
-    uint32_t address = hex_to_uint32(strAddress);
-    #ifdef VMM_HPP
-    if(!vmm::is_mapped(address)) {
-        kprintf(LOG_ERROR, "The given address %x is not mapped in virtual memory!\n", address);
-        return;
-    }
-    #endif
-    const char* strVal = params.at(1);
-    uint8_t val = hex_to_uint32(strVal);
-
-    // Writing the value to the address
-    *(uint8_t*)address = val;
 }
 
 #pragma endregion

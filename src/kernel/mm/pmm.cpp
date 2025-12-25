@@ -11,7 +11,6 @@
 #include <mm/vmm.hpp>
 #include <multiboot.hpp>
 #include <graphics/vga_print.hpp>
-#include <kterminal.hpp>
 #include <x86/interrupts/kernel_panic.hpp>
 #include <lib/math.hpp>
 #include <lib/mem_util.hpp>
@@ -87,24 +86,6 @@ void pmm::print_memory_map(void) {
         // Print memory region information
         kprintf("Memory region: %llx - %llx, Type: %s\n",
                    entry->addr, end_addr, type_str);
-    }
-}
-
-// Prints info of blocks in the allocatable memory regions 
-void pmm::print_usable_regions(void) {
-    // Getting list head
-    MetadataNode* current = low_alloc_mem_head;
-
-    // Iterating through blocks
-    while(current) {
-        // Printing info
-        kprintf("-Block range: %lx-%lx\n", current->addr, current->addr + current->size - 1);
-        kprintf("Block size: %lx\n", current->size);
-        kprintf("Blocks of memory taken up: %d\n", udiv64(current->size, FRAME_SIZE));
-        kprintf("Block status: %s\n", (current->free) ? "Free" : "Allocated");
-
-        // Going to next block
-        current = current->next;
     }
 }
 
@@ -352,19 +333,12 @@ void pmm::getmeminfo(data::list<data::string> params) {
     if(params.at(0).equals("-h")) {
         // Printing every available version of getmeminfo
         kprintf("-mmap - Prints the memory map given from GRUB\n");
-        kprintf("-reg - Prints the blocks in the usable memory regions\n");
         return;
     }
 
     // Prints the memory map
     if(params.at(0).equals("-mmap")) {
         pmm::print_memory_map();
-        return;
-    }
-
-    // Prints block info
-    if(params.at(0).equals("-reg")) {
-        pmm::print_usable_regions();
         return;
     }
 

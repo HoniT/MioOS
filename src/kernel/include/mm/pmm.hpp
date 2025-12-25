@@ -37,8 +37,6 @@ namespace pmm {
 
     // Prints out memory map
     void print_memory_map(void);
-    // Prints info of blocks in the allocatable memory regions 
-    void print_usable_regions(void);
     // Gets the amount of usable RAM in the system
     void manage_mmap(void* _mb_info);
     // Initializes any additional info for the PMM

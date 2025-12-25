@@ -22,7 +22,7 @@ namespace pit {
     void delay(const uint64_t ms);
 
     // Terminal functions
-    void getuptime(data::list<data::string> params);
+    void getuptime();
 } // Namespace pit
 
 #endif // PIT_HPP

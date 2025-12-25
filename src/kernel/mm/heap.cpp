@@ -12,10 +12,10 @@
 #include <x86/interrupts/kernel_panic.hpp>
 #include <lib/mem_util.hpp>
 #include <lib/math.hpp>
-#include <kterminal.hpp>
+#include <apps/kterminal.hpp>
 
 // Start of the heap
-static HeapBlock* heap_head = nullptr;
+HeapBlock* heap::heap_head = nullptr;
 
 // Heap initialization function
 void heap::init(void) {
@@ -42,7 +42,7 @@ void heap::init(void) {
 void* kmalloc(const size_t size) {
     if(size <= 0) return nullptr;
 
-    HeapBlock* current = heap_head; // Setting the current block as the head
+    HeapBlock* current = heap::heap_head; // Setting the current block as the head
 
     // Find a free block with enough space
     while(current) {
@@ -74,7 +74,6 @@ void* kmalloc(const size_t size) {
     }
 
     kprintf(LOG_ERROR, "Not enough heap memory for %u bytes!\n", size);
-    heap::heap_dump();
     return nullptr;
 }
 
@@ -90,7 +89,7 @@ void kfree(void* ptr) {
     block->free = true; // Setting as free
 
     // Merging adjacent free blocks to decrease fragmentation
-    HeapBlock* current = heap_head; // Setting the current blockto the head
+    HeapBlock* current = heap::heap_head; // Setting the current blockto the head
     while(current) {
         // If the current block and the next block are free
         if(current->free && current->next && current->next->free) {
@@ -128,26 +127,4 @@ void* kcalloc(const size_t num, const size_t size) {
     memset(ptr, 0, num * size);
 
     return ptr;
-}
-
-void heap::heap_dump() {
-    kprintf("--------------- Heap Dump ---------------\n");
-
-    HeapBlock* current = heap_head; // Setting the current block as the head
-    uint64_t bytes_in_use = 0;
-    uint32_t allocated_block_num = 0;
-
-    // Itterating through blocks
-    while(current) {
-        if(!current->free) bytes_in_use += current->size;
-        // Getting next block
-        current = current->next;
-    }
-    // Printing final status of heap
-    kprintf("Heap status: %llu bytes used out of %lu (%u%%)\n", bytes_in_use, HEAP_SIZE, udiv64(bytes_in_use * 100, HEAP_SIZE));
-    kprintf("-----------------------------------------\n");
-}
-
-void heap::heap_dump(data::list<data::string> params) {
-    heap::heap_dump();
 }

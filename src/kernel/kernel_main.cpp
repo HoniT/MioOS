@@ -19,7 +19,7 @@
 #include <x86/gdt.hpp>
 #include <x86/cpuid.hpp>
 #include <drivers/pit.hpp>
-#include <kterminal.hpp>
+#include <apps/kterminal.hpp>
 #include <mm/pmm.hpp>
 #include <mm/heap.hpp>
 #ifdef PMM_HPP
