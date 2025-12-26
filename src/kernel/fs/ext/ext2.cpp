@@ -70,6 +70,7 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& e
         if (is_dir) path.append("/");
         
         treeNode* vfsnode = vfs::get_node(path);
+        // Modifying if already exists in VFS
         if(vfsnode) {
             inode_t* inode = vfs::find_inode(fs, path);
             if (!inode) kprintf(LOG_WARNING, "parse_directory_block: No inode for %S\n", name);
@@ -86,6 +87,12 @@ void parse_directory_block(ext2_fs_t* fs, uint8_t* block, data::list<vfsNode>& e
         inode_t* inode = inode = ext2::load_inode(fs, entry->inode);
         if (!inode) kprintf(LOG_WARNING, "parse_directory_block: No inode for %S\n", name);
 
+        // Permission denied (not adding)
+        if(!ext2::get_perms(inode, vfs::currUid, vfs::currGid).read) {
+            offset += entry->entry_size;
+            continue;
+        }
+        
         // Create VFS node
         // Add to VFS tree if not '.' or '..'
         vfsNode node = vfs::add_node(parentNode, name, entry->inode, inode, ext2::curr_fs);
@@ -925,6 +932,11 @@ data::large_string ext2::get_file_contents(data::string path) {
 
     if (INODE_IS_DIR(inode)) {
         kprintf(LOG_WARNING, "cat: \"%S\" is a directory\n", path);
+        return data;
+    }
+
+    if(!ext2::get_perms(inode, vfs::currUid, vfs::currGid).read) {
+        kprintf(LOG_WARNING, "cat: Permission denied\n", path);
         return data;
     }
 

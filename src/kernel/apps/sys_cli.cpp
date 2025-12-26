@@ -13,6 +13,7 @@
 #include <kernel_main.hpp>
 #include <drivers/pit.hpp>
 #include <drivers/rtc.hpp>
+#include <drivers/vga.hpp>
 #include <lib/math.hpp>
 
 void cmd::sys_cli::register_app() {
@@ -23,14 +24,19 @@ void cmd::sys_cli::register_app() {
 
 void cmd::sys_cli::sysinfo() {
     // RAM
-    kprintf("---Hardware---\nRAM: %lu GiB\n", (pmm::total_installed_ram / BYTES_IN_GIB));
-
+    kprintf("---Hardware---\n");
+    kprintf("RAM:               %S\n", get_units(pmm::total_installed_ram));
     // CPU
-    kprintf("CPU Vendor: %s\n", cpu_vendor);
-    kprintf("CPU Model: %s\n", cpu_model_name);
+    kprintf("CPU Vendor:        %s\n", cpu_vendor);
+    kprintf("CPU Model:         %s\n", cpu_model_name);
+    // VGA
+    kprintf("Screen resolution: %ux%u\n", vga::screen_height, vga::screen_width);
 
     // Kernel
-    kprintf("\n---Software---\nKernel Version: %s\n", kernel_version);
+    kprintf("\n---Software---\n");
+    kprintf("Kernel Version:    %s\n", kernel_version);
+    kprintf("Build:             %s at %s\n", __DATE__, __TIME__);
+    kprintf("Compiler:          %s\n", __VERSION__);
 
     return;
 }
@@ -40,6 +46,6 @@ void cmd::sys_cli::uptime() {
 }
 
 void cmd::sys_cli::currtime() {
-    kprintf("Date (DD/MM/YY): %u/%u/%u (%s) Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), weekdays[rtc::get_weekday()],
+    kprintf("Date (DD/MM/YY): %u/%u/%u (%s) Time (UTC): %u:%u:%u\n", rtc::get_day(), rtc::get_month(), rtc::get_year(), weekdays[rtc::get_weekday() - 1],
     rtc::get_hour(), rtc::get_minute(), rtc::get_second());
 }

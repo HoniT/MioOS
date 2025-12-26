@@ -158,6 +158,10 @@ void cmd::storage_cli::mkdir() {
         kprintf(LOG_WARNING, "mkdir: Syntax: mkdir <dir>\n");
         return;
     }
+    if(!ext2::curr_fs) {
+        kprintf(LOG_WARNING, "mkdir: You are not in a valid Ext2 file system\n");
+        return;
+    }
     if(dir.includes("/")) {
         kprintf(LOG_WARNING, "mkdir: Please don't use '/' in a directory name\n");
         return;

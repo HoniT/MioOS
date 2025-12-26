@@ -54,7 +54,7 @@ void cmd::mem_cli::heapdump() {
     }
     // Printing final status of heap
     kprintf("\n--- Heap Memory Usage ---\n");
-    kprintf("Heap size: %S\n", get_units(HEAP_SIZE));
+    kprintf("Heap size:   %S\n", get_units(HEAP_SIZE));
     kprintf("Heap status: %S used\n", get_units(bytes_in_use));
     draw_memory_bar(bytes_in_use, HEAP_SIZE);
 }
@@ -73,17 +73,17 @@ static void print_meminfo(bool verbose) {
 
     if (verbose) {
         kprintf("\n--- Advanced Details ---\n");
-        kprintf("Hardware Reserved: %S\n", get_units(pmm::hardware_reserved_ram));
+        kprintf("Hardware Reserved:             %S\n", get_units(pmm::hardware_reserved_ram));
         kprintf("Kernel physical start address: %x\n", pmm::get_kernel_addr());
-        kprintf("Kernel physical end address: %x\n", pmm::get_kernel_end());
-        kprintf("Kernel size: %S\n", get_units(pmm::get_kernel_size()));
+        kprintf("Kernel physical end address:   %x\n", pmm::get_kernel_end());
+        kprintf("Kernel size:                   %S\n", get_units(pmm::get_kernel_size()));
         kprintf("\n");
-        kprintf("Kernel's active Page Directory: %x\n", vmm::get_active_pd());
-        kprintf("Paging status: %s PAE status: %s\n", vmm::enabled_paging ? "Enabled" : "Disabled",
+        kprintf("Kerne's active Page Directory: %x\n", vmm::get_active_pd());
+        kprintf("Paging status: %s; PAE status: %s\n", vmm::enabled_paging ? "Enabled" : "Disabled",
             vmm::pae_paging ? "Enabled" : "Disabled");
         kprintf("\n");
         kprintf("Kernel heap start address: %x\n", HEAP_START);
-        kprintf("Kernel heap size: %S\n", get_units(HEAP_SIZE));
+        kprintf("Kernel heap size:          %S\n", get_units(HEAP_SIZE));
     }
     kprintf("\n");
 }
