@@ -17,6 +17,8 @@
 #include <lib/string_util.hpp>
 #include <lib/math.hpp>
 
+data::list<Process*> process_log_list;
+
 template <typename Func>
 inline void atomic_procedure(Func function) {
     asm volatile("cli");
@@ -90,12 +92,13 @@ Process* Process::create(void (*entry)(), uint32_t priority, const char* process
     proc->ctx.edi = 0;
     proc->ctx.ebp = 0;
 
+    process_log_list.add(proc);
     return proc;
 }
 
 /// @brief Starts executing a kernel process
 void Process::start(void) {
-    this->state = PROCESS_READY;
+    this->state = PROCESS_RUNNING;
 
     // Adding to process queue, scheduler will do the rest
     atomic_procedure([this](){

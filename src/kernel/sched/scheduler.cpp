@@ -14,15 +14,6 @@
 #include <drivers/vga.hpp>
 #include <mm/pmm.hpp>
 
-// Helper funcitons
-
-template <typename Func>
-inline void atomic_procedure(Func function) {
-    asm volatile("cli");
-    function();
-    asm volatile("sti");
-}
-
 Process* curr_process;
 data::queue<Process*> process_queue;
 static data::queue<Process*> zombie_queue; // Processes waiting to be reaped
@@ -119,7 +110,6 @@ void sched::schedule() {
     if(old_process->get_state() == PROCESS_RUNNING) {
         // If it was running, and we are switching away, put it back in queue (Tail)
         if (old_process != next && old_process != kernel_idle_process) {
-            old_process->set_state(PROCESS_READY);
             process_queue.push(old_process);
         }
     }

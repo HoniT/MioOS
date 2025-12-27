@@ -19,6 +19,7 @@ namespace cmd {
         static void sysinfo();
         static void uptime();
         static void currtime();
+        static void lsprocesses();
     };
 }
 
