@@ -23,20 +23,38 @@ void cmd::sys_cli::register_app() {
 }
 
 void cmd::sys_cli::sysinfo() {
+    vga_section section = vga::create_section({vga::col_num + 20, vga::row_num}, {vga::screen_col_num, vga::row_num + 10});
+
+    // ASCII art
+    kprintf(RGB_COLOR_BLUE, "          ____   \n");
+    kprintf(RGB_COLOR_BLUE, "        ,'  , `. \n");
+    kprintf(RGB_COLOR_BLUE, "     ,-+-,.' _ | \n");
+    kprintf(RGB_COLOR_BLUE, "  ,-+-. ;   , || \n");
+    kprintf(RGB_COLOR_BLUE, " ,--.'|'   |  || \n");
+    kprintf(RGB_COLOR_BLUE, "|   |  ,', |  || \n");
+    kprintf(RGB_COLOR_BLUE, "|   | /  | |  || \n");
+    kprintf(RGB_COLOR_BLUE, "|   | |  | |  |, \n");
+    kprintf(RGB_COLOR_BLUE, "|   | |  | |--'  \n");
+    kprintf(RGB_COLOR_BLUE, "|   | |  | ,     \n");
+    kprintf(RGB_COLOR_BLUE, "|   | |  |/      \n");
+    kprintf(RGB_COLOR_BLUE, "|   | |`-'       \n");
+    kprintf(RGB_COLOR_BLUE, "|   ;/           \n");
+    kprintf(RGB_COLOR_BLUE, "'---'            \n");
+
     // RAM
-    kprintf("---Hardware---\n");
-    kprintf("RAM:               %S\n", get_units(pmm::total_installed_ram));
+    kprintf(section, "---Hardware---\n");
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "RAM: %C%S\n", default_rgb_color, get_units(pmm::total_installed_ram));
     // CPU
-    kprintf("CPU Vendor:        %s\n", cpu_vendor);
-    kprintf("CPU Model:         %s\n", cpu_model_name);
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "CPU Vendor: %C%s\n", default_rgb_color, cpu_vendor);
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "CPU Model: %C%s\n", default_rgb_color, cpu_model_name);
     // VGA
-    kprintf("Screen resolution: %ux%u\n", vga::screen_height, vga::screen_width);
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "Screen resolution: %C%ux%u\n", default_rgb_color, vga::screen_width, vga::screen_height);
 
     // Kernel
-    kprintf("\n---Software---\n");
-    kprintf("Kernel Version:    %s\n", kernel_version);
-    kprintf("Build:             %s at %s\n", __DATE__, __TIME__);
-    kprintf("Compiler:          %s\n", __VERSION__);
+    kprintf(section, "\n---Software---\n");
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "Kernel Version: %C%s\n", default_rgb_color, kernel_version);
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "Build: %C%s at %s\n", default_rgb_color, __DATE__, __TIME__);
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "Compiler: %C%s\n", default_rgb_color, __VERSION__);
 
     return;
 }

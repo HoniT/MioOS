@@ -54,8 +54,8 @@ void cmd::mem_cli::heapdump() {
     }
     // Printing final status of heap
     kprintf("\n--- Heap Memory Usage ---\n");
-    kprintf("Heap size:   %S\n", get_units(HEAP_SIZE));
-    kprintf("Heap status: %S used\n", get_units(bytes_in_use));
+    kprintf(RGB_COLOR_LIGHT_GRAY, "Heap size: %C%S\n", default_rgb_color, get_units(HEAP_SIZE));
+    kprintf(RGB_COLOR_LIGHT_GRAY, "Heap status: %C%S used\n", default_rgb_color, get_units(bytes_in_use));
     draw_memory_bar(bytes_in_use, HEAP_SIZE);
 }
 
@@ -64,26 +64,26 @@ static void print_meminfo(bool verbose) {
 
     kprintf("\n--- Physical Memory Usage ---\n");
     
-    kprintf("Total Installed:  %S\n", get_units(pmm::total_installed_ram));
-    kprintf("Usable RAM:       %S\n", get_units(pmm::total_usable_ram));
-    kprintf("Used RAM:         %S\n", get_units(pmm::total_used_ram));
-    kprintf("Free RAM:         %S\n", get_units(free_ram));
+    kprintf(RGB_COLOR_LIGHT_GRAY, "Total Installed: %C%S\n", default_rgb_color, get_units(pmm::total_installed_ram));
+    kprintf(RGB_COLOR_LIGHT_GRAY, "Usable RAM: %C%S\n", default_rgb_color, get_units(pmm::total_usable_ram));
+    kprintf(RGB_COLOR_LIGHT_GRAY, "Used RAM: %C%S\n", default_rgb_color, get_units(pmm::total_used_ram));
+    kprintf(RGB_COLOR_LIGHT_GRAY, "Free RAM: %C%S\n", default_rgb_color, get_units(free_ram));
 
     draw_memory_bar(pmm::total_used_ram, pmm::total_usable_ram);
 
     if (verbose) {
         kprintf("\n--- Advanced Details ---\n");
-        kprintf("Hardware Reserved:             %S\n", get_units(pmm::hardware_reserved_ram));
-        kprintf("Kernel physical start address: %x\n", pmm::get_kernel_addr());
-        kprintf("Kernel physical end address:   %x\n", pmm::get_kernel_end());
-        kprintf("Kernel size:                   %S\n", get_units(pmm::get_kernel_size()));
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Hardware Reserved: %C%S\n", default_rgb_color, get_units(pmm::hardware_reserved_ram));
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Kernel physical start address: %C%x\n", default_rgb_color, pmm::get_kernel_addr());
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Kernel physical end address: %C%x\n", default_rgb_color, pmm::get_kernel_end());
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Kernel size: %C%S\n", default_rgb_color, get_units(pmm::get_kernel_size()));
         kprintf("\n");
-        kprintf("Kerne's active Page Directory: %x\n", vmm::get_active_pd());
-        kprintf("Paging status: %s; PAE status: %s\n", vmm::enabled_paging ? "Enabled" : "Disabled",
-            vmm::pae_paging ? "Enabled" : "Disabled");
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Kerne's active Page Directory: %C%x\n", default_rgb_color, vmm::get_active_pd());
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Paging status: %C%s; PAE status: %C%s\n", default_rgb_color, vmm::enabled_paging ? "Enabled" : "Disabled", 
+            default_rgb_color, vmm::pae_paging ? "Enabled" : "Disabled");
         kprintf("\n");
-        kprintf("Kernel heap start address: %x\n", HEAP_START);
-        kprintf("Kernel heap size:          %S\n", get_units(HEAP_SIZE));
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Kernel heap size: %C%S\n", default_rgb_color, get_units(HEAP_SIZE));
+        kprintf(RGB_COLOR_LIGHT_GRAY, "Kernel heap start address: %C%x\n", default_rgb_color, HEAP_START);
     }
     kprintf("\n");
 }

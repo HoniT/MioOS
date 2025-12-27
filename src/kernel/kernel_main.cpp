@@ -33,7 +33,7 @@
 #include <sched/scheduler.hpp>
 #include <tests/unit_tests.hpp>
 
-const char* kernel_version = "MioOS kernel 1.0 (Alpha)";
+const char* kernel_version = "MioOS kernel 1.1 (Alpha)";
 extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     // Managing GRUB multiboot error
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {

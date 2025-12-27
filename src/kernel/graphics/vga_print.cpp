@@ -18,11 +18,48 @@
 int vga::col_num = 0;
 int vga::row_num = 0;
 
+// Current VGA text section (null if whole screen)
+static vga_section* curr_section = nullptr;
+
 #pragma region Additional screen functions
+
+/// @brief Creates a VGA text section
+/// @param startX Start X coordinate (NOT COLUMN)
+/// @param startY Start Y coordinate (NOT ROW)
+/// @param endX End X coordinate (NOT COLUMN)
+/// @param endY End Y coordinate (NOT ROW)
+vga_section vga::create_section(uint32_t startX, uint32_t startY, uint32_t endX, uint32_t endY) {
+    return vga_section(startX, startY, endX, endY);
+}
+
+/// @brief Creates a VGA text section
+/// @param start Start VGA coords (COL, ROW)
+/// @param end End VGA coords (COL, ROW)
+vga_section vga::create_section(vga_coords start, vga_coords end) {
+    return vga_section(start.col * font_width, start.row * font_height, (end.col + 1) * font_width, (end.row + 1) * font_height);
+}
 
 /// @brief Clears a given row
 /// @param row Row index
 void clear_row(const size_t row) {
+    if (curr_section) {
+        size_t max_rows = (curr_section->endY - curr_section->startY) / vga::font_height;
+        if (row >= max_rows) return;
+
+        size_t y_start = curr_section->startY + (row * vga::font_height);
+        size_t y_end = y_start + vga::font_height;
+
+        // Clip to section bounds
+        if (y_end > curr_section->endY) y_end = curr_section->endY;
+
+        for (size_t y = y_start; y < y_end; ++y) {
+            for (size_t x = curr_section->startX; x < curr_section->endX; ++x) {
+                vga::framebuffer[y * vga::screen_width + x] = 0;
+            }
+        }
+        return;
+    }
+
     if(row >= vga::screen_row_num) return;
 
     // Iterating and clearing
@@ -35,6 +72,27 @@ void clear_row(const size_t row) {
 
 /// @brief Goes to a new line
 void newline(void) {
+    if (curr_section) {
+        curr_section->col = 0;
+        
+        size_t max_rows = (curr_section->endY - curr_section->startY) / vga::font_height;
+
+        // Only adding new line if possible
+        if (curr_section->row < max_rows - 1) {
+            curr_section->row++;
+        } else {
+            // Scroll up within section
+            for (size_t y = curr_section->startY + vga::font_height; y < curr_section->endY; ++y) {
+                for (size_t x = curr_section->startX; x < curr_section->endX; ++x) {
+                    vga::framebuffer[(y - vga::font_height) * vga::screen_width + x] = vga::framebuffer[y * vga::screen_width + x];
+                }
+            }
+            // Clearing up last row of the section
+            clear_row(max_rows - 1);
+        }
+        return;
+    }
+
     vga::col_num = 0;
     
     // Only adding new line if possible
@@ -58,6 +116,42 @@ void newline(void) {
 /// @param row Start row of region to clear
 /// @param len Lengthof region to clear (number of characters)
 void vga::clear_text_region(const size_t col, const size_t row, const size_t len) {
+    if (curr_section) {
+        size_t max_cols = (curr_section->endX - curr_section->startX) / vga::font_width;
+        size_t max_rows = (curr_section->endY - curr_section->startY) / vga::font_height;
+
+        if (row >= max_rows || col >= max_cols) return;
+
+        size_t chars_remaining = len;
+        size_t current_row = row;
+        size_t current_col = col;
+
+        while (chars_remaining > 0 && current_row < max_rows) {
+            size_t chars_on_row = max_cols - current_col;
+            if (chars_on_row > chars_remaining)
+                chars_on_row = chars_remaining;
+
+            size_t x_start = curr_section->startX + (current_col * vga::font_width);
+            size_t x_end   = x_start + (chars_on_row * vga::font_width);
+            size_t y_start = curr_section->startY + (current_row * vga::font_height);
+            size_t y_end   = y_start + vga::font_height;
+
+            if (x_end > curr_section->endX) x_end = curr_section->endX;
+            if (y_end > curr_section->endY) y_end = curr_section->endY;
+
+            for (size_t y = y_start; y < y_end; ++y) {
+                for (size_t x = x_start; x < x_end; ++x) {
+                    vga::framebuffer[y * vga::screen_width + x] = RGB_COLOR_BLACK;
+                }
+            }
+
+            chars_remaining -= chars_on_row;
+            current_row++;
+            current_col = 0;
+        }
+        return;
+    }
+
     if (row >= vga::screen_row_num || col >= vga::screen_col_num) return;
 
     size_t chars_remaining = len;
@@ -91,6 +185,21 @@ void vga::clear_text_region(const size_t col, const size_t row, const size_t len
 
 /// @brief Deletes last character
 void vga::backspace(void) {
+    if (curr_section) {
+        size_t max_cols = (curr_section->endX - curr_section->startX) / vga::font_width;
+        
+        if (curr_section->col == 0) {
+            if (curr_section->row > 0) {
+                curr_section->col = max_cols - 1;
+                curr_section->row--;
+            }
+        } else {
+            curr_section->col--;
+        }
+        clear_text_region(curr_section->col, curr_section->row, 1);
+        return;
+    }
+
     if(vga::col_num - 1 < 0) {
         vga::col_num = vga::screen_col_num - 1;
         vga::row_num--;
@@ -149,6 +258,27 @@ void kputchar(const uint32_t color, const char c) {
         return;
     }
     
+    if (curr_section) {
+        size_t draw_x = curr_section->startX + (curr_section->col * vga::font_width);
+        size_t draw_y = curr_section->startY + (curr_section->row * vga::font_height);
+
+        // Safety check to ensure we don't draw outside section bounds
+        if (draw_x + vga::font_width <= curr_section->endX && draw_y + vga::font_height <= curr_section->endY) {
+            gui::draw_char(draw_x, draw_y, c, color);
+        }
+
+        curr_section->col++;
+
+        // New line check for section
+        size_t current_width_px = (curr_section->col * vga::font_width) + vga::font_width;
+        size_t section_width_px = curr_section->endX - curr_section->startX;
+
+        if(current_width_px >= section_width_px) {
+            newline();
+        }
+        return;
+    }
+
     gui::draw_char(vga::col_num * vga::font_width, vga::row_num * vga::font_height, c, color);
     vga::col_num++;
     // New line
@@ -169,45 +299,48 @@ void kputs(const uint32_t color, const char* str) {
 
 /// @brief Prints formatted text
 /// @param fmt Format
-/// @param Parameters
 vga_coords kprintf(const char* fmt, ...) {
     va_list args;  // Declare a variable argument list
     va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
 
     // Calling base function
-    kvprintf(STD_PRINT, default_rgb_color, fmt, args);
+    kvprintf(nullptr, STD_PRINT, default_rgb_color, fmt, args);
 
     va_end(args);  // Clean up the argument list
+    
+    if (curr_section) return {curr_section->col, curr_section->row};
     return {vga::col_num, vga::row_num};
 }
 
 /// @brief Prints formatted text
 /// @param color RGB(A) color value
 /// @param fmt Format
-/// @param Parameters
 vga_coords kprintf(const uint32_t color, const char* fmt, ...) {
     va_list args;  // Declare a variable argument list
     va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
 
     // Calling base function
-    kvprintf(STD_PRINT, color, fmt, args);
+    kvprintf(nullptr, STD_PRINT, color, fmt, args);
 
     va_end(args);  // Clean up the argument list
+    
+    if (curr_section) return {curr_section->col, curr_section->row};
     return {vga::col_num, vga::row_num};
 }
 
 /// @brief Prints formatted text
 /// @param print_type Print type (enum PrintTypes)
 /// @param fmt Format
-/// @param Parameters
 vga_coords kprintf(const PrintTypes print_type, const char* fmt, ...) {
     va_list args;  // Declare a variable argument list
     va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
 
     // Calling base function
-    kvprintf(print_type, default_rgb_color, fmt, args);
+    kvprintf(nullptr, print_type, default_rgb_color, fmt, args);
 
     va_end(args);  // Clean up the argument list
+    
+    if (curr_section) return {curr_section->col, curr_section->row};
     return {vga::col_num, vga::row_num};
 }
 
@@ -215,16 +348,73 @@ vga_coords kprintf(const PrintTypes print_type, const char* fmt, ...) {
 /// @param color RGB(A) color value
 /// @param print_type Print type (enum PrintTypes)
 /// @param fmt Format
-/// @param Parameters
 vga_coords kprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...) {
     va_list args;  // Declare a variable argument list
     va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
 
     // Calling base function
-    kvprintf(print_type, color, fmt, args);
+    kvprintf(nullptr, print_type, color, fmt, args);
 
     va_end(args);  // Clean up the argument list
+    
+    if (curr_section) return {curr_section->col, curr_section->row};
     return {vga::col_num, vga::row_num};
+}
+
+/// @brief Prints formatted text
+/// @param sect VGA text section
+/// @param fmt Format
+vga_coords kprintf(vga_section& sect, const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    kvprintf(&sect, STD_PRINT, default_rgb_color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {sect.col, sect.row};
+}
+
+/// @brief Prints formatted text
+/// @param sect VGA text section
+/// @param print_type Print type (enum PrintTypes)
+/// @param fmt Format
+vga_coords kprintf(vga_section& sect, const PrintTypes print_type, const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    kvprintf(&sect, print_type, default_rgb_color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {sect.col, sect.row};
+}
+
+/// @brief Prints formatted text
+/// @param sect VGA text section
+/// @param color RGB(A) color value
+/// @param fmt Format
+vga_coords kprintf(vga_section& sect, const uint32_t color, const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    kvprintf(&sect, STD_PRINT, color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {sect.col, sect.row};
+}
+
+/// @brief Prints formatted text
+/// @param sect VGA text section
+/// @param print_type Print type (enum PrintTypes)
+/// @param color RGB(A) color value
+/// @param fmt Format
+vga_coords kprintf(vga_section& sect, const PrintTypes print_type, const uint32_t color, const char* fmt, ...) {
+    va_list args;  // Declare a variable argument list
+    va_start(args, fmt);  // Initialize the argument list with the last fixed parameter
+
+    kvprintf(&sect, print_type, color, fmt, args);
+
+    va_end(args);  // Clean up the argument list
+    return {sect.col, sect.row};
 }
 
 /// @brief Prints at a given column and row
@@ -245,7 +435,7 @@ vga_coords kvprintf_at(const size_t col, const size_t row, const PrintTypes prin
     vga::row_num = row;
 
     // Calling base function
-    kvprintf(print_type, color, fmt, args);
+    kvprintf(nullptr, print_type, color, fmt, args);
 
     // Returning to old coords
     if(!update_pos) {
@@ -259,12 +449,19 @@ vga_coords kvprintf_at(const size_t col, const size_t row, const PrintTypes prin
 /// @brief Base function for formatted printing
 /// @param color RGB(A) color value
 /// @param print_type Print type (enum PrintTypes)
+/// @param sect VGA section
 /// @param fmt Format
 /// @param args Variadic list of arguments
-void kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, const va_list args) {
+void kvprintf(vga_section* sect, const PrintTypes print_type, uint32_t color, const char* fmt, const va_list args) {
     if(vga::get_vga_mode() == TEXT) {
         vga::vgat_vprintf(fmt, args);
         return;
+    }
+
+    // Set the global section pointer for the duration of this print
+    vga_section* prev_section = curr_section;
+    if (sect != nullptr) {
+        curr_section = sect;
     }
     
     // Any special additional text depending on the text type
@@ -288,6 +485,8 @@ void kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt
 
         default:
             // Invalid type
+            // Restore section before returning
+            curr_section = prev_section;
             return;
     }
 
@@ -438,6 +637,10 @@ void kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt
                     kputs(color, str->c_str());
                     break;
                 }
+                case 'C': { // Color change
+                    color = va_arg(args, unsigned int);
+                    break;
+                }
                 // Pointer
                 case 'p': {
                     void* p = va_arg(args, void*);
@@ -450,10 +653,14 @@ void kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt
         else kputchar(color, *fmt);
         fmt++;
     }
+
+    // Restore previous section (if any)
+    curr_section = prev_section;
 }
 
 #pragma endregion
 
+// VGA text mode is not in use anymore
 #pragma region VGA Text Mode
 
 #ifdef IO_HPP

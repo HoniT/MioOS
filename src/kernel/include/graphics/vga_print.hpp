@@ -25,6 +25,25 @@
 #include <stddef.h>
 #include <stdarg.h>
 
+#define RGB_COLOR_BLACK        0x000000
+#define RGB_COLOR_BLUE         0x0000AA
+#define RGB_COLOR_GREEN        0x00AA00
+#define RGB_COLOR_CYAN         0x00AAAA
+#define RGB_COLOR_RED          0xAA0000
+#define RGB_COLOR_MAGENTA      0xAA00AA
+#define RGB_COLOR_BROWN        0xAA5500
+#define RGB_COLOR_LIGHT_GRAY   0xAAAAAA
+#define RGB_COLOR_DARK_GRAY    0x555555
+#define RGB_COLOR_LIGHT_BLUE   0x5555FF
+#define RGB_COLOR_LIGHT_GREEN  0x55FF55
+#define RGB_COLOR_LIGHT_CYAN   0x55FFFF
+#define RGB_COLOR_LIGHT_RED    0xFF5555
+#define RGB_COLOR_PINK         0xFF55FF
+#define RGB_COLOR_YELLOW       0xFFFF55
+#define RGB_COLOR_WHITE        0xFFFFFF
+
+extern uint32_t default_rgb_color;
+
 enum PrintTypes {
     STD_PRINT,
     LOG_INFO,
@@ -35,6 +54,20 @@ enum PrintTypes {
 struct vga_coords {
 	size_t col;
 	size_t row;
+};
+
+/// @brief Represents a box section that VGA text can be written to
+struct vga_section {
+    uint32_t startX;
+    uint32_t startY;
+    uint32_t endX;
+    uint32_t endY;
+
+    uint32_t col;
+    uint32_t row;
+
+    vga_section(uint32_t startX, uint32_t startY, uint32_t endX, uint32_t endY) :
+        startX(startX), startY(startY), endX(endX), endY(endY), col(0), row(0) {}
 };
 
 // 8x8 font, 95 printable ASCII characters (32 to 126)
@@ -54,7 +87,7 @@ const uint8_t font8x8_basic[95][8] = {
     // '&' (38)
     {0x38,0x6C,0x38,0x76,0xDC,0xCC,0x76,0x00},
     // ''' (39)
-    {0x30,0x30,0x60,0x00,0x00,0x00,0x00,0x00},
+    {0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00},
     // '(' (40)
     {0x0C,0x18,0x30,0x30,0x30,0x18,0x0C,0x00},
     // ')' (41)
@@ -224,7 +257,7 @@ const uint8_t font8x8_basic[95][8] = {
     // '{' (123)
     {0x0E,0x18,0x18,0x70,0x18,0x18,0x0E,0x00},
     // '|' (124)
-    {0x18,0x18,0x18,0x00,0x18,0x18,0x18,0x00},
+    {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18},
     // '}' (125)
     {0x70,0x18,0x18,0x0E,0x18,0x18,0x70,0x00},
     // '~' (126)
@@ -236,6 +269,8 @@ namespace vga {
     extern int row_num;
 
     // Screen features
+    vga_section create_section(uint32_t startX, uint32_t startY, uint32_t endX, uint32_t endY);
+    vga_section create_section(vga_coords start, vga_coords end);
     void clear_text_region(const size_t col, const size_t row, const size_t len);
     void backspace(void);
     void clear_screen(void);
@@ -253,7 +288,11 @@ vga_coords kprintf(const char* fmt, ...);
 vga_coords kprintf(const uint32_t color, const char* fmt, ...);
 vga_coords kprintf(const PrintTypes print_type, const char* fmt, ...);
 vga_coords kprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, ...);
-void kvprintf(const PrintTypes print_type, const uint32_t color, const char* fmt, const va_list args);
+vga_coords kprintf(vga_section& sect, const char* fmt, ...);
+vga_coords kprintf(vga_section& sect, const PrintTypes print_type, const char* fmt, ...);
+vga_coords kprintf(vga_section& sect, const uint32_t color, const char* fmt, ...);
+vga_coords kprintf(vga_section& sect, const PrintTypes print_type, const uint32_t color, const char* fmt, ...);
+void kvprintf(vga_section* sect, const PrintTypes print_type, uint32_t color, const char* fmt, const va_list args);
 
 vga_coords kvprintf_at(const size_t col, const size_t row, const PrintTypes print_type, const uint32_t color, const bool update_pos, const char* fmt, va_list args);
 
