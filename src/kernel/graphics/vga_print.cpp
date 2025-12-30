@@ -29,6 +29,16 @@ static vga_section* curr_section = nullptr;
 /// @param endX End X coordinate (NOT COLUMN)
 /// @param endY End Y coordinate (NOT ROW)
 vga_section vga::create_section(uint32_t startX, uint32_t startY, uint32_t endX, uint32_t endY) {
+    // Check if the section extends past the bottom of the screen
+    if(endY > vga::screen_height) {
+        uint32_t section_height = endY - startY;
+        
+        if (section_height > vga::screen_height) {
+            return vga_section(startX, 0, endX, vga::screen_height);
+        }
+        return vga_section(startX, vga::screen_height - section_height, endX, vga::screen_height);
+    }
+
     return vga_section(startX, startY, endX, endY);
 }
 
@@ -36,7 +46,7 @@ vga_section vga::create_section(uint32_t startX, uint32_t startY, uint32_t endX,
 /// @param start Start VGA coords (COL, ROW)
 /// @param end End VGA coords (COL, ROW)
 vga_section vga::create_section(vga_coords start, vga_coords end) {
-    return vga_section(start.col * font_width, start.row * font_height, (end.col + 1) * font_width, (end.row + 1) * font_height);
+    return vga::create_section(start.col * font_width, start.row * font_height, (end.col + 1) * font_width, (end.row + 1) * font_height);
 }
 
 /// @brief Clears a given row

@@ -25,23 +25,18 @@ void cmd::sys_cli::register_app() {
 }
 
 void cmd::sys_cli::sysinfo() {
-    vga_section section = vga::create_section({vga::col_num + 20, vga::row_num}, {vga::screen_col_num, vga::row_num + 10});
+    vga_section section = vga::create_section({vga::col_num + 15, vga::row_num}, {vga::screen_col_num, vga::row_num + 9});
 
     // ASCII art
-    kprintf(RGB_COLOR_BLUE, "          ____   \n");
-    kprintf(RGB_COLOR_BLUE, "        ,'  , `. \n");
-    kprintf(RGB_COLOR_BLUE, "     ,-+-,.' _ | \n");
-    kprintf(RGB_COLOR_BLUE, "  ,-+-. ;   , || \n");
-    kprintf(RGB_COLOR_BLUE, " ,--.'|'   |  || \n");
-    kprintf(RGB_COLOR_BLUE, "|   |  ,', |  || \n");
-    kprintf(RGB_COLOR_BLUE, "|   | /  | |  || \n");
-    kprintf(RGB_COLOR_BLUE, "|   | |  | |  |, \n");
-    kprintf(RGB_COLOR_BLUE, "|   | |  | |--'  \n");
-    kprintf(RGB_COLOR_BLUE, "|   | |  | ,     \n");
-    kprintf(RGB_COLOR_BLUE, "|   | |  |/      \n");
-    kprintf(RGB_COLOR_BLUE, "|   | |`-'       \n");
-    kprintf(RGB_COLOR_BLUE, "|   ;/           \n");
-    kprintf(RGB_COLOR_BLUE, "'---'            \n");
+    kprintf(RGB_COLOR_BLUE, " __       __ \n");
+    kprintf(RGB_COLOR_BLUE, "/  \\     /  |\n");
+    kprintf(RGB_COLOR_BLUE, "$$  \\   /$$ |\n");
+    kprintf(RGB_COLOR_BLUE, "$$$  \\ /$$$ |\n");
+    kprintf(RGB_COLOR_BLUE, "$$$$  /$$$$ |\n");
+    kprintf(RGB_COLOR_BLUE, "$$ $$ $$/$$ |\n");
+    kprintf(RGB_COLOR_BLUE, "$$ |$$$/ $$ |\n");
+    kprintf(RGB_COLOR_BLUE, "$$ | $/  $$ |\n");
+    kprintf(RGB_COLOR_BLUE, "$$/      $$/ \n");
 
     // RAM
     kprintf(section, "---Hardware---\n");
@@ -56,7 +51,7 @@ void cmd::sys_cli::sysinfo() {
     kprintf(section, "\n---Software---\n");
     kprintf(section, RGB_COLOR_LIGHT_GRAY, "Kernel Version: %C%s\n", default_rgb_color, kernel_version);
     kprintf(section, RGB_COLOR_LIGHT_GRAY, "Build: %C%s at %s\n", default_rgb_color, __DATE__, __TIME__);
-    kprintf(section, RGB_COLOR_LIGHT_GRAY, "Compiler: %C%s\n", default_rgb_color, __VERSION__);
+    kprintf(section, RGB_COLOR_LIGHT_GRAY, "Compiler: %C%s", default_rgb_color, __VERSION__);
 
     return;
 }
