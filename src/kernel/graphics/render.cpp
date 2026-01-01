@@ -12,46 +12,93 @@
 #include <lib/math.hpp> 
 #include <lib/data/list.hpp>
 
-void gui::draw_rect(const uint32_t x, const uint32_t y, const uint32_t w, const uint32_t h, const uint32_t color) {
+void gui::put_pixel_alpha(const uint32_t x, const uint32_t y, const uint32_t color, const uint8_t alpha) {
+    if (alpha == 0) return;
+    if (alpha == 255) {
+        vga::put_pixel(x, y, color);
+        return;
+    }
+
+    if (!vga::framebuffer) return;
+    if (x >= vga::screen_width || y >= vga::screen_height) return;
+
+    uint8_t* pixel = (uint8_t*)vga::framebuffer + y * vga::screen_pitch + x * (vga::screen_bpp / 8);
+
+    uint32_t fg_b = (color >> 0) & 0xFF;
+    uint32_t fg_g = (color >> 8) & 0xFF;
+    uint32_t fg_r = (color >> 16) & 0xFF;
+    
+    // We use 256 for the shift optimization, so we need inv_alpha to sum to 256
+    uint32_t inv_alpha = 256 - alpha; 
+
+    switch (vga::screen_bpp) {
+        // RGBA
+        case 32: {
+            uint32_t bg_b = pixel[0];
+            uint32_t bg_g = pixel[1];
+            uint32_t bg_r = pixel[2];
+
+            pixel[0] = (uint8_t)((fg_b * alpha + bg_b * inv_alpha) >> 8); // Blue
+            pixel[1] = (uint8_t)((fg_g * alpha + bg_g * inv_alpha) >> 8); // Green
+            pixel[2] = (uint8_t)((fg_r * alpha + bg_r * inv_alpha) >> 8); // Red
+            break;
+        }
+        // RGB
+        case 24: {
+            uint32_t bg_b = pixel[0];
+            uint32_t bg_g = pixel[1];
+            uint32_t bg_r = pixel[2];
+
+            pixel[0] = (uint8_t)((fg_b * alpha + bg_b * inv_alpha) >> 8); // Blue
+            pixel[1] = (uint8_t)((fg_g * alpha + bg_g * inv_alpha) >> 8); // Green
+            pixel[2] = (uint8_t)((fg_r * alpha + bg_r * inv_alpha) >> 8); // Red
+            break;
+        }
+        default:
+            return;
+    }
+}
+
+void gui::draw_rect(const uint32_t x, const uint32_t y, const uint32_t w, const uint32_t h, const uint32_t color, const uint8_t alpha) {
     for (int yy = y; yy < y + h; yy++)
         for (int xx = x; xx < x + w; xx++)
-            vga::put_pixel(xx, yy, color);
+            gui::put_pixel_alpha(xx, yy, color, alpha);
 }
 
-void gui::draw_rect_outline(const uint32_t x, const uint32_t y, const uint32_t w, const uint32_t h, const uint32_t color) {
+void gui::draw_rect_outline(const uint32_t x, const uint32_t y, const uint32_t w, const uint32_t h, const uint32_t color, const uint8_t alpha) {
     for (uint32_t xx = x; xx < x + w; xx++) {
-        vga::put_pixel(xx, y, color);
-        vga::put_pixel(xx, y + h - 1, color);
+        gui::put_pixel_alpha(xx, y, color, alpha);
+        gui::put_pixel_alpha(xx, y + h - 1, color, alpha);
     }
     for (uint32_t yy = y; yy < y + h; yy++) {
-        vga::put_pixel(x, yy, color);
-        vga::put_pixel(x + w - 1, yy, color);
+        gui::put_pixel_alpha(x, yy, color, alpha);
+        gui::put_pixel_alpha(x + w - 1, yy, color, alpha);
     }
 }
 
-void gui::draw_circle(const uint32_t cx, const uint32_t cy, const uint32_t radius, const uint32_t color) {
+void gui::draw_circle(const uint32_t cx, const uint32_t cy, const uint32_t radius, const uint32_t color, const uint8_t alpha) {
     for (int y = -static_cast<int>(radius); y <= static_cast<int>(radius); y++) {
         for (int x = -static_cast<int>(radius); x <= static_cast<int>(radius); x++) {
             if (x * x + y * y <= static_cast<int>(radius) * static_cast<int>(radius))
-                vga::put_pixel(cx + x, cy + y, color);
+                gui::put_pixel_alpha(cx + x, cy + y, color, alpha);
         }
     }
 }
 
-void gui::draw_circle_outline(const uint32_t cx, const uint32_t cy, const uint32_t radius, const uint32_t color) {
+void gui::draw_circle_outline(const uint32_t cx, const uint32_t cy, const uint32_t radius, const uint32_t color, const uint8_t alpha) {
     int x = radius;
     int y = 0;
     int err = 0;
 
     while (x >= y) {
-        vga::put_pixel(cx + x, cy + y, color);
-        vga::put_pixel(cx + y, cy + x, color);
-        vga::put_pixel(cx - y, cy + x, color);
-        vga::put_pixel(cx - x, cy + y, color);
-        vga::put_pixel(cx - x, cy - y, color);
-        vga::put_pixel(cx - y, cy - x, color);
-        vga::put_pixel(cx + y, cy - x, color);
-        vga::put_pixel(cx + x, cy - y, color);
+        gui::put_pixel_alpha(cx + x, cy + y, color, alpha);
+        gui::put_pixel_alpha(cx + y, cy + x, color, alpha);
+        gui::put_pixel_alpha(cx - y, cy + x, color, alpha);
+        gui::put_pixel_alpha(cx - x, cy + y, color, alpha);
+        gui::put_pixel_alpha(cx - x, cy - y, color, alpha);
+        gui::put_pixel_alpha(cx - y, cy - x, color, alpha);
+        gui::put_pixel_alpha(cx + y, cy - x, color, alpha);
+        gui::put_pixel_alpha(cx + x, cy - y, color, alpha);
 
         y += 1;
         if (err <= 0)
@@ -63,7 +110,37 @@ void gui::draw_circle_outline(const uint32_t cx, const uint32_t cy, const uint32
     }
 }
 
-void gui::draw_line(const uint32_t x0, const uint32_t y0, const uint32_t x1, const uint32_t y1, const uint32_t color) {
+void gui::put_pixel_xor(const uint32_t x, const uint32_t y, const uint32_t color) {
+    if (!vga::framebuffer) return;
+    if (x >= vga::screen_width || y >= vga::screen_height) return;
+
+    // Get pointer to the pixel
+    uint8_t* pixel = (uint8_t*)vga::framebuffer + y * vga::screen_pitch + x * (vga::screen_bpp / 8);
+
+    switch (vga::screen_bpp) {
+        // RGBA
+        case 32:
+            // XOR the Blue, Green, and Red channels with the input color
+            pixel[0] ^= (color >> 0) & 0xFF;  // Blue
+            pixel[1] ^= (color >> 8) & 0xFF;  // Green
+            pixel[2] ^= (color >> 16) & 0xFF; // Red
+            // We usually DO NOT XOR the Alpha channel (pixel[3]), 
+            // otherwise 0xFF (Opaque) becomes 0x00 (Transparent).
+            break;
+
+        // RGB
+        case 24:
+            pixel[0] ^= (color >> 0) & 0xFF;  // Blue
+            pixel[1] ^= (color >> 8) & 0xFF;  // Green
+            pixel[2] ^= (color >> 16) & 0xFF; // Red
+            break;
+
+        default:
+            return;
+    }
+}
+
+void gui::draw_line(const uint32_t x0, const uint32_t y0, const uint32_t x1, const uint32_t y1, const uint32_t color, const uint8_t alpha) {
     int dx = abs((int)x1 - (int)x0);
     int sx = x0 < x1 ? 1 : -1;
     int dy = -abs((int)y1 - (int)y0);
@@ -74,9 +151,31 @@ void gui::draw_line(const uint32_t x0, const uint32_t y0, const uint32_t x1, con
     int y = y0;
 
     while (true) {
-        vga::put_pixel(x, y, color);
+        gui::put_pixel_alpha(x, y, color, alpha);
         if (x == (int)x1 && y == (int)y1)
             break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x += sx; }
+        if (e2 <= dx) { err += dx; y += sy; }
+    }
+}
+
+void gui::draw_line_xor(const uint32_t x0, const uint32_t y0, const uint32_t x1, const uint32_t y1, const uint32_t color) {
+    int dx = abs((int)x1 - (int)x0);
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = -abs((int)y1 - (int)y0);
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    int x = x0;
+    int y = y0;
+
+    while (true) {
+        gui::put_pixel_xor(x, y, color);
+
+        if (x == (int)x1 && y == (int)y1)
+            break;
+        
         int e2 = 2 * err;
         if (e2 >= dy) { err += dy; x += sx; }
         if (e2 <= dx) { err += dx; y += sy; }
@@ -86,7 +185,7 @@ void gui::draw_line(const uint32_t x0, const uint32_t y0, const uint32_t x1, con
 void gui::draw_triangle(const uint32_t x0, const uint32_t y0,
                         const uint32_t x1, const uint32_t y1,
                         const uint32_t x2, const uint32_t y2,
-                        const uint32_t color) {
+                        const uint32_t color, const uint8_t alpha) {
                             
     int minX = min((int[]){x0, x1, x2});
     int maxX = max((int[]){x0, x1, x2});
@@ -99,7 +198,7 @@ void gui::draw_triangle(const uint32_t x0, const uint32_t y0,
             int w1 = (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1);
             int w2 = (x0 - x2) * (y - y2) - (y0 - y2) * (x - x2);
             if ((w0 >= 0 && w1 >= 0 && w2 >= 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0))
-                vga::put_pixel(x, y, color);
+                gui::put_pixel_alpha(x, y, color, alpha);
         }
     }
 }
@@ -109,7 +208,7 @@ void gui::draw_triangle(const uint32_t x0, const uint32_t y0,
 /// @param y Y coordinate
 /// @param c ASCII character
 /// @param color RGB(A) color value of character
-void gui::draw_char(const uint32_t x, const uint32_t y, const char c, const uint32_t color) {
+void gui::draw_char(const uint32_t x, const uint32_t y, const char c, const uint32_t color, const uint8_t alpha) {
     if (c < 0 || c > 127) return; // ASCII bounds
 
     int font_height = 8;
@@ -120,7 +219,7 @@ void gui::draw_char(const uint32_t x, const uint32_t y, const char c, const uint
 
         for (int col = 0; col < font_width; col++) {
             if (bits & (1 << (font_width - 1 - col))) {
-                vga::put_pixel(x + col, y + row, color);
+                gui::put_pixel_alpha(x + col, y + row, color, alpha);
             }
         }
     }

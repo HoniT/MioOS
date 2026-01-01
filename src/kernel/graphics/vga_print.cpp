@@ -49,6 +49,22 @@ vga_section vga::create_section(vga_coords start, vga_coords end) {
     return vga::create_section(start.col * font_width, start.row * font_height, (end.col + 1) * font_width, (end.row + 1) * font_height);
 }
 
+vga_section last_cursor = {0, 0, 0, 0};
+void vga::update_cursor() {
+    // Getting start and end coordinates
+    uint32_t startX = vga::col_num * vga::font_width;
+    uint32_t startY = vga::row_num * vga::font_height;
+    uint32_t endX = startX;
+    uint32_t endY = startY + vga::font_height;
+    
+    // Clearing old cursor
+    gui::draw_line_xor(last_cursor.startX, last_cursor.startY, last_cursor.endX, last_cursor.endY, RGB_COLOR_DARK_GRAY);
+    last_cursor = vga_section(startX, startY, endX, endY);
+
+    // Drawing new cursor
+    gui::draw_line_xor(startX, startY, endX, endY, RGB_COLOR_DARK_GRAY);
+}
+
 /// @brief Clears a given row
 /// @param row Row index
 void clear_row(const size_t row) {
@@ -216,6 +232,7 @@ void vga::backspace(void) {
     } else vga::col_num--;
 
     clear_text_region(vga::col_num, vga::row_num, 1);
+    vga::update_cursor();
 }
 
 /// @brief Clears whole screen
@@ -666,6 +683,7 @@ void kvprintf(vga_section* sect, const PrintTypes print_type, uint32_t color, co
 
     // Restore previous section (if any)
     curr_section = prev_section;
+    vga::update_cursor();
 }
 
 #pragma endregion

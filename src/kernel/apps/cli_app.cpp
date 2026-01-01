@@ -26,7 +26,7 @@ data::list<data::string> cmd::cli_app::get_params_raw_rest() {
 data::list<data::string> cmd::cli_app::get_params_split_head() {
     data::list<data::string> list = data::list<data::string>();
     list.add(get_first_word(get_remaining_string(cmd::get_input()))); // First arg
-    list.add(get_remaining_string(cmd::get_input())); // Rest of args
+    list.add(get_remaining_string(get_remaining_string(cmd::get_input()))); // Rest of args
     return list;
 }
 

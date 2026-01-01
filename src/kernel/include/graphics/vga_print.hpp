@@ -271,6 +271,7 @@ namespace vga {
     // Screen features
     vga_section create_section(uint32_t startX, uint32_t startY, uint32_t endX, uint32_t endY);
     vga_section create_section(vga_coords start, vga_coords end);
+    void update_cursor();
     void clear_text_region(const size_t col, const size_t row, const size_t len);
     void backspace(void);
     void clear_screen(void);

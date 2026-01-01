@@ -1059,8 +1059,13 @@ static void write_indirect_block(ext2_fs_t* fs, uint32_t& block_num, int level,
 }
 
 bool ext2::write_file_content(data::string path, const data::string input, bool overwrite) {
-    vfsNode node = vfs::get_node(path)->data;
-
+    treeNode* treeNode = vfs::get_node(path);
+    if(!treeNode) {
+        kprintf(LOG_WARNING, "write: File \"%S\" not found!\n", path);
+        return false;
+    }
+    
+    vfsNode node = treeNode->data;
     uint32_t inode_num = node.inode_num;
     if (inode_num == EXT2_BAD_INO) {
         kprintf(LOG_WARNING, "write: File \"%S\" not found!\n", path);

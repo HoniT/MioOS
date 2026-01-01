@@ -44,8 +44,8 @@ void vga::init_framebuffer(const multiboot_tag_framebuffer* fb_tag) {
     }  
     // Check if it's RGB mode
     if (fb_tag->framebuffer_type != MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-        kprintf("Invalid framebuffer tag!\n");
-        kernel_panic("VGA error!");
+        kprintf("Invalid framebuffer tag (Framebuffer type: %u, expected: %u)!\n", fb_tag->framebuffer_type, MULTIBOOT_FRAMEBUFFER_TYPE_RGB);
+        kprintf("Operating in VGA text mode!\n");
         return;
     }
     
