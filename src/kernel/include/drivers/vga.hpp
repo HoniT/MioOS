@@ -39,6 +39,7 @@ namespace vga {
 
     // Bare metal output functions
     void put_pixel(const uint32_t x, const uint32_t y, const uint32_t color);
+    uint32_t get_pixel(const uint32_t x, const uint32_t y);
 } // namespace vga
 
 #endif // VGA_HPP

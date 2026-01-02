@@ -65,6 +65,21 @@ void gui::draw_rect(const uint32_t x, const uint32_t y, const uint32_t w, const 
             gui::put_pixel_alpha(xx, yy, color, alpha);
 }
 
+/// @brief Draws a rectangle behind pixels of front color
+/// @param x X coordinate
+/// @param y Y coordinate
+/// @param w Width
+/// @param h Height
+/// @param color Rectangle color
+/// @param back_color Will only change pixels with this color
+/// @param alpha Rectangle alpha
+void gui::draw_rect_behind(const uint32_t x, const uint32_t y, const uint32_t w, const uint32_t h, const uint32_t color, const uint32_t back_color, const uint8_t alpha) {
+    for (int yy = y; yy < y + h; yy++)
+        for (int xx = x; xx < x + w; xx++)
+            if(vga::get_pixel(xx, yy) == back_color)
+                gui::put_pixel_alpha(xx, yy, color, alpha);
+}
+
 void gui::draw_rect_outline(const uint32_t x, const uint32_t y, const uint32_t w, const uint32_t h, const uint32_t color, const uint8_t alpha) {
     for (uint32_t xx = x; xx < x + w; xx++) {
         gui::put_pixel_alpha(xx, y, color, alpha);
@@ -110,36 +125,6 @@ void gui::draw_circle_outline(const uint32_t cx, const uint32_t cy, const uint32
     }
 }
 
-void gui::put_pixel_xor(const uint32_t x, const uint32_t y, const uint32_t color) {
-    if (!vga::framebuffer) return;
-    if (x >= vga::screen_width || y >= vga::screen_height) return;
-
-    // Get pointer to the pixel
-    uint8_t* pixel = (uint8_t*)vga::framebuffer + y * vga::screen_pitch + x * (vga::screen_bpp / 8);
-
-    switch (vga::screen_bpp) {
-        // RGBA
-        case 32:
-            // XOR the Blue, Green, and Red channels with the input color
-            pixel[0] ^= (color >> 0) & 0xFF;  // Blue
-            pixel[1] ^= (color >> 8) & 0xFF;  // Green
-            pixel[2] ^= (color >> 16) & 0xFF; // Red
-            // We usually DO NOT XOR the Alpha channel (pixel[3]), 
-            // otherwise 0xFF (Opaque) becomes 0x00 (Transparent).
-            break;
-
-        // RGB
-        case 24:
-            pixel[0] ^= (color >> 0) & 0xFF;  // Blue
-            pixel[1] ^= (color >> 8) & 0xFF;  // Green
-            pixel[2] ^= (color >> 16) & 0xFF; // Red
-            break;
-
-        default:
-            return;
-    }
-}
-
 void gui::draw_line(const uint32_t x0, const uint32_t y0, const uint32_t x1, const uint32_t y1, const uint32_t color, const uint8_t alpha) {
     int dx = abs((int)x1 - (int)x0);
     int sx = x0 < x1 ? 1 : -1;
@@ -154,28 +139,6 @@ void gui::draw_line(const uint32_t x0, const uint32_t y0, const uint32_t x1, con
         gui::put_pixel_alpha(x, y, color, alpha);
         if (x == (int)x1 && y == (int)y1)
             break;
-        int e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x += sx; }
-        if (e2 <= dx) { err += dx; y += sy; }
-    }
-}
-
-void gui::draw_line_xor(const uint32_t x0, const uint32_t y0, const uint32_t x1, const uint32_t y1, const uint32_t color) {
-    int dx = abs((int)x1 - (int)x0);
-    int sx = x0 < x1 ? 1 : -1;
-    int dy = -abs((int)y1 - (int)y0);
-    int sy = y0 < y1 ? 1 : -1;
-    int err = dx + dy;
-
-    int x = x0;
-    int y = y0;
-
-    while (true) {
-        gui::put_pixel_xor(x, y, color);
-
-        if (x == (int)x1 && y == (int)y1)
-            break;
-        
         int e2 = 2 * err;
         if (e2 >= dy) { err += dy; x += sx; }
         if (e2 <= dx) { err += dx; y += sy; }

@@ -49,20 +49,21 @@ vga_section vga::create_section(vga_coords start, vga_coords end) {
     return vga::create_section(start.col * font_width, start.row * font_height, (end.col + 1) * font_width, (end.row + 1) * font_height);
 }
 
-vga_section last_cursor = {0, 0, 0, 0};
+// I'm just using col and row as X and Y so dont get confused :D
+vga_coords last_cursor = {0, 0};
+static const uint32_t cursor_color = RGB_COLOR_LIGHT_GRAY;
+static const uint8_t cursor_width = 2;
 void vga::update_cursor() {
     // Getting start and end coordinates
     uint32_t startX = vga::col_num * vga::font_width;
     uint32_t startY = vga::row_num * vga::font_height;
-    uint32_t endX = startX;
-    uint32_t endY = startY + vga::font_height;
     
     // Clearing old cursor
-    gui::draw_line_xor(last_cursor.startX, last_cursor.startY, last_cursor.endX, last_cursor.endY, RGB_COLOR_DARK_GRAY);
-    last_cursor = vga_section(startX, startY, endX, endY);
+    gui::draw_rect_behind(last_cursor.col, last_cursor.row, last_cursor.col + vga::font_width, last_cursor.row + vga::font_height, RGB_COLOR_BLACK, cursor_color);
+    last_cursor = {startX, startY};
 
     // Drawing new cursor
-    gui::draw_line_xor(startX, startY, endX, endY, RGB_COLOR_DARK_GRAY);
+    gui::draw_rect_behind(startX, startY, cursor_width, vga::font_height, cursor_color, RGB_COLOR_BLACK);
 }
 
 /// @brief Clears a given row
@@ -473,6 +474,11 @@ vga_coords kvprintf_at(const size_t col, const size_t row, const PrintTypes prin
     return {vga::col_num, vga::row_num};
 }
 
+bool can_update_cursor = false;
+void vga::set_cursor_updatability(bool b) {
+    can_update_cursor = b;
+}
+
 /// @brief Base function for formatted printing
 /// @param color RGB(A) color value
 /// @param print_type Print type (enum PrintTypes)
@@ -683,7 +689,7 @@ void kvprintf(vga_section* sect, const PrintTypes print_type, uint32_t color, co
 
     // Restore previous section (if any)
     curr_section = prev_section;
-    vga::update_cursor();
+    if(can_update_cursor) vga::update_cursor();
 }
 
 #pragma endregion

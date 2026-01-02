@@ -101,5 +101,23 @@ void vga::put_pixel(const uint32_t x, const uint32_t y, const uint32_t color) { 
     }
 }
 
+/// @brief Returns pixel color
+uint32_t vga::get_pixel(const uint32_t x, const uint32_t y) {
+    if (!framebuffer) return 0;
+    if (x >= screen_width || y >= screen_height) return 0;
+
+    // Calculate the byte address
+    uint8_t* pixel_addr = (uint8_t*)framebuffer + y * screen_pitch + x * (screen_bpp / 8);
+
+    if (screen_bpp == 32) {
+        uint32_t color = *(uint32_t*)pixel_addr;
+
+        // Mask out alpha
+        return color & 0x00FFFFFF; 
+    }
+    
+    return *(uint32_t*)pixel_addr;
+}
+
 #pragma endregion
 

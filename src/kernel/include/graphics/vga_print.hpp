@@ -278,6 +278,8 @@ namespace vga {
     void insert(const size_t col, const size_t row, const uint32_t color, const bool update_pos, const char* fmt, ...);
     void insert(const size_t col, const size_t row, const bool update_pos, const char* fmt, ...);
 
+    void set_cursor_updatability(bool b);
+
     void vgat_vprintf(const char* format, va_list args);
 } // namespace vga
 

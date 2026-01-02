@@ -68,8 +68,11 @@ void kterminal_handle_input() {
 
         switch (ev.character) {
             case '\n':
+                vga::set_cursor_updatability(false);
                 cmd::save_cmd();
                 cmd::run_cmd();
+                vga::set_cursor_updatability(true);
+                vga::update_cursor();
                 break;
 
             case '\b':
@@ -138,6 +141,8 @@ void cmd::init(void) {
 
     onTerminal = true;
 
+    vga::set_cursor_updatability(true);
+    vga::update_cursor();
     while (true) {
         kterminal_handle_input();
     }
@@ -172,7 +177,7 @@ void cmd::run_cmd(void) {
     }
 
     // If we made it to here that means that the inputted command could not be found
-    kprintf(LOG_INFO, "%s isn't a valid command!\n", get_first_word(currentInput));
+    kprintf(LOG_INFO, "%C%s%C isn't a valid command!\n", RGB_COLOR_LIGHT_BLUE, get_first_word(currentInput), default_rgb_color);
     new_cmd:
     kprintf(RGB_COLOR_LIGHT_GRAY, "\n%s@MioOS: %S# ", currentUser, vfs::currentDir);
 
