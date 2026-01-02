@@ -49,17 +49,24 @@ vga_section vga::create_section(vga_coords start, vga_coords end) {
     return vga::create_section(start.col * font_width, start.row * font_height, (end.col + 1) * font_width, (end.row + 1) * font_height);
 }
 
+bool can_update_cursor = false;
+void vga::set_cursor_updatability(bool b) {
+    can_update_cursor = b;
+}
+
 // I'm just using col and row as X and Y so dont get confused :D
 vga_coords last_cursor = {0, 0};
 static const uint32_t cursor_color = RGB_COLOR_LIGHT_GRAY;
 static const uint8_t cursor_width = 2;
 void vga::update_cursor() {
+    if(curr_section) return;
+    
     // Getting start and end coordinates
     uint32_t startX = vga::col_num * vga::font_width;
     uint32_t startY = vga::row_num * vga::font_height;
     
     // Clearing old cursor
-    gui::draw_rect_behind(last_cursor.col, last_cursor.row, last_cursor.col + vga::font_width, last_cursor.row + vga::font_height, RGB_COLOR_BLACK, cursor_color);
+    gui::draw_rect_behind(last_cursor.col, last_cursor.row, cursor_width, vga::font_height, RGB_COLOR_BLACK, cursor_color);
     last_cursor = {startX, startY};
 
     // Drawing new cursor
@@ -233,7 +240,7 @@ void vga::backspace(void) {
     } else vga::col_num--;
 
     clear_text_region(vga::col_num, vga::row_num, 1);
-    vga::update_cursor();
+    if(can_update_cursor) vga::update_cursor();
 }
 
 /// @brief Clears whole screen
@@ -472,11 +479,6 @@ vga_coords kvprintf_at(const size_t col, const size_t row, const PrintTypes prin
     }
 
     return {vga::col_num, vga::row_num};
-}
-
-bool can_update_cursor = false;
-void vga::set_cursor_updatability(bool b) {
-    can_update_cursor = b;
 }
 
 /// @brief Base function for formatted printing

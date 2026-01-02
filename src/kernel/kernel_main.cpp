@@ -73,5 +73,5 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     // Kernel CLI and other
     Process::create(cmd::init, 10, "Kernel Command Line")->start();
     
-    for(;;);
+    for(;;) asm volatile("hlt");
 }
