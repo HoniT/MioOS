@@ -31,6 +31,7 @@
 #include <fs/sysdisk.hpp>
 #include <sched/process.hpp>
 #include <sched/scheduler.hpp>
+#include <drivers/pci.hpp>
 #include <tests/unit_tests.hpp>
 
 const char* kernel_version = "MioOS kernel 1.1 (Alpha)";
@@ -58,6 +59,7 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     unittsts::test_vmm();
     
     // Drivers
+    pci::pci_brute_force_scan();
     pit::init(); // Programmable Interval Timer
     kbrd::init(); // Keyboard drivers
     

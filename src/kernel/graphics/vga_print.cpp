@@ -505,16 +505,16 @@ void kvprintf(vga_section* sect, const PrintTypes print_type, uint32_t color, co
             break;
 
         case LOG_INFO:
-            kprintf("[%s]: ", rtc::get_time());
+            kprintf("[INFO %s]: ", rtc::get_time());
             break;
 
         case LOG_WARNING:
-            kprintf("[%s]: ", rtc::get_time());
+            kprintf("[WARNING %s]: ", rtc::get_time());
             kputs(RGB_COLOR_YELLOW, "Warning: ");
             break;
 
         case LOG_ERROR:
-            kprintf("[%s]: ", rtc::get_time());
+            kprintf("[ERROR %s]: ", rtc::get_time());
             kputs(RGB_COLOR_RED, "Error: ");
             break;
 

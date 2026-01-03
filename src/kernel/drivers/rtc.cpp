@@ -167,12 +167,6 @@ char* rtc::get_time() {
     static char time[64];
     time[0] = '\0';
 
-    strcat(time, num_to_string(rtc::get_day()));
-    strcat(time, ".");
-    strcat(time, num_to_string(rtc::get_month()));
-    strcat(time, ".");
-    strcat(time, num_to_string(rtc::get_year()));
-    strcat(time, " ");
     strcat(time, num_to_string(rtc::get_hour()));
     strcat(time, ":");
     strcat(time, num_to_string(rtc::get_minute()));
