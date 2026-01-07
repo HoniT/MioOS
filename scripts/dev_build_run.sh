@@ -21,6 +21,13 @@ echo "Making ISO image..."
 grub-mkrescue -o iso/mio_os.iso iso/
 
 # Running project with QEMU (KVM) and 8GiB of RAM intialized
-bash ./scripts/create_disk.sh
-sudo qemu-system-i386 -enable-kvm -m 8G -drive file=iso/mio_os.iso,format=raw,if=ide,index=0 \
-    -drive file=hdd.img,format=raw,if=ide,index=1 -boot d
+bash ./scripts/create_disks.sh
+sudo qemu-system-i386 \
+  -enable-kvm \
+  -m 8G \
+  -drive file=iso/mio_os.iso,format=raw,if=ide,index=0 \
+  -drive file=hdd.img,format=raw,if=ide,index=1 \
+  -device ahci,id=ahci0 \
+  -drive file=hdd1.img,format=raw,if=none,id=drive0 \
+  -device ide-hd,drive=drive0,bus=ahci0.0 \
+  -boot d

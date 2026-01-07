@@ -54,7 +54,7 @@ void pit::init(void) {
         kprintf(LOG_ERROR, "Failed to initialize Programmable Interval Timer! (IRQ 0 not installed)\n");
         kernel_panic("Fatal component failed to initialize!");
     }
-    kprintf(LOG_INFO, "Implemented Programmable Interval Timer\n");
+    kprintf(LOG_INFO, "Implemented Programmable Interval Timer with frequency %u Hz\n", frequency);
 }
 
 void pit::delay(const uint64_t ms) {

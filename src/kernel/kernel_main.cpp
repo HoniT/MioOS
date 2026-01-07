@@ -59,8 +59,8 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     unittsts::test_vmm();
     
     // Drivers
-    pci::pci_brute_force_scan();
     pit::init(); // Programmable Interval Timer
+    pci::pci_brute_force_scan();
     kbrd::init(); // Keyboard drivers
     
     // Initializing File System, storage drivers...

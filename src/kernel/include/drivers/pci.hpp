@@ -41,6 +41,19 @@
 #define PCI_CLASS_RESERVED_1         0x41
 #define PCI_CLASS_UNASSIGNED         0xFF
 
+// Mass Storage Controller subclasses
+#define PCI_STORAGE_SCSI         0x0
+#define PCI_STORAGE_IDE          0x1
+#define PCI_STORAGE_FLOPPY       0x2
+#define PCI_STORAGE_IPI          0x3
+#define PCI_STORAGE_RAID         0x4
+#define PCI_STORAGE_ATA          0x5
+#define PCI_STORAGE_SATA         0x6
+#define PCI_STORAGE_SERIAL_SCSI  0x7
+#define PCI_STORAGE_NON_VOLATILE 0x8
+
+#define PCI_SUBCLASS_OTHER        0x80
+
 // Offsets in PCI Configuration Header (0x0)
 #define PCI_HEADER_0x0_VENDOR_ID           0x00
 #define PCI_HEADER_0x0_DEVICE_ID           0x02
@@ -72,7 +85,9 @@
 #define PCI_HEADER_0x0_MIN_GRANT           0x3E
 #define PCI_HEADER_0x0_MAX_LATENCY         0x3F
 
-struct pci_device_t {
+
+class PciDevice {
+private:
     uint8_t bus;
     uint8_t device;
     uint8_t function;
@@ -80,10 +95,53 @@ struct pci_device_t {
     uint16_t device_id;
     uint8_t class_id;
     uint8_t subclass_id;
+    uint8_t prog_if;
+public:
+    PciDevice(uint8_t bus, uint8_t device, uint8_t function, 
+        uint16_t vendor_id, uint16_t device_id,
+        uint8_t class_id, uint8_t subclass_id, uint8_t prog_if) :
+            bus(bus), device(device), function(function), vendor_id(vendor_id), device_id(device_id),
+            class_id(class_id), subclass_id(subclass_id), prog_if(prog_if) {}
+
+    uint8_t get_bus() const;
+    uint8_t get_device() const;
+    uint8_t get_function() const;
+    uint16_t get_vendor_id() const;
+    uint16_t get_device_id() const;
+    uint8_t get_class_id() const;
+    uint8_t get_subclass_id() const;
+    uint8_t get_prog_if() const;
+
+    uint16_t read_word(uint8_t offset);
+    void write_word(uint8_t offset, uint16_t data);
+    uint32_t get_bar(uint8_t bar);
 };
 
 namespace pci {
+    // PCI_HEADER_0x0_COMMAND
+    union CommandRegister {
+        uint16_t raw;
+        struct {
+            uint8_t io_space : 1;
+            uint8_t mem_space : 1;
+            uint8_t bus_master : 1;
+            uint8_t spec_cycles : 1;
+            uint8_t mem_write : 1;
+            uint8_t vga_palette_snoop : 1;
+            uint8_t parity_error_resp : 1;
+            uint8_t reserved_0 : 1;
+            uint8_t serr_enabled : 1;
+            uint8_t fast_enable : 1;
+            uint8_t interrupt_disable : 1;
+            uint8_t reserved_1 : 5;
+        } __attribute__((packed));
+    };
+
+    uint8_t pci_read8(PciDevice pci, uint8_t offset);
+    uint8_t pci_read8(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset);
+    uint16_t pci_read(PciDevice pci, uint8_t register_offset);
     uint16_t pci_read(uint8_t bus, uint8_t device, uint8_t func, uint8_t register_offset);
+    uint32_t pci_read32(PciDevice pci, uint8_t register_offset);
     uint32_t pci_read32(uint8_t bus, uint8_t device, uint8_t func, uint8_t register_offset);
     void pci_write(uint8_t bus, uint8_t device, uint8_t func, uint8_t register_offset, uint32_t value);
 
@@ -91,6 +149,7 @@ namespace pci {
     uint8_t pci_get_header_type(uint8_t bus, uint8_t device, uint8_t func);
     uint8_t pci_get_class_id(uint8_t bus, uint8_t device, uint8_t func);
     uint8_t pci_get_subclass_id(uint8_t bus, uint8_t device, uint8_t func);
+    uint8_t pci_get_prog_if(uint8_t bus, uint8_t device, uint8_t func);
 
     void pci_check_device(uint8_t bus, uint8_t device);
     void pci_manage_function(uint8_t bus, uint8_t device, uint8_t function);

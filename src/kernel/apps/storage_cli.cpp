@@ -35,19 +35,19 @@ void cmd::storage_cli::read_ata() {
     data::list<data::string> params = cmd::storage_cli::get_params();
 
     if(params.count() != 4 || !params.at(0).equals("-dev") || !params.at(2).equals("-sect")) {
-        kprintf(LOG_WARNING, "Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
+        kprintf(LOG_INFO, "Syntax: read_ata -dev <device_index> -sect <sector_index>\n");
         return;
     }
 
     int device_index = str_to_int(params.at(1));
     if(device_index < 0 || device_index >= 4) {
-        kprintf(LOG_WARNING, "Please use an integer (0-3) as the device index in decimal format.\n");
+        kprintf(LOG_INFO, "Please use an integer (0-3) as the device index in decimal format.\n");
         return;
     }
 
     int sector_index = str_to_int(params.at(3));
     if(sector_index < 0 || sector_index >= ata_devices[device_index]->total_sectors) {
-        kprintf(LOG_WARNING, "Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
+        kprintf(LOG_INFO, "Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
         return;
     }
 
@@ -81,7 +81,7 @@ void cmd::storage_cli::ls() {
             if(params.at(0).includes("l")) metadata_print = true;
         }
         else {
-            kprintf(LOG_WARNING, "ls: Invalid parameter \"%S\" passed to ls\n", params.at(0));
+            kprintf(LOG_INFO, "ls: Invalid parameter \"%S\" passed to ls\n", params.at(0));
             return;
         }
     }
@@ -139,7 +139,7 @@ void cmd::storage_cli::cd() {
     // Getting directory to change to
     data::string input = params.at(0);
     if(input.empty()) {
-        kprintf(LOG_WARNING, "cd: Syntax: cd <dir>\n");
+        kprintf(LOG_INFO, "cd: Syntax: cd <dir>\n");
         return;
     }
 
@@ -155,7 +155,7 @@ void cmd::storage_cli::cd() {
 void cmd::storage_cli::mkdir() {
     data::string dir = cmd::storage_cli::get_params().at(0);
     if(dir.empty()) {
-        kprintf(LOG_WARNING, "mkdir: Syntax: mkdir <dir>\n");
+        kprintf(LOG_INFO, "mkdir: Syntax: mkdir <dir>\n");
         return;
     }
     if(!ext2::curr_fs) {
@@ -178,7 +178,11 @@ void cmd::storage_cli::mkdir() {
 void cmd::storage_cli::mkfile() {
     data::string file = cmd::storage_cli::get_params().at(0);
     if(file.empty()) {
-        kprintf(LOG_WARNING, "mkfile: Syntax: mkfile <file>\n");
+        kprintf(LOG_INFO, "mkfile: Syntax: mkfile <file>\n");
+        return;
+    }
+    if(!ext2::curr_fs) {
+        kprintf(LOG_WARNING, "mkfile: You are not in a valid Ext2 file system\n");
         return;
     }
     if(file.includes("/")) {
@@ -195,6 +199,11 @@ void cmd::storage_cli::mkfile() {
 }
 
 void cmd::storage_cli::rm() {
+    if(!ext2::curr_fs) {
+        kprintf(LOG_WARNING, "rm: You are not in a valid Ext2 file system\n");
+        return;
+    }
+
     // Getting params
     data::list<data::string> params = cmd::storage_cli::get_params();
     treeNode* parent = vfs::get_node(vfs::currentDir);
@@ -208,7 +217,7 @@ void cmd::storage_cli::rm() {
         data::string name = params.at(1);
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name;}, count);
         if(!nodes || count == 0) {
-            kprintf(LOG_WARNING, "rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
+            kprintf(LOG_INFO, "rm: Couldn't find dir \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
         }
         for(int i = 0; i < count; i++) {
@@ -222,7 +231,7 @@ void cmd::storage_cli::rm() {
                 return;
             }
         }
-        kprintf(LOG_WARNING, "rm: The object (\"%S\") to delete is a file! Please use rm <file>\n", name);
+        kprintf(LOG_INFO, "rm: The object (\"%S\") to delete is a file! Please use rm <file>\n", name);
         return;
     }
     else if(params.count() == 1) {
@@ -233,7 +242,7 @@ void cmd::storage_cli::rm() {
         int count; treeNode** nodes = vfs_tree.find_children_by_predicate(parent, [name](vfsNode node){ return node.name == name; }, count);
         params.clear();
         if(!nodes || count == 0) {
-            kprintf(LOG_WARNING, "rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
+            kprintf(LOG_INFO, "rm: Couldn't find file \"%S\" in \"%S\"\n", name, vfs::currentDir);
             return;
         }
         for(int i = 0; i < count; i++) {
@@ -248,12 +257,12 @@ void cmd::storage_cli::rm() {
         }
         
         // We need to recursively delete a directory
-        kprintf(LOG_WARNING, "rm: The object (\"%S\") to delete is a directory! Please use rm -r <dir>\n", name);
+        kprintf(LOG_INFO, "rm: The object (\"%S\") to delete is a directory! Please use rm -r <dir>\n", name);
         return;
     }
 
     invalid_params:
-    kprintf(LOG_WARNING, "rm: Invalid parameters passed to rm!\n");
+    kprintf(LOG_INFO, "rm: Invalid parameters passed to rm!\n");
     kprintf("rm <file> - Deletes file (doesn't work with directories)\n");
     kprintf("rm -r <dir> - Deletes directory (recursively deletes contents)\n");
     params.clear();
@@ -265,7 +274,11 @@ void cmd::storage_cli::cat() {
 
     // Checking params
     if(params.count() != 1) {
-        kprintf(LOG_WARNING, "cat: Syntax: cat <file>\n");
+        kprintf(LOG_INFO, "cat: Syntax: cat <file>\n");
+        return;
+    }
+    if(!ext2::curr_fs) {
+        kprintf(LOG_WARNING, "cat: You are not in a valid Ext2 file system\n");
         return;
     }
 
@@ -281,7 +294,7 @@ void cmd::storage_cli::write_to_file() {
 
     // Checking params
     if(params.count() < 1) {
-        kprintf(LOG_WARNING, "write_file: Syntax: write_file <file> <content>\n");
+        kprintf(LOG_INFO, "write: Syntax: write_file <file> <content>\n");
         return;
     }
 
@@ -296,7 +309,7 @@ void cmd::storage_cli::append_to_file() {
     
     // Checking params
     if(params.count() < 1) {
-        kprintf(LOG_WARNING, "write_file: Syntax: write_file <file> <content>\n");
+        kprintf(LOG_INFO, "append: Syntax: write_file <file> <content>\n");
         return;
     }
 

@@ -111,43 +111,43 @@ bool ata::identify(Bus bus, Drive drive) {
     outPortB(command_port, IDENTIFY_COMMAND);
     ata::delay_400ns(secondary);
 
-    kprintf(LOG_INFO, "%s bus, %s drive: ", secondary ? "Secondary" : "Primary", slave ? "Slave" : "Master");
     // If we couldn't find an ATA device
     if (inPortB(status_port) == 0) {
-        kprintf("ATA device couldn't be found!\n");
+        // kprintf("ATA device couldn't be found!\n");
         return false;
     }
-
+    
     // Waiting for IRQ
     ata_irq_wait(secondary);
-
+    
     // If LBAmid and LBAhi ports are non-zero the device is not ATA
     if (inPortB(lba_low_port) == 0x14 && inPortB(lba_high_port) == 0xEB) {
-        kprintf("Device was ATAPI or SATA!\n");
+        // kprintf("Device was ATAPI or SATA!\n");
         return false;
     }
-
+    
     /* Continue polling until bit 3 (DRQ (0x8)) of status port is set
-     * or until bit 0 (ERR (0x1)) is set */
-    while (true) {
-        uint8_t status = inPortB(status_port);
-        if (status & 0x08) break; // DRQ set, OK
-        if (status & 0x01) {
-            kprintf(LOG_ERROR, "Error while identifying ATA device!\n");
-            return false;
+    * or until bit 0 (ERR (0x1)) is set */
+   while (true) {
+       uint8_t status = inPortB(status_port);
+       if (status & 0x08) break; // DRQ set, OK
+       if (status & 0x01) {
+           kprintf(LOG_ERROR, "Error while identifying ATA device!\n");
+           return false;
         }
     }
-
+    
     // If error is cleared data is ready to read from data port
     // Reading 256 words (256 x 2 = 512 bytes)
     uint16_t buffer[256];
     for (uint16_t i = 0; i < 256; i++) {
         buffer[i] = inPortW(data_port);
     }
-
+    
     // Saving to device
     ata::save_ata_device(buffer, bus, drive);
-
+    
+    kprintf(LOG_INFO, RGB_COLOR_LIGHT_GRAY, "%s bus, %s drive: ", secondary ? "Secondary" : "Primary", slave ? "Slave" : "Master");
     kprintf("ATA device successfully found!\n");
     return true;
 }

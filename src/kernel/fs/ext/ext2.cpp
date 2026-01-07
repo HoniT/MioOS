@@ -419,7 +419,7 @@ bool ext2::change_dir(data::string dir) {
 
     // If we're in virtual dirs, it's pointless to check again physically
     if (!ext2::curr_fs) {
-        kprintf(LOG_WARNING, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
+        kprintf(LOG_INFO, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
         return false;
     }
     
@@ -450,7 +450,7 @@ bool ext2::change_dir(data::string dir) {
         }
     }
 
-    kprintf(LOG_WARNING, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
+    kprintf(LOG_INFO, "cd: Couldn't find directory \"%S\" in \"%S\"\n", dir, vfs::currentDir);
     nodes.~list();
     return false;
 }
@@ -919,7 +919,7 @@ data::large_string ext2::get_file_contents(data::string path) {
     data::large_string data;
     treeNode* tnode = vfs::get_node(path);
     if (!tnode) {
-        kprintf(LOG_WARNING, "cat: File \"%S\" not found!\n", path);
+        kprintf(LOG_INFO, "cat: File \"%S\" not found!\n", path);
         return data;
     }
     vfsNode node = vfs::get_node(path)->data;
@@ -931,7 +931,7 @@ data::large_string ext2::get_file_contents(data::string path) {
     }
 
     if (INODE_IS_DIR(inode)) {
-        kprintf(LOG_WARNING, "cat: \"%S\" is a directory\n", path);
+        kprintf(LOG_INFO, "cat: \"%S\" is a directory\n", path);
         return data;
     }
 
@@ -1059,16 +1059,21 @@ static void write_indirect_block(ext2_fs_t* fs, uint32_t& block_num, int level,
 }
 
 bool ext2::write_file_content(data::string path, const data::string input, bool overwrite) {
+    if(!ext2::curr_fs) {
+        kprintf(LOG_WARNING, "write: You are not in a valid Ext2 file system\n");
+        return false;
+    }
+
     treeNode* treeNode = vfs::get_node(path);
     if(!treeNode) {
-        kprintf(LOG_WARNING, "write: File \"%S\" not found!\n", path);
+        kprintf(LOG_INFO, "write: File \"%S\" not found!\n", path);
         return false;
     }
     
     vfsNode node = treeNode->data;
     uint32_t inode_num = node.inode_num;
     if (inode_num == EXT2_BAD_INO) {
-        kprintf(LOG_WARNING, "write: File \"%S\" not found!\n", path);
+        kprintf(LOG_INFO, "write: File \"%S\" not found!\n", path);
         return false;
     }
 
@@ -1079,7 +1084,7 @@ bool ext2::write_file_content(data::string path, const data::string input, bool 
     }
 
     if (INODE_IS_DIR(inode)) {
-        kprintf(LOG_WARNING, "write: \"%S\" is a directory\n", path);
+        kprintf(LOG_INFO, "write: \"%S\" is a directory\n", path);
         kfree(inode);
         return false;
     }
@@ -1162,7 +1167,7 @@ void ext2::make_dir(data::string dir, vfsNode parent, treeNode* node, uint16_t p
     for(vfsNode node : nodes) {
         // Checking if this node is the dir we want to create
         if(node.name == dir && node.is_dir) {
-            kprintf(LOG_WARNING, "mkdir: Directory \"%S\" already exists in \"%S\"\n", dir, parent.path);
+            kprintf(LOG_INFO, "mkdir: Directory \"%S\" already exists in \"%S\"\n", dir, parent.path);
             nodes.~list();
             return;
         }
@@ -1258,7 +1263,7 @@ void ext2::make_file(data::string file, vfsNode parent, treeNode* node, uint16_t
     for(vfsNode node : nodes) {
         // Checking if this node is the file we want to create
         if(node.name == file && !node.is_dir) {
-            kprintf(LOG_WARNING, "mkfile: File \"%S\" already exists in \"%S\"\n", file, parent.path);
+            kprintf(LOG_INFO, "mkfile: File \"%S\" already exists in \"%S\"\n", file, parent.path);
             nodes.~list();
             return;
         }

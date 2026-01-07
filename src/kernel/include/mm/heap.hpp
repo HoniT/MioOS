@@ -38,5 +38,23 @@ void* kcalloc(const size_t num, const size_t size);
 inline void* operator new(size_t, void* ptr) noexcept { return ptr; }
 inline void operator delete(void*, void*) noexcept {} // Matching delete (unused but required by standard)
 
+inline void* operator new(size_t size) {
+    return kmalloc(size);
+}
+
+// Array Allocation (new[])
+inline void* operator new[](size_t size) {
+    return kmalloc(size);
+}
+
+// Single Object Deallocation
+inline void operator delete(void* ptr) noexcept {
+    kfree(ptr);
+}
+
+// Array Deallocation (delete[])
+inline void operator delete[](void* ptr) noexcept {
+    kfree(ptr);
+}
 
 #endif // HEAP_HPP
