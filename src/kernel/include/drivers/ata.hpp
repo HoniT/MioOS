@@ -48,6 +48,8 @@
 #define PRIMARY_IDE_IRQ   14
 #define SECONDARY_IDE_IRQ 15
 
+#define SECTORS_WRITTEN_FOR_CACHE_FLUSH 5
+
 namespace ata {
     struct device_t;
 

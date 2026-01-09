@@ -7,6 +7,7 @@
 // ========================================
 
 #include <drivers/ata.hpp>
+#include <drivers/pit.hpp>
 #include <device.hpp>
 #include <x86/interrupts/pic.hpp>
 #include <x86/interrupts/idt.hpp>
@@ -37,8 +38,8 @@ void ata_irq_wait(const bool secondary) {
     volatile bool* irq_ptr = secondary ? &secondary_irq_received : &primary_irq_received;
 
     // Wait for IRQ with timeout
-    int timeout = 50000000;
-    while (!*irq_ptr && --timeout);
+    int timeout = 2000;
+    while (!*irq_ptr && --timeout) pit::delay(1);
     if (timeout <= 0) {
         kprintf(LOG_ERROR, "ATA IRQ timout\n");
         return;
@@ -261,12 +262,18 @@ namespace pio_28 {
             outPortW(data_port, buffer[j]);
         }
 
-        // Wait for IRQ (if your driver uses interrupts)
+        // Wait for IRQ
         ata_irq_wait(secondary);
+    }
 
-        // Optional: flush cache to ensure data really hits disk (0xE7)
+    void flush_cache(ata::Bus bus, ata::Drive drive) {
+        bool secondary = (bus == ata::Bus::Secondary);
+        uint16_t command_port = secondary ? SECONDARY_COMMAND : PRIMARY_COMMAND;
+        uint16_t status_port  = secondary ? SECONDARY_STATUS  : PRIMARY_STATUS;
+
+        // Send Flush Cache Command
         outPortB(command_port, 0xE7);
-        // Wait for BSY clear again
+
         while(inPortB(status_port) & 0x80);
     }
 
@@ -281,6 +288,9 @@ namespace pio_28 {
             write_one_sector(dev->bus, dev->drive, lba + i, buffer);
             buffer += 256;
         }
+
+        if(sectors >= SECTORS_WRITTEN_FOR_CACHE_FLUSH) 
+            pio_28::flush_cache(dev->bus, dev->drive);
         return true;
     }
 

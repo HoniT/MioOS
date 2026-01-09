@@ -59,7 +59,7 @@ void sysdisk::get_sysdisk(void* mbi) {
     mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
     if(!mbr::read_mbr(dev, mbr)) {
         // TODO: Check AHCI devices if ATA isn't bootable
-        kprintf(LOG_WARNING, "System disk isn't bootable! (LGA 0 ends with 0x%h)\n", mbr->signature);
+        kprintf(LOG_WARNING, "System disk isn't bootable! (LGA 0 ends with %hx)\n", mbr->signature);
         kprintf(LOG_INFO, RGB_COLOR_LIGHT_BLUE, "Entering mobile mode\n");
         vfs::init();
         ext2::find_ext2_fs();

@@ -7,7 +7,7 @@
 // ========================================
 
 #include <drivers/pci.hpp>
-#include <drivers/ahci.hpp>
+#include <drivers/ahci2.hpp>
 #include <x86/io.hpp>
 #include <graphics/vga_print.hpp>
 #include <lib/data/list.hpp>
@@ -127,7 +127,7 @@ void pci::pci_manage_function(uint8_t bus, uint8_t device, uint8_t function) {
             switch (subclass_id)
             {
                 case PCI_STORAGE_SATA:
-                    AhciDriver::init_dev(&dev);
+                    AhciDriver2::init_dev(&dev);
                     break;
                 default:
                     break;
