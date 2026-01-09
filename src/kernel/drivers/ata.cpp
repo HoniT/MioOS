@@ -289,8 +289,8 @@ namespace pio_28 {
             buffer += 256;
         }
 
-        if(sectors >= SECTORS_WRITTEN_FOR_CACHE_FLUSH) 
-            pio_28::flush_cache(dev->bus, dev->drive);
+        // if(sectors >= SECTORS_WRITTEN_FOR_CACHE_FLUSH) 
+        //     pio_28::flush_cache(dev->bus, dev->drive);
         return true;
     }
 
