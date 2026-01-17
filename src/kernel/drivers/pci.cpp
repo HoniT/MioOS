@@ -7,10 +7,11 @@
 // ========================================
 
 #include <drivers/pci.hpp>
-#include <drivers/ahci2.hpp>
+#include <drivers/ahci.hpp>
 #include <x86/io.hpp>
 #include <graphics/vga_print.hpp>
 #include <lib/data/list.hpp>
+#include <mm/heap.hpp>
 
 // Helper to calculate the mechanism #1 address
 static inline uint32_t get_config_address(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset) {
@@ -118,8 +119,8 @@ void pci::pci_manage_function(uint8_t bus, uint8_t device, uint8_t function) {
         default_rgb_color, subclass_id, RGB_COLOR_LIGHT_GRAY,
         default_rgb_color, prog_if, RGB_COLOR_LIGHT_GRAY);
     
-    PciDevice dev = PciDevice(bus, device, function, vendor_id, device_id, class_id, subclass_id, prog_if);
-    pci_devices.add(dev);
+    PciDevice* dev = new PciDevice(bus, device, function, vendor_id, device_id, class_id, subclass_id, prog_if);
+    pci_devices.add(*dev);
 
     // Checking device type
     switch(class_id) {
@@ -127,7 +128,7 @@ void pci::pci_manage_function(uint8_t bus, uint8_t device, uint8_t function) {
             switch (subclass_id)
             {
                 case PCI_STORAGE_SATA:
-                    AhciDriver2::init_dev(&dev);
+                    AhciDriver::init_dev(dev);
                     break;
                 default:
                     break;
@@ -231,3 +232,8 @@ uint16_t PciDevice::get_device_id() const { return this->device_id; }
 uint8_t PciDevice::get_class_id() const { return this->class_id; }
 uint8_t PciDevice::get_subclass_id() const { return this->subclass_id; }
 uint8_t PciDevice::get_prog_if() const { return this->prog_if; }
+
+void PciDevice::log_pci_info() {
+    kprintf("PCI device: Bus %hhu Device %hhu Function %hhu\n",
+        this->bus, this->device, this->function);
+}

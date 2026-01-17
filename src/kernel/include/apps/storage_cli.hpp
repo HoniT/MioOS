@@ -18,6 +18,8 @@ namespace cmd {
 
         static void read_ata();
         static void list_ata();
+        static void list_ahci();
+        static void read_ahci();
         static void pwd();
         static void ls();
         static void cd();

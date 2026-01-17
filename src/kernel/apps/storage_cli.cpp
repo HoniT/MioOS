@@ -20,6 +20,8 @@
 void cmd::storage_cli::register_app() {
     cmd::register_command("read_ata", read_ata, " -dev <device_index> -sect <sector_index>", " - Prints a given sector of a given ATA device");
     cmd::register_command("lsata", list_ata, "", " - Lists available ATA devices");
+    cmd::register_command("read_ahci", read_ahci, " -dev <device_index> -sect <sector_index>", " - Prints a given sector of a given AHCI device");
+    cmd::register_command("lsahci", list_ahci, "", " - Lists available AHCI devices");
     cmd::register_command("pwd", pwd, "", " - Prints working directory");
     cmd::register_command("ls", ls, "", " - Lists entries of the current directory");
     cmd::register_command("cd", cd, " <dir>", " - Changes directory to given dir");
@@ -44,15 +46,45 @@ void cmd::storage_cli::read_ata() {
         kprintf(LOG_INFO, "Please use an integer (0-3) as the device index in decimal format.\n");
         return;
     }
+    ata::device_t* device = ata_devices[device_index];
+    if(!device) {
+        kprintf(LOG_INFO, "read_ata: Invalid device\n");
+        return;
+    }
 
     int sector_index = str_to_int(params.at(3));
-    if(sector_index < 0 || sector_index >= ata_devices[device_index]->total_sectors) {
-        kprintf(LOG_INFO, "Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", ata_devices[device_index]->total_sectors);
+    if(sector_index < 0 || sector_index >= device->total_sectors) {
+        kprintf(LOG_INFO, "Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", device->total_sectors);
         return;
     }
 
     uint16_t buffer[256];
-    if(pio_28::read_sector(ata_devices[device_index], sector_index, buffer))
+    if(pio_28::read_sector(device, sector_index, buffer))
+        for(uint16_t i = 0; i < 256; i++) 
+            kprintf("%hx ", buffer[i]);
+}
+
+void cmd::storage_cli::read_ahci() {
+    data::list<data::string> params = cmd::storage_cli::get_params();
+
+    if(params.count() != 4 || !params.at(0).equals("-dev") || !params.at(2).equals("-sect")) {
+        kprintf(LOG_INFO, "Syntax: read_ahci -dev <device_index> -sect <sector_index>\n");
+        return;
+    }
+
+    ahci::device_t* device = ahci_devices[str_to_int(params.at(1))];
+    if(!device) {
+        kprintf(LOG_INFO, "read_ahci: Invalid device\n");
+        return;
+    }
+    int sector_index = str_to_int(params.at(3));
+    if(sector_index < 0 || sector_index >= device->total_sectors) {
+        kprintf(LOG_INFO, "Please use a decimal integer as the sector index. Make sure it's in the given devices maximum sector count: %u\n", device->total_sectors);
+        return;
+    }
+
+    uint16_t buffer[256];
+    if(device->ahci->read(device->port, sector_index, 1, buffer))
         for(uint16_t i = 0; i < 256; i++) 
             kprintf("%hx ", buffer[i]);
 }
@@ -64,6 +96,14 @@ void cmd::storage_cli::list_ata() {
         kprintf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u, lba_support: %u, dma_support: %u ", 
             device->model, device->serial, device->firmware, device->total_sectors, (uint32_t)device->lba_support, (uint32_t)device->dma_support);
         kprintf("IO information: bus: %s, drive: %s\n", device->bus == ata::Bus::Primary ? "Primary" : "Secondary", device->drive == ata::Drive::Master ? "Master" : "Slave");
+    }
+}
+
+void cmd::storage_cli::list_ahci() {
+    for(ahci::device_t* device : ahci_devices) {
+        kprintf("\nModel: %s, serial: %s, firmware: %s, total sectors: %u ", 
+            device->model, device->serial, device->firmware, device->total_sectors);
+        device->ahci->get_pci_dev()->log_pci_info();
     }
 }
 

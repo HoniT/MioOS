@@ -88,14 +88,14 @@
 
 class PciDevice {
 private:
-    uint8_t bus;
-    uint8_t device;
-    uint8_t function;
-    uint16_t vendor_id;
-    uint16_t device_id;
-    uint8_t class_id;
-    uint8_t subclass_id;
-    uint8_t prog_if;
+    const uint8_t bus;
+    const uint8_t device;
+    const uint8_t function;
+    const uint16_t vendor_id;
+    const uint16_t device_id;
+    const uint8_t class_id;
+    const uint8_t subclass_id;
+    const uint8_t prog_if;
 public:
     PciDevice(uint8_t bus, uint8_t device, uint8_t function, 
         uint16_t vendor_id, uint16_t device_id,
@@ -115,6 +115,8 @@ public:
     uint16_t read_word(uint8_t offset);
     void write_word(uint8_t offset, uint16_t data);
     uint32_t get_bar(uint8_t bar);
+
+    void log_pci_info();
 };
 
 namespace pci {

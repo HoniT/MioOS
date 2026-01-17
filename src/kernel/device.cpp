@@ -10,14 +10,12 @@
 #include <mm/heap.hpp>
 #include <graphics/vga_print.hpp>
 
-using ata::device_t;
-
-device_t** ata_devices;
+ata::device_t** ata_devices;
 uint8_t last_ata_device_index;
 
 void device_init(void) {
     // Allocating memory for devices
-    ata_devices = (device_t**)kcalloc(4, sizeof(device_t));
+    ata_devices = (ata::device_t**)kcalloc(4, sizeof(ata::device_t));
     last_ata_device_index = 0;
 }
 
@@ -64,4 +62,26 @@ void ata::save_ata_device(uint16_t* data, const ata::Bus bus, const ata::Drive d
 
     // Saving to array
     ata_devices[last_ata_device_index++] = device;
+}
+
+data::list<ahci::device_t*> ahci_devices = data::list<ahci::device_t*>();
+
+void ahci::save_ahci_device(char* model, char* serial, char* firmware, uint64_t sectors, AhciDriver* ahci, HBA_PORT* port) {
+    ahci::device_t* dev = (ahci::device_t*)kmalloc(sizeof(ahci::device_t)); 
+    if (!dev) return;
+
+    memcpy(dev->model, model, 40);
+    dev->model[40] = 0; 
+    memcpy(dev->serial, serial, 20);
+    dev->serial[20] = 0;
+    memcpy(dev->firmware, firmware, 8);
+    dev->firmware[8] = 0;
+
+    dev->total_sectors = sectors;
+    
+    // Save Hardware Info
+    dev->ahci = ahci;
+    dev->port = port;
+
+    ahci_devices.add(dev);
 }
