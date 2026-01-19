@@ -1,20 +1,20 @@
 #!/bin/bash
 
-IMG="hdd.img"
-IMG1="hdd1.img"
+MAIN_IMG="hdd_main.img"
+EXTRA_IMG="hdd_extra.img"
 
 # Create disk image if it doesn't exist (for ATA)
-if [ ! -f $IMG ]; then
-  echo "Creating ATA disk image ($IMG)..."
-  qemu-img create -f raw $IMG 64M
-  echo "Creating Ext2 file system in $IMG..."
-  mkfs.ext2 -F $IMG
+if [ ! -f $MAIN_IMG ]; then
+  echo "Creating disk image ($MAIN_IMG)..."
+  qemu-img create -f raw $MAIN_IMG 64M
+  echo "Creating Ext2 file system in $MAIN_IMG..."
+  mkfs.ext2 -F $MAIN_IMG
 fi
 
 # Create disk image if it doesn't exist (for AHCI)
-if [ ! -f $IMG1 ]; then
-  echo "Creating ATA disk image ($IMG1)..."
-  qemu-img create -f raw $IMG1 64M
-  echo "Creating Ext2 file system in $IMG1..."
-  mkfs.ext2 -F $IMG1
+if [ ! -f $EXTRA_IMG ]; then
+  echo "Creating disk image ($EXTRA_IMG)..."
+  qemu-img create -f raw $EXTRA_IMG 64M
+  echo "Creating Ext2 file system in $EXTRA_IMG..."
+  mkfs.ext2 -F $EXTRA_IMG
 fi

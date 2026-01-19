@@ -40,14 +40,16 @@ void ext2::rewrite_sb(ext2_fs_t* fs) {
     uint8_t* buf = (uint8_t*)kcalloc(1, SUPERBLOCK_SIZE);
 
     // Read existing block first
-    pio_28::read_sector(fs->dev, 2, reinterpret_cast<uint16_t*>(buf), 2);
+    if(fs->dev_type == DEVICE_TYPE::ATA) pio_28::read_sector(fs->dev, 2, reinterpret_cast<uint16_t*>(buf), 2);
+    else if(fs->dev_type == DEVICE_TYPE::AHCI) fs->ahci_dev->ahci->read(fs->ahci_dev->port, 2, 2, reinterpret_cast<uint16_t*>(buf));
 
     // Copy updated superblock into the correct offset
     // Goes at offset 0 in block #1
     memcpy(buf, &fs->sb, SUPERBLOCK_SIZE);
 
     // Write back
-    pio_28::read_sector(fs->dev, 2, reinterpret_cast<uint16_t*>(buf), 2);
+    if(fs->dev_type == DEVICE_TYPE::ATA) pio_28::read_sector(fs->dev, 2, reinterpret_cast<uint16_t*>(buf), 2);
+    else if(fs->dev_type == DEVICE_TYPE::AHCI) fs->ahci_dev->ahci->read(fs->ahci_dev->port, 2, 2, reinterpret_cast<uint16_t*>(buf));
 
     kfree(buf);
 }
@@ -224,6 +226,7 @@ ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev, bool sysdisk_check) {
     // Allocating space for the FS metadata and superblock. Adding device 
     ext2_fs_t* ext2fs = (ext2_fs_t*)kcalloc(1, sizeof(ext2_fs_t));
     ext2fs->dev = dev;
+    ext2fs->dev_type = DEVICE_TYPE::ATA;
     ext2fs->partition_start = partition_start;
     ext2fs->sb = (superblock_t*)kmalloc(SUPERBLOCK_SIZE);
     
@@ -270,6 +273,64 @@ ext2_fs_t* ext2::init_ext2_device(ata::device_t* dev, bool sysdisk_check) {
     return ext2fs;
 }
 
+// Initializes the Ext2 FS for an AHCI device
+ext2_fs_t* ext2::init_ext2_device(ahci::device_t* dev, bool sysdisk_check) {
+    // Getting MBR
+    mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
+    mbr::read_mbr(dev, mbr);
+    uint32_t partition_start = mbr::find_partition_lba(mbr);
+    kfree(mbr);
+    
+    // Allocating space for the FS metadata and superblock. Adding device 
+    ext2_fs_t* ext2fs = (ext2_fs_t*)kcalloc(1, sizeof(ext2_fs_t));
+    ext2fs->ahci_dev = dev;
+    ext2fs->dev_type = DEVICE_TYPE::AHCI;
+    ext2fs->partition_start = partition_start;
+    ext2fs->sb = (superblock_t*)kmalloc(SUPERBLOCK_SIZE);
+    
+    // Reading superblock (Located at LBA 2 and takes up 2 sectors)
+    dev->ahci->read(dev->port, partition_start + 2, 2, (uint16_t*)ext2fs->sb);
+    
+    // Verifying superblock
+    if(ext2fs->sb->ext2_magic != EXT2_MAGIC) {
+        // Mounting to VFS
+        if(!sysdisk_check) vfs::mount_dev(vfs::device_names[vfs::device_name_index++], nullptr, nullptr);
+        return nullptr;
+    }
+    // Saving information about device
+    ext2fs->block_size = 1024 << ext2fs->sb->blk_size;
+    ext2fs->blocks_per_group = ext2fs->sb->blkgroup_blk_num;
+    ext2fs->inodes_per_group = ext2fs->sb->blkgroup_inode_num;
+    
+    // Total number of block groups (rounded up)
+    ext2fs->total_groups = 
+    (ext2fs->sb->blks_num + ext2fs->blocks_per_group - 1) / ext2fs->blocks_per_group;
+    
+    // Number of blocks needed for the Block Group Descriptor Table (rounded up)
+    ext2fs->blk_grp_desc_blocks = 
+    (ext2fs->total_groups * sizeof(blkgrp_descriptor_t) + ext2fs->block_size - 1) / ext2fs->block_size;
+    
+    // Allocating and reading BGD
+    ext2fs->blk_grp_descs = (blkgrp_descriptor_t*)kmalloc(ext2fs->blk_grp_desc_blocks * ext2fs->block_size);
+    uint32_t bgd_start = (ext2fs->block_size == 1024) ? 2 : 1;
+    ext2::read_block(ext2fs, bgd_start, reinterpret_cast<uint8_t*>(ext2fs->blk_grp_descs), ext2fs->blk_grp_desc_blocks);
+    
+    // Getting root inode
+    inode_t* root_inode = load_inode(ext2fs, EXT2_ROOT_INO);
+    if (!INODE_IS_DIR(root_inode)) {
+        // Not a directory, something went wrong
+        kprintf(LOG_ERROR, "The root inode wasn't a directory for AHCI device!\n");
+        // Mounting to VFS
+        if(!sysdisk_check) vfs::mount_dev(vfs::device_names[vfs::device_name_index++], nullptr, nullptr);
+        return nullptr;
+    }
+
+    // Mounting to VFS
+    if(!sysdisk_check) vfs::mount_dev(vfs::device_names[vfs::device_name_index++], root_inode, ext2fs);
+
+    return ext2fs;
+}
+
 // Finds all Ext2 File Systems
 void ext2::find_ext2_fs(void) {
     // Initializing Ext2 on ATA devices
@@ -278,7 +339,12 @@ void ext2::find_ext2_fs(void) {
             ext2::init_ext2_device(ata_devices[i], false);
         }
 
-    // TODO: Find on AHCI when implemented
+    // Initializing Ext2 on AHCI devices
+    for(ahci::device_t* dev : ahci_devices) {
+        if(dev) {
+            ext2::init_ext2_device(dev, false);
+        }
+    }
 }
 
 // Finds all Ext2 File Systems except a given devices
@@ -288,8 +354,24 @@ void ext2::find_other_ext2_fs(ata::device_t* dev) {
         if(ata_devices[i] && ata_devices[i] != dev) {
             ext2::init_ext2_device(ata_devices[i], false);
         }
+    // Initializing Ext2 on ATA devices
+    for(ahci::device_t* _dev : ahci_devices)
+        if(_dev) {
+            ext2::init_ext2_device(_dev, false);
+        }
+}
 
-    // TODO: Find on AHCI when implemented
+// Finds all Ext2 File Systems except a given devices
+void ext2::find_other_ext2_fs(ahci::device_t* dev) {
+    // Initializing Ext2 on ATA devices
+    for(ahci::device_t* _dev : ahci_devices)
+        if(_dev && _dev != dev) {
+            ext2::init_ext2_device(_dev, false);
+        }
+    for(int i = 0; i < last_ata_device_index; i++)
+        if(ata_devices[i]) {
+            ext2::init_ext2_device(ata_devices[i], false);
+        }
 }
 
 #pragma endregion

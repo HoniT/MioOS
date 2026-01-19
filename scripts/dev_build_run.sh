@@ -4,6 +4,9 @@
 # Dev build runs the project directly from the ISO.
 # While building, the Makefile can only compile changed files to reduce development time.
 
+MAIN_IMG="hdd_main.img"
+EXTRA_IMG="hdd_extra.img"
+
 # Adding GCC cross-compiler files to PATH
 echo "Adding GCC files to PATH..."
 export PREFIX="$HOME/opt/cross"
@@ -26,8 +29,8 @@ sudo qemu-system-i386 \
   -enable-kvm \
   -m 8G \
   -drive file=iso/mio_os.iso,format=raw,if=ide,index=0 \
-  -drive file=hdd.img,format=raw,if=ide,index=1 \
+  -drive file=$MAIN_IMG,format=raw,if=ide,index=1 \
   -device ahci,id=ahci0 \
-  -drive file=hdd1.img,format=raw,if=none,id=drive0 \
+  -drive file=$EXTRA_IMG,format=raw,if=none,id=drive0 \
   -device ide-hd,drive=drive0,bus=ahci0.0 \
   -boot d

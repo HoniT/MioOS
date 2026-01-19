@@ -18,29 +18,27 @@ bool ext2::read_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, 
     uint32_t lba = fs->partition_start + ((block_num * fs->block_size) / 512);
     uint32_t lba_blocks = (blocks_to_read * fs->block_size) / 512;
 
-    if (fs->dev) {
+    if (fs->dev_type == DEVICE_TYPE::ATA) {
         // ATA driver expects words, so cast here only
-        pio_28::read_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
+        return pio_28::read_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
     }
-    else {
-        kprintf(LOG_ERROR, "Ext2 FS doesn't have a device!\n");
-        return false;
+    else if(fs->dev_type == DEVICE_TYPE::AHCI) {
+        return fs->ahci_dev->ahci->read(fs->ahci_dev->port, lba, lba_blocks, reinterpret_cast<uint16_t*>(buffer));
     }
-    return true;
+    return false;
 }
 
 bool ext2::write_block(ext2_fs_t* fs, const uint32_t block_num, uint8_t* buffer, const uint32_t blocks_to_write) {
     uint32_t lba = fs->partition_start + ((block_num * fs->block_size) / 512);
     uint32_t lba_blocks = (blocks_to_write * fs->block_size) / 512;
 
-    if (fs->dev) {
-        pio_28::write_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
+    if (fs->dev_type == DEVICE_TYPE::ATA) {
+        return pio_28::write_sector(fs->dev, lba, reinterpret_cast<uint16_t*>(buffer), lba_blocks);
     }
-    else {
-        kprintf(LOG_ERROR, "Ext2 FS doesn't have a device!\n");
-        return false;
+    else if(fs->dev_type == DEVICE_TYPE::AHCI) {
+        return fs->ahci_dev->ahci->write(fs->ahci_dev->port, lba, lba_blocks, reinterpret_cast<uint16_t*>(buffer));
     }
-    return true;
+    return false;
 }
 
 /// @brief Returns pointer to the block bitmap of a given block group

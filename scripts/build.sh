@@ -3,7 +3,7 @@ set -e
 
 # Settings
 ISO="iso/mio_os.iso"
-IMG="hdd.img"
+IMG="hdd_main.img"
 SIZE_MB=128
 MNT_ISO="/tmp/mnt_iso"
 MNT_HDD="/tmp/mnt_hdd"

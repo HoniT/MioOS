@@ -26,6 +26,7 @@ struct mbr_t {
 
 namespace mbr {
     bool read_mbr(ata::device_t* dev, mbr_t* mbr);
+    bool read_mbr(ahci::device_t* dev, mbr_t* mbr);
     uint32_t find_partition_lba(mbr_t* mbr);
 } // namespace mbr
 

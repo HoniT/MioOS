@@ -1,13 +1,14 @@
 #!/bin/bash
 
 RAM=4G
-IMG="hdd.img"
+MAIN_IMG="hdd_main.img"
+EXTRA_IMG="hdd_extra.img"
 EXTRA_HDD=""
 
-# Check if hdd1.img exists
-if [ -f "hdd1.img" ]; then
-    echo "Found hdd1.img, attaching..."
-    EXTRA_HDD="-device ahci,id=ahci0 -drive file=hdd1.img,format=raw,if=none,id=drive0 -device ide-hd,drive=drive0,bus=ahci0.0"
+# Check if hdd_extra.img exists
+if [ -f $EXTRA_IMG ]; then
+    echo "Found $EXTRA_IMG, attaching..."
+    EXTRA_HDD="-device ahci,id=ahci0 -drive file=$EXTRA_IMG,format=raw,if=none,id=drive0 -device ide-hd,drive=drive0,bus=ahci0.0"
 fi
 
 # Running project with QEMU and 4GiB of RAM intialized

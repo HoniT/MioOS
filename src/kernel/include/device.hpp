@@ -16,6 +16,11 @@ extern ata::device_t** ata_devices;
 extern uint8_t last_ata_device_index;
 void device_init(void);
 
+enum DEVICE_TYPE {
+    ATA,
+    AHCI
+};
+
 namespace ata {
     /* Do to my foolish actions ATA devices get to keep the name device_t instead of e.g. ata_device_t.
     * It would be to much work to rename the struct since im not using an IDE :( I'm sorry. */

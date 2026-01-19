@@ -1,7 +1,6 @@
 
 # Output files
 *.o
-*.d
 *.bin
 *.elf
 *.iso

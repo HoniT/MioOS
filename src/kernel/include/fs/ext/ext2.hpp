@@ -103,9 +103,10 @@ struct dir_ent_t {
 
 struct ext2_fs_t {
     // Device
+    DEVICE_TYPE dev_type;
     union {
         ata::device_t* dev;
-        // TODO: Add an AHCI device to this union after implementing an AHCI driver
+        ahci::device_t* ahci_dev;
     };
 
     // MBR partition start
@@ -134,9 +135,11 @@ namespace ext2 {
 
     // Initialization functions
     ext2_fs_t* init_ext2_device(ata::device_t* dev, bool sysdisk_check);
+    ext2_fs_t* init_ext2_device(ahci::device_t* dev, bool sysdisk_check);
     // Finds all Ext2 File Systems
     void find_ext2_fs(void);
     void find_other_ext2_fs(ata::device_t* dev);
+    void find_other_ext2_fs(ahci::device_t* dev);
 
     data::string mode_to_string(const uint16_t mode);
     ext2_perms get_perms(const inode_t* inode, const uint32_t uid, const uint32_t gid);

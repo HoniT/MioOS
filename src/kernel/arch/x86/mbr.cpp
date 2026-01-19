@@ -23,6 +23,17 @@ bool mbr::read_mbr(ata::device_t* dev, mbr_t* mbr) {
     return true;
 }
 
+bool mbr::read_mbr(ahci::device_t* dev, mbr_t* mbr) {
+    if(!dev || !mbr || !dev->ahci) return false;
+
+    uint16_t buffer[256]; // 512 bytes / 2
+    dev->ahci->read(dev->port, 0, 1, buffer);
+    memcpy(mbr, buffer, sizeof(mbr_t));
+    
+    if(mbr->signature != 0xAA55) return false;
+    return true;
+}
+
 // Finds partition LBA start
 uint32_t mbr::find_partition_lba(mbr_t* mbr) {
     if(!mbr) return 0;
