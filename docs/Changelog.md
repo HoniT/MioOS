@@ -12,3 +12,4 @@ This file contains the major milestones for MioOS, they're dates and a simple de
 - VGA framebuffer driver: October 6 2025
 - First versions of Ext2: November 16 2025
 - Kernel multitasking: December 23 2025
+- AHCI driver: January 20 2026

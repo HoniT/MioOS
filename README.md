@@ -22,10 +22,14 @@
   - 32-bit paging and virtual memory manager
 - **File Systems**
   - IRQ mode PIO ATA driver
+  - AHCI driver
   - Ext2 file system implementation
   - Virtual file system layer
 - **Process Management** - Basic process scheduling
-- **Hardware Drivers** - Keyboard input support
+- **Hardware Drivers** 
+  - Keyboard input support
+  - PIT & RTC
+  - PCI
 
 # Project Structure
 ```
