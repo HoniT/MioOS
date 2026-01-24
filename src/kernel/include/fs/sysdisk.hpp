@@ -7,7 +7,7 @@
 #define SYSDISK_HPP
 
 namespace sysdisk {
-    void get_sysdisk(void* mbi);
+    void find_sysdisk();
 } // namespace sysdisk
 
 #endif // SYSDISK_HPP

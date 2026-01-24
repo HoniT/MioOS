@@ -23,60 +23,11 @@ data::list<data::string> sys_dirs;
 bool initialized = false;
 void init_sys_files(void) {
     // List of system directories that are needed
-    sys_dirs = data::list<data::string>();
-    sys_dirs.push_back("mnt");
-
+    sys_dirs = data::list<data::string>::of("mnt", "home");
     initialized = true;
 }
 
-/// @brief Finds and sets up system disk
-/// @param mbi GRUB multiboot info
-void sysdisk::get_sysdisk(void* mbi) {
-    // Initializing sys file names if not already
-    if(!initialized) init_sys_files();
-
-    // Get boot device information
-    multiboot_tag_bootdev* bootdev = Multiboot2::get_bootdev(mbi);
-    // Searching for system disk to mount as FS root
-    int ata_index = bootdev->biosdev - 0x80;
-    if (ata_index < 0 || ata_index >= 4) {
-        kprintf(LOG_WARNING, "Boot device BIOS number (%x) out of ATA range! Device could be AHCI\n", bootdev->biosdev);
-        kprintf(LOG_INFO, RGB_COLOR_LIGHT_BLUE, "Entering mobile mode\n");
-        vfs::init();
-        ext2::find_ext2_fs();
-        return;
-    }
-    ata::device_t* dev = ata_devices[ata_index];
-    if(!dev) {
-        // TODO: Check AHCI devices if ATA doesnt exist
-        kprintf(LOG_WARNING, "Couldn't find system disk for BIOS boot device number %x!\n", bootdev->biosdev);
-        kprintf(LOG_INFO, RGB_COLOR_LIGHT_BLUE, "Entering mobile mode\n");
-        vfs::init();
-        ext2::find_ext2_fs();
-        return;
-    }
-    // Checking MBR for 0xAA55
-    mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
-    if(!mbr::read_mbr(dev, mbr)) {
-        // TODO: Check AHCI devices if ATA isn't bootable
-        kprintf(LOG_WARNING, "System disk isn't bootable! (LGA 0 ends with %hx)\n", mbr->signature);
-        kprintf(LOG_INFO, RGB_COLOR_LIGHT_BLUE, "Entering mobile mode\n");
-        vfs::init();
-        ext2::find_ext2_fs();
-        return;
-    }
-    kfree(mbr);
-    // Initializing Ext2
-    ext2_fs_t* fs = ext2::init_ext2_device(dev, true);
-    if(!fs) {
-        // TODO: Check AHCI devices if ATA isn't bootable
-        kprintf(LOG_WARNING, "System disk doesn't have a valid Ext file system!\n");
-        kprintf(LOG_INFO, RGB_COLOR_LIGHT_BLUE, "Entering mobile mode\n");
-        vfs::init();
-        ext2::find_ext2_fs();
-        return;
-    }
-
+void init_sysdisk(ext2_fs_t* fs, ata::device_t* dev) {
     // Mounting system disk as VFS root
     treeNode* node = vfs::init(fs);
 
@@ -90,4 +41,64 @@ void sysdisk::get_sysdisk(void* mbi) {
     ext2::find_other_ext2_fs(dev);
 
     kprintf(LOG_INFO, "Implemented VFS to system disk\n");
+}
+
+void init_sysdisk(ext2_fs_t* fs, ahci::device_t* dev) {
+    // Mounting system disk as VFS root
+    treeNode* node = vfs::init(fs);
+
+    // Creating any needed directories if needed
+    data::list<vfsNode> nodes = ext2::read_dir(node);
+    for(data::string dir : sys_dirs) {
+        bool found = false;
+        for(vfsNode node : nodes) if(node.name == dir) found = true;
+        if(!found) ext2::make_dir(dir, node->data, node, RESTRICTED_PERMS);
+    }
+    ext2::find_other_ext2_fs(dev);
+
+    kprintf(LOG_INFO, "Implemented VFS to system disk\n");
+}
+
+/// @brief Finds disk that contains the system
+void sysdisk::find_sysdisk() {
+    /* This is a primitive version (can't differentiate drives if multiple of them has MioOS).
+     * In later stages of the OS (when we'll add instalation) we will use UUIDs */
+    // Initializing sys file names if not already
+    if(!initialized) init_sys_files();
+
+    // Checking ATA
+    for(int i = 0; i < 4; i++) {
+        if(ata_devices[i]) {
+            mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
+            if(!mbr::read_mbr(ata_devices[i], mbr)) {
+                kfree(mbr);
+                continue;
+            }
+            kfree(mbr);
+            ext2_fs_t* fs;
+            if(!(fs = ext2::init_ext2_device(ata_devices[i], true))) continue;
+
+            init_sysdisk(fs, ata_devices[i]);
+            return;
+        }
+    }
+
+    for(ahci::device_t* dev : ahci_devices) {
+        mbr_t* mbr = (mbr_t*)kmalloc(sizeof(mbr_t));
+        if(!mbr::read_mbr(dev, mbr)) {
+            kfree(mbr);
+            continue;
+        }
+        kfree(mbr);
+        ext2_fs_t* fs;
+        if(!(fs = ext2::init_ext2_device(dev, true))) continue;
+
+        init_sysdisk(fs, dev);
+        return;
+    }
+
+    kprintf(LOG_WARNING, "System disk not found!\n");
+    kprintf(LOG_INFO, RGB_COLOR_LIGHT_BLUE, "Entering mobile mode\n");
+    vfs::init();
+    ext2::find_ext2_fs();
 }

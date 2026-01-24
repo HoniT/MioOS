@@ -216,6 +216,17 @@ namespace pio_28 {
         return true;
     }
 
+    bool read_sector(ata::Bus bus, ata::Drive drive, uint32_t lba, uint16_t* buffer, uint32_t sectors) {
+        for(int i = 0; i < sectors; i++) {
+            read_one_sector(bus, drive, lba + i, buffer);
+            buffer += 256;
+        }
+
+        // if(sectors >= SECTORS_WRITTEN_FOR_CACHE_FLUSH) 
+        //     pio_28::flush_cache(dev->bus, dev->drive);
+        return true;
+    }
+
     // Writes value given from buffer into lba on given bus and drive
     void write_one_sector(ata::Bus bus, ata::Drive drive, uint32_t lba, uint16_t* buffer) {
         bool secondary = (bus == ata::Bus::Secondary);
@@ -294,4 +305,14 @@ namespace pio_28 {
         return true;
     }
 
+    bool write_sector(ata::Bus bus, ata::Drive drive, uint32_t lba, uint16_t* buffer, uint32_t sectors) {
+        for(int i = 0; i < sectors; i++) {
+            write_one_sector(bus, drive, lba + i, buffer);
+            buffer += 256;
+        }
+
+        // if(sectors >= SECTORS_WRITTEN_FOR_CACHE_FLUSH) 
+        //     pio_28::flush_cache(dev->bus, dev->drive);
+        return true;
+    }
 } // namespace pio_28

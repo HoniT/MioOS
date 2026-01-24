@@ -20,6 +20,7 @@ namespace cmd {
         static void uptime();
         static void currtime();
         static void lsprocesses();
+        static void lspci();
     };
 }
 

@@ -56,6 +56,36 @@ namespace data {
         ~list() {
             clear();
         }
+
+        list(list&& other) noexcept 
+            : arr(other.arr), length(other.length), capacity(other.capacity) {
+            // Nullify the other list so its destructor doesn't free our memory
+            other.arr = nullptr;
+            other.length = 0;
+            other.capacity = 0;
+        }
+
+        list& operator=(list&& other) noexcept {
+            if (this != &other) {
+                clear(); // Free our current memory
+                arr = other.arr;
+                length = other.length;
+                capacity = other.capacity;
+                
+                other.arr = nullptr;
+                other.length = 0;
+                other.capacity = 0;
+            }
+            return *this;
+        }
+
+        template<typename... Args>
+        static data::list<T> of(Args... args) {
+            data::list<T> new_list;
+            (new_list.add(args), ...);
+            return new_list;
+        }
+
         #pragma endregion
 
         #pragma region Capacity

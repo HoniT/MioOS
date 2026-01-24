@@ -7,6 +7,7 @@
 #define PCI_HPP
 
 #include <stdint.h>
+#include <lib/data/list.hpp>
 
 // Configuration Space Access Mechanism #1 I/O locations
 #define PCI_CONFIG_ADDRESS 0xCF8
@@ -118,6 +119,8 @@ public:
 
     void log_pci_info();
 };
+
+extern data::list<PciDevice> pci_devices;
 
 namespace pci {
     // PCI_HEADER_0x0_COMMAND

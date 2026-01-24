@@ -34,7 +34,7 @@
 #include <drivers/pci.hpp>
 #include <tests/unit_tests.hpp>
 
-const char* kernel_version = "MioOS kernel 1.1 (Alpha)";
+const char* kernel_version = "MioOS kernel 1.2 (Alpha)";
 extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     // Managing GRUB multiboot error
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
@@ -67,7 +67,7 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     device_init();
     ata::init();
     // Finds system disk (the one MioOS is on) and sets up the VFS accordingly
-    sysdisk::get_sysdisk(mbi);
+    sysdisk::find_sysdisk();
 
     // Scheduler/multitasking
     sched::init();

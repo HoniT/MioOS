@@ -100,7 +100,7 @@ uint8_t pci::pci_get_prog_if(uint8_t bus, uint8_t device, uint8_t func) {
     return pci_read8(bus, device, func, PCI_HEADER_0x0_PROG_IF);
 }
 
-static data::list<PciDevice> pci_devices = data::list<PciDevice>();
+data::list<PciDevice> pci_devices = data::list<PciDevice>();
 
 /// @brief Checks for a specific function
 void pci::pci_manage_function(uint8_t bus, uint8_t device, uint8_t function) {

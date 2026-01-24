@@ -13,6 +13,7 @@
 #include <kernel_main.hpp>
 #include <drivers/pit.hpp>
 #include <drivers/rtc.hpp>
+#include <drivers/pci.hpp>
 #include <drivers/vga.hpp>
 #include <sched/process.hpp>
 #include <lib/math.hpp>
@@ -22,6 +23,7 @@ void cmd::sys_cli::register_app() {
     cmd::register_command("uptime", uptime, "", " - Prints how much time the systems been on since booting");
     cmd::register_command("currtime", currtime, "", " - Prints current time");
     cmd::register_command("lsprcss", lsprocesses, "", " - Lists active processes");
+    cmd::register_command("lspci", lspci, "", " - Lists attached PCI devices");
 }
 
 void cmd::sys_cli::sysinfo() {
@@ -92,3 +94,10 @@ void cmd::sys_cli::lsprocesses() {
     }
 }
 
+void cmd::sys_cli::lspci() {
+    for(PciDevice pci : pci_devices) {
+        pci.log_pci_info();
+        kprintf("Class %x Subclass %x Prog IF %x\n", pci.get_class_id(), pci.get_subclass_id(), pci.get_prog_if());
+        kprintf("\n");
+    }
+}

@@ -71,8 +71,10 @@ namespace ata {
 namespace pio_28 {
     // Reads a given amount of sectors starting at a given LBA from a given device
     bool read_sector(ata::device_t* dev, uint32_t lba, uint16_t* buffer, uint32_t sectors = 1);
+    bool read_sector(ata::Bus bus, ata::Drive drive, uint32_t lba, uint16_t* buffer, uint32_t sectors = 1);
     // Writes a value to a given amount of sectors starting at a given LBA from a given device
     bool write_sector(ata::device_t* dev, uint32_t lba, uint16_t* buffer, uint32_t sectors = 1);
+    bool write_sector(ata::Bus bus, ata::Drive drive, uint32_t lba, uint16_t* buffer, uint32_t sectors = 1);
 } // namespace pio_28
 
 
