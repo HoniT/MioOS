@@ -10,11 +10,9 @@
 #include <graphics/vga_print.hpp>
 #include <multiboot.hpp>
 #include <lib/math.hpp>
-#include <mm/pmm.hpp>
 #include <x86/interrupts/kernel_panic.hpp>
 
 uint32_t* vga::framebuffer = nullptr;
-uint32_t* vga::backbuffer = nullptr;
 uint32_t vga::fb_size;
 uint32_t vga::screen_width;
 uint32_t vga::screen_height;
@@ -69,16 +67,6 @@ void vga::init_framebuffer(const multiboot_tag_framebuffer* fb_tag) {
     vga_mode = FRAMEBUFFER;
 }
 
-void vga::init_backbuffer() {
-    backbuffer = (uint32_t*)pmm::alloc_frame_by_size(vga::fb_size);
-    if (backbuffer == nullptr) {
-        kprintf(LOG_WARNING, "VGA: Could not allocate backbuffer. Scrolling will be slow.\n");
-        return;
-    }
-    memset(backbuffer, 0, fb_size);
-    kprintf(LOG_INFO, "VGA Backbuffer initialized");
-}
-
 #pragma endregion
 
 #pragma region Bare metal print functions
@@ -91,14 +79,7 @@ void vga::put_pixel(const uint32_t x, const uint32_t y, const uint32_t color) { 
     if (!framebuffer) return;
     if (x >= screen_width || y >= screen_height) return;
 
-    // Calculate offsets
-    uint64_t offset = y * screen_pitch + x * (screen_bpp / 8);
-    uint8_t* pixel = (uint8_t*)framebuffer + offset;
-    
-    uint8_t* bb_pixel = nullptr;
-    if (backbuffer) {
-        bb_pixel = (uint8_t*)backbuffer + offset;
-    }
+    uint8_t* pixel = (uint8_t*)framebuffer + y * screen_pitch + x * (screen_bpp / 8);
 
     switch (screen_bpp) {
         // RGBA
@@ -107,24 +88,15 @@ void vga::put_pixel(const uint32_t x, const uint32_t y, const uint32_t color) { 
             pixel[1] = (color >> 8) & 0xFF;   // Green  
             pixel[2] = (color >> 16) & 0xFF;  // Red
             pixel[3] = (color >> 24) & 0xFF;  // Alpha (or 0xFF for opaque)
-            
-            if (bb_pixel) {
-                ((uint32_t*)bb_pixel)[0] = color;
-            }
             break;
         // RGB
         case 24:
             pixel[0] = (color >> 0) & 0xFF;   // Blue
             pixel[1] = (color >> 8) & 0xFF;   // Green
             pixel[2] = (color >> 16) & 0xFF;  // Red
-            
-            if (bb_pixel) {
-                bb_pixel[0] = pixel[0];
-                bb_pixel[1] = pixel[1];
-                bb_pixel[2] = pixel[2];
-            }
             break;
         default:
+            // kernel_panic("Unrecognized screen BPP!");
             return;
     }
 }
@@ -134,11 +106,12 @@ uint32_t vga::get_pixel(const uint32_t x, const uint32_t y) {
     if (!framebuffer) return 0;
     if (x >= screen_width || y >= screen_height) return 0;
 
-    uint8_t* base = (backbuffer) ? (uint8_t*)backbuffer : (uint8_t*)framebuffer;
-    uint8_t* pixel_addr = base + y * screen_pitch + x * (screen_bpp / 8);
+    // Calculate the byte address
+    uint8_t* pixel_addr = (uint8_t*)framebuffer + y * screen_pitch + x * (screen_bpp / 8);
 
     if (screen_bpp == 32) {
         uint32_t color = *(uint32_t*)pixel_addr;
+
         // Mask out alpha
         return color & 0x00FFFFFF; 
     }

@@ -20,7 +20,6 @@ enum VGA_Modes {
 struct multiboot_tag_framebuffer;
 namespace vga {
     extern uint32_t* framebuffer;
-    extern uint32_t* backbuffer;
     extern uint32_t fb_size;
 
     extern uint32_t screen_width;
@@ -37,7 +36,6 @@ namespace vga {
     
     // Initialization
     void init_framebuffer(const multiboot_tag_framebuffer* fb_tag);
-    void init_backbuffer();
 
     // Bare metal output functions
     void put_pixel(const uint32_t x, const uint32_t y, const uint32_t color);
