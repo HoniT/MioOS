@@ -11,6 +11,7 @@ SECTIONS
         KEEP(*(.multiboot_header))
         *(.boot.text)
         *(.boot.data)
+        *(.boot.rodata)
         *(.boot.bss)
     }
 
