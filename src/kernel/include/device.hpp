@@ -21,40 +21,6 @@ enum DEVICE_TYPE {
     AHCI
 };
 
-class StorageDevice {
-protected:
-    char model[41];
-    char serial[21];
-    char firmware[9];
-    uint32_t total_sectors;
-public:
-    virtual void read(void* buffer, uint64_t lba, uint64_t sectors = 1U) = 0;
-    virtual void write(void* buffer, uint64_t lba, uint64_t sectors = 1U) = 0;
-};
-
-class AtaDevice : public StorageDevice {
-private:
-    // Hardware identifier
-    ata::Bus bus;     // Primary / Secondary
-    ata::Drive drive; // Master / Slave 
-public:
-    AtaDevice(ata::Bus bus, ata::Drive drive) : bus(bus), drive(drive) {}
-
-    void read(void* buffer, uint64_t lba, uint64_t sectors = 1U) override;
-    void write(void* buffer, uint64_t lba, uint64_t sectors = 1U) override;
-};
-
-class AhciDevice : public StorageDevice {
-private:
-    AhciDriver* ahci;
-    HBA_PORT* port;
-public:
-    AhciDevice(AhciDriver* driver, HBA_PORT* port) : ahci(driver), port(port) {}
-
-    void read(void* buffer, uint64_t lba, uint64_t sectors = 1U) override;
-    void write(void* buffer, uint64_t lba, uint64_t sectors = 1U) override;
-};
-
 namespace ata {
     /* Do to my foolish actions ATA devices get to keep the name device_t instead of e.g. ata_device_t.
     * It would be to much work to rename the struct since im not using an IDE :( I'm sorry. */

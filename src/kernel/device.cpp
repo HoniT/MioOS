@@ -85,19 +85,3 @@ void ahci::save_ahci_device(char* model, char* serial, char* firmware, uint64_t 
 
     ahci_devices.add(dev);
 }
-
-void AhciDevice::read(void* buffer, uint64_t lba, uint64_t sectors) {
-    this->ahci->read(this->port, lba, sectors, buffer);
-}
-
-void AhciDevice::write(void* buffer, uint64_t lba, uint64_t sectors) {
-    this->ahci->write(this->port, lba, sectors, buffer);
-}
-
-void AtaDevice::read(void* buffer, uint64_t lba, uint64_t sectors) {
-    pio_28::read_sector(this->bus, this->drive, lba, (uint16_t*)buffer, sectors);
-}
-
-void AtaDevice::write(void* buffer, uint64_t lba, uint64_t sectors) {
-    pio_28::write_sector(this->bus, this->drive, lba, (uint16_t*)buffer, sectors);
-}

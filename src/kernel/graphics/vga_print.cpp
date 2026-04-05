@@ -73,22 +73,28 @@ void vga::update_cursor() {
     gui::draw_rect_behind(startX, startY, cursor_width, vga::font_height, cursor_color, RGB_COLOR_BLACK);
 }
 
-/// @brief Clears a given row
+/// @brief Clears a given row in both Backbuffer and Framebuffer
 /// @param row Row index
 void clear_row(const size_t row) {
+    // Safety check
+    if (!vga::framebuffer) return;
+
     if (curr_section) {
         size_t max_rows = (curr_section->endY - curr_section->startY) / vga::font_height;
         if (row >= max_rows) return;
 
         size_t y_start = curr_section->startY + (row * vga::font_height);
         size_t y_end = y_start + vga::font_height;
-
-        // Clip to section bounds
         if (y_end > curr_section->endY) y_end = curr_section->endY;
 
         for (size_t y = y_start; y < y_end; ++y) {
+            uint32_t* bb_row = vga::backbuffer + (y * vga::screen_width);
+            uint32_t* fb_row = vga::framebuffer + (y * vga::screen_width);
+            
             for (size_t x = curr_section->startX; x < curr_section->endX; ++x) {
-                vga::framebuffer[y * vga::screen_width + x] = 0;
+                // Write to both!
+                bb_row[x] = 0; 
+                fb_row[x] = 0;
             }
         }
         return;
@@ -96,15 +102,20 @@ void clear_row(const size_t row) {
 
     if(row >= vga::screen_row_num) return;
 
-    // Iterating and clearing
-    for (size_t y = row * vga::font_height; y < (row + 1) * vga::font_height; ++y) {
-        for (size_t x = 0; x < vga::screen_width; ++x) {
-            vga::framebuffer[y * vga::screen_width + x] = 0;
-        }
+    // Fast clear for full screen rows
+    size_t start_offset = row * vga::font_height * vga::screen_width;
+    size_t end_offset   = (row + 1) * vga::font_height * vga::screen_width;
+
+    // Bounds check
+    if (end_offset > vga::fb_size / 4) end_offset = vga::fb_size / 4;
+
+    for (size_t i = start_offset; i < end_offset; ++i) {
+        vga::backbuffer[i] = 0;  // Update RAM
+        vga::framebuffer[i] = 0; // Update VRAM
     }
 }
 
-/// @brief Goes to a new line
+/// @brief Goes to a new line (Optimized with Backbuffer)
 void newline(void) {
     if (curr_section) {
         curr_section->col = 0;
@@ -115,14 +126,32 @@ void newline(void) {
         if (curr_section->row < max_rows - 1) {
             curr_section->row++;
         } else {
-            // Scroll up within section
+            // --- SECTION SCROLLING (RAM -> RAM) ---
+            
+            // 1. Move lines up in BACKBUFFER
             for (size_t y = curr_section->startY + vga::font_height; y < curr_section->endY; ++y) {
+                uint32_t* dest = vga::backbuffer + ((y - vga::font_height) * vga::screen_width);
+                uint32_t* src  = vga::backbuffer + (y * vga::screen_width);
+                
                 for (size_t x = curr_section->startX; x < curr_section->endX; ++x) {
-                    vga::framebuffer[(y - vga::font_height) * vga::screen_width + x] = vga::framebuffer[y * vga::screen_width + x];
+                    dest[x] = src[x];
                 }
             }
-            // Clearing up last row of the section
-            clear_row(max_rows - 1);
+
+            // 2. Clear last row in BACKBUFFER
+            clear_row(max_rows - 1); // This updates both, keeping them in sync
+
+            // 3. FLUSH SECTION to VRAM
+            // We only need to flush the scrolled area (the top part), as clear_row handled the bottom.
+            // But for simplicity, we can flush the whole section.
+            for (size_t y = curr_section->startY; y < curr_section->endY; ++y) {
+                 uint32_t* fb_row = vga::framebuffer + (y * vga::screen_width);
+                 uint32_t* bb_row = vga::backbuffer + (y * vga::screen_width);
+                 
+                 for (size_t x = curr_section->startX; x < curr_section->endX; ++x) {
+                     fb_row[x] = bb_row[x];
+                 }
+            }
         }
         return;
     }
@@ -133,15 +162,29 @@ void newline(void) {
     if(vga::row_num < vga::screen_row_num - 1) {
         vga::row_num++;
     } else {
-        // Scroll up by vga::font_height pixels
-        for (size_t y = vga::font_height; y < vga::screen_height; ++y) {
-            for (size_t x = 0; x < vga::screen_width; ++x) {
-                vga::framebuffer[(y - vga::font_height) * vga::screen_width + x] = vga::framebuffer[y * vga::screen_width + x];
-            }
+        // --- FULL SCREEN SCROLLING (FAST) ---
+
+        // 1. Move Memory UP in BACKBUFFER (Fast RAM operation)
+        // Offset = One line of text in pixels
+        size_t line_offset = vga::font_height * vga::screen_width;
+        size_t total_pixels = vga::screen_width * vga::screen_height;
+        size_t pixels_to_move = total_pixels - line_offset;
+
+        // Using a loop (RAM-to-RAM is fast)
+        for (size_t i = 0; i < pixels_to_move; ++i) {
+            vga::backbuffer[i] = vga::backbuffer[i + line_offset];
         }
 
-        // Clearing up last row for the new lines text
-        clear_row(vga::screen_row_num - 1);
+        // 2. Clear the bottom area in BACKBUFFER
+        for (size_t i = pixels_to_move; i < total_pixels; ++i) {
+            vga::backbuffer[i] = 0;
+        }
+
+        // 3. FLUSH EVERYTHING to VRAM (Write-Only Burst)
+        // This eliminates the read latency from the GPU
+        for (size_t i = 0; i < total_pixels; ++i) {
+            vga::framebuffer[i] = vga::backbuffer[i];
+        }
     }
 }
 
@@ -175,7 +218,10 @@ void vga::clear_text_region(const size_t col, const size_t row, const size_t len
 
             for (size_t y = y_start; y < y_end; ++y) {
                 for (size_t x = x_start; x < x_end; ++x) {
-                    vga::framebuffer[y * vga::screen_width + x] = RGB_COLOR_BLACK;
+                    size_t idx = y * vga::screen_width + x;
+                    vga::framebuffer[idx] = RGB_COLOR_BLACK;
+                    // FIX: Must also clear backbuffer to prevent "undeleting" on scroll
+                    if (vga::backbuffer) vga::backbuffer[idx] = RGB_COLOR_BLACK;
                 }
             }
 
@@ -207,7 +253,10 @@ void vga::clear_text_region(const size_t col, const size_t row, const size_t len
 
         for (size_t y = y_start; y < y_end; ++y) {
             for (size_t x = x_start; x < x_end; ++x) {
-                vga::framebuffer[y * vga::screen_width + x] = RGB_COLOR_BLACK;
+                size_t idx = y * vga::screen_width + x;
+                vga::framebuffer[idx] = RGB_COLOR_BLACK;
+                // FIX: Must also clear backbuffer to prevent "undeleting" on scroll
+                if (vga::backbuffer) vga::backbuffer[idx] = RGB_COLOR_BLACK;
             }
         }
 
@@ -247,6 +296,8 @@ void vga::backspace(void) {
 void vga::clear_screen(void) {
     for(uint32_t i = 0; i < vga::fb_size / 4; i++) {
         vga::framebuffer[i] = 0;
+        // FIX: Must also clear backbuffer, otherwise old screen contents reappear on scroll
+        if (vga::backbuffer) vga::backbuffer[i] = 0;
     }
     vga::col_num = vga::row_num = 0;
 }

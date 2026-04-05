@@ -68,10 +68,12 @@ extern "C" void kernel_main(const uint32_t magic, void* mbi) {
     ata::init();
     // Finds system disk (the one MioOS is on) and sets up the VFS accordingly
     sysdisk::find_sysdisk();
-
+    
     // Scheduler/multitasking
     sched::init();
     
+    vga::init_backbuffer();
+
     // Kernel CLI and other
     Process::create(cmd::init, 10, "Kernel Command Line")->start();
     
