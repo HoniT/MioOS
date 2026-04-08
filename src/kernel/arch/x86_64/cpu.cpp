@@ -3,8 +3,11 @@
 // Distributed under the terms of the MIT License.
 // ========================================
 
-#include <arch/x86_64/cpu.hpp>
+#include <hal/cpu.hpp>
 
-void cpu::halt(void) {
-    for(;;) asm volatile("hlt");
+void hal::cpu::halt(void) {
+    for(;;) {
+        asm volatile("cli");
+        asm volatile("hlt");
+    }
 }

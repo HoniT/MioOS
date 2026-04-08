@@ -5,7 +5,7 @@
 
 #include <kernel_main.hpp>
 #include <multiboot.hpp>
-#include <arch/x86_64/cpu.hpp>
+#include <hal/cpu.hpp>
 
 extern "C" uint64_t p4_table[];
 
@@ -13,7 +13,7 @@ const char* kernel_version = "MioOS kernel 2.0";
 extern "C" void kernel_main(void* mbi, uint32_t magic) {
     // Managing GRUB multiboot error
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-        cpu::halt();
+        hal::cpu::halt();
         return;
     }
     
@@ -38,5 +38,5 @@ extern "C" void kernel_main(void* mbi, uint32_t magic) {
     }
 
     // Halt the CPU forever
-    cpu::halt();
+    hal::cpu::halt();
 }

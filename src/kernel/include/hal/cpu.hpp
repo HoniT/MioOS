@@ -8,8 +8,10 @@
 #ifndef CPU_HPP
 #define CPU_HPP
 
-namespace cpu {
-    void halt(void);
+namespace hal {
+    namespace cpu {
+        void halt(void);
+    }
 }
 
 #endif // CPU_HPP
