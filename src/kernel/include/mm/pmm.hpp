@@ -27,9 +27,9 @@ namespace mem
         static void free_frames(void* phys_addr, uint64_t count);
 
         // Statistics
-        static size_t get_total_memory();
-        static size_t get_free_memory();
-        static size_t get_used_memory();
+        static uint64_t get_total_memory();
+        static uint64_t get_free_memory();
+        static uint64_t get_used_memory();
     private:
         static void mark_region_free(uint64_t base, uint64_t length);
         static void mark_region_used(uint64_t base, uint64_t length);
@@ -44,10 +44,10 @@ namespace mem
 
         static uint64_t* bitmap;
         static size_t bitmap_size_bytes;
-        static size_t total_frames;
-        static size_t free_frames_count;
-        static size_t used_frames_count;
-        static size_t last_scanned_index; // Optimization for fast allocation
+        static uint64_t total_frames;
+        static uint64_t free_frames_count;
+        static uint64_t used_frames_count;
+        static uint64_t last_scanned_index; // Optimization for fast allocation
     };
 } // namespace pmm
 
