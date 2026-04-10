@@ -5,13 +5,14 @@
 
 #pragma once
 
-#ifndef KERNEL_MAIN_HPP
-#define KERNEL_MAIN_HPP
+#ifndef PMM_X86_64_HPP
+#define PMM_X86_64_HPP
 
-#include <stdint.h>
+namespace arch {
+    namespace mem {
+        void init_pmm(void* mbi);
+    } // namespace mem
+} // namespace arch
 
-// MioOS kernel version
-extern const char* kernel_version;
-void kernel_main();
 
-#endif // KERNEL_MAIN_HPP
+#endif // PMM_X86_64_HPP

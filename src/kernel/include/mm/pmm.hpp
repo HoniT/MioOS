@@ -18,7 +18,7 @@ namespace mem
 
     class PMM {
     public:
-        static void init(void* mbi);
+        static void init(void* bitmap_virt_addr, uint64_t top_physical_memory);
 
         static void* alloc_frame();
         static void* alloc_frames(uint64_t count);
@@ -26,14 +26,14 @@ namespace mem
         static void free_frame(void* phys_addr);
         static void free_frames(void* phys_addr, uint64_t count);
 
+        static void mark_region_free(uint64_t base, uint64_t length);
+        static void mark_region_used(uint64_t base, uint64_t length);
+
         // Statistics
         static uint64_t get_total_memory();
         static uint64_t get_free_memory();
         static uint64_t get_used_memory();
     private:
-        static void mark_region_free(uint64_t base, uint64_t length);
-        static void mark_region_used(uint64_t base, uint64_t length);
-        
         static void set_bit(size_t bit);
         static void clear_bit(size_t bit);
         static bool test_bit(size_t bit);

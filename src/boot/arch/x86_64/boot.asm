@@ -183,7 +183,7 @@ check_long_mode:
 
 ; ==== 64 BIT REALM ====
 [bits 64]
-extern kernel_main
+extern entry_x86_64
 realm64:
     ; Clear old segment registers
     mov ax, 0
@@ -199,7 +199,7 @@ realm64:
     add rsp, rax 
     add rdi, rax 
 
-    mov rax, kernel_main
+    mov rax, entry_x86_64
     call rax
 
     cli

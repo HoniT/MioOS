@@ -3,7 +3,7 @@
 // Distributed under the terms of the MIT License.
 // ========================================
 
-#include <multiboot.hpp>
+#include <arch/x86_64/multiboot.hpp>
 
 void* Multiboot2::find_tag(void* mb2_info, uint32_t tag_type) {
     multiboot2_info* info = (multiboot2_info*)mb2_info;

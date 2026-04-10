@@ -4,7 +4,7 @@
 // ========================================
 
 #include <mm/pmm.hpp>
-#include <multiboot.hpp>
+#include <arch/x86_64/multiboot.hpp>
 #include <hal/cpu.hpp>
 
 extern "C" uint8_t kernel_start_phys[];
@@ -35,66 +35,22 @@ namespace mem
     void PMM::lock() { /* TODO: Acquire atomic spinlock */ }
     void PMM::unlock() { /* TODO: Release atomic spinlock */ }
 
-    /// @brief Initializes the PMM
-    /// @param mbi Multiboot2 info
-    void PMM::init(void* mbi) {
-        multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(mbi);
-        if (!mmap_tag) {
-            hal::cpu::halt();
-            return;
-        }
-
-        uint32_t num_entries = (mmap_tag->size - sizeof(multiboot_tag_mmap)) / mmap_tag->entry_size;
-        
-        // Finding the highest address to scale the bitmap accordingly
-        uint64_t top_physical_memory = 0;
-        for (uint32_t i = 0; i < num_entries; i++) {
-            multiboot_mmap_entry* entry = &mmap_tag->entries[i];
-            uint64_t entry_end = entry->addr + entry->len;
-            if (entry_end > top_physical_memory) {
-                top_physical_memory = entry_end;
-            }
-        }
-
+    /// @brief Initializes arch independent logic for PMM
+    void PMM::init(void* bitmap_virt_addr, uint64_t top_physical_memory) {
         total_frames = top_physical_memory / PAGE_SIZE;
         bitmap_size_bytes = (total_frames / 8) + 1;
-
-        // Placing the bitmap immediately following the kernel
-        uint64_t bitmap_phys_addr = (uint64_t)kernel_end_phys;
-        bitmap = reinterpret_cast<uint64_t*>(bitmap_phys_addr + HIGHER_HALF_OFFSET);
-    
-        // Mark EVERYTHING as used by default
+        bitmap = reinterpret_cast<uint64_t*>(bitmap_virt_addr);
+        
+        // Mark EVERYTHING as used by default (safe state)
         for (size_t i = 0; i < bitmap_size_bytes / 8; i++) {
-            bitmap[i] = ~0ULL; // 0xFFFFFFFFFFFFFFFF
+            bitmap[i] = ~0ULL; 
         }
         used_frames_count = total_frames;
         free_frames_count = 0;
-
-        // Mark available regions as free based on GRUB's map
-        for (uint32_t i = 0; i < num_entries; i++) {
-            multiboot_mmap_entry* entry = &mmap_tag->entries[i];
-            // MULTIBOOT_MEMORY_AVAILABLE is type 1
-            if (entry->type == 1) { 
-                mark_region_free(entry->addr, entry->len);
-            }
-        }
-
-        // Explicitly protect crucial physical memory regions
-        
-        // A. Kernel
-        uint64_t kernel_size = (uint64_t)kernel_end_phys - (uint64_t)kernel_start_phys;
-        mark_region_used((uint64_t)kernel_start_phys, kernel_size);
-
-        // B. Bitmap
-        mark_region_used(bitmap_phys_addr, bitmap_size_bytes);
-
-        // C. Multiboot2 info structure
-        uint64_t mb2_phys = (uint64_t)mbi - HIGHER_HALF_OFFSET;
-        uint32_t mb2_size = *reinterpret_cast<uint32_t*>(mbi); // First 4 bytes are total size
-        mark_region_used(mb2_phys, mb2_size);
     }
 
-
+    /// @brief Allocates a frame in physical memory
+    /// @return Frame physical base
     void* PMM::alloc_frame() {
         lock();
         
@@ -127,6 +83,8 @@ namespace mem
         return nullptr; // Out of memory
     }
 
+    /// @brief Allocates multiple frames in physical memory
+    /// @return First frames physical base
     void* PMM::alloc_frames(uint64_t count) {
         if (count == 0) return nullptr;
         
@@ -158,6 +116,8 @@ namespace mem
         return nullptr;
     }
 
+    /// @brief Frees a frame
+    /// @param phys_addr Frame physical base
     void PMM::free_frame(void* phys_addr) {
         lock();
         uint64_t frame_index = reinterpret_cast<uint64_t>(phys_addr) / PAGE_SIZE;
@@ -174,6 +134,8 @@ namespace mem
         unlock();
     }
 
+    /// @brief Frees multiple frames
+    /// @param phys_addr First frame physical base
     void PMM::free_frames(void* phys_addr, uint64_t count) {
         uint64_t start_frame = reinterpret_cast<uint64_t>(phys_addr) / PAGE_SIZE;
         lock();
