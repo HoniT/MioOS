@@ -6,6 +6,7 @@
 #include <kernel_main.hpp>
 #include <multiboot.hpp>
 #include <hal/cpu.hpp>
+#include <mm/pmm.hpp>
 
 extern "C" uint64_t p4_table[];
 
@@ -24,6 +25,9 @@ extern "C" void kernel_main(void* mbi, uint32_t magic) {
     uint64_t cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r" (cr3));
     __asm__ volatile("mov %0, %%cr3" :: "r" (cr3));
+
+    // Memory manager init
+    mem::PMM::init(mbi);
 
     // 3. Print to the screen to prove we survived!
     // Physical VGA buffer is at 0xB8000
