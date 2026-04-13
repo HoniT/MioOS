@@ -3,7 +3,7 @@
 // Distributed under the terms of the MIT License.
 // ========================================
 
-#include <arch/x86_64/mm/pmm_x86_64.hpp>
+#include <arch/x86_64/mm/pmm.hpp>
 #include <arch/x86_64/multiboot.hpp>
 #include <hal/cpu.hpp>
 #include <mm/pmm.hpp>

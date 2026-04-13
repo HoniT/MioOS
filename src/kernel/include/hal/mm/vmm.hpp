@@ -5,11 +5,13 @@
 
 #pragma once
 
-#ifndef ENTRY_X86_64_HPP
-#define ENTRY_X86_64_HPP
+#ifndef ARCH_VMM_HPP
+#define ARCH_VMM_HPP
 
-#include <stdint.h>
+namespace hal {
+    namespace mem {
+        
+    }
+}
 
-extern "C" void entry_x86_64(void* mbi, const uint32_t magic);
-
-#endif // ENTRY_X86_64_HPP
+#endif // ARCH_VMM_HPP

@@ -35,7 +35,7 @@ namespace mem
     void PMM::lock() { /* TODO: Acquire atomic spinlock */ }
     void PMM::unlock() { /* TODO: Release atomic spinlock */ }
 
-    /// @brief Initializes arch independent logic for PMM
+    /// @brief Initializes arch independent logic for PMM by setting up bitmap
     void PMM::init(void* bitmap_virt_addr, uint64_t top_physical_memory) {
         total_frames = top_physical_memory / PAGE_SIZE;
         bitmap_size_bytes = (total_frames / 8) + 1;
