@@ -4,31 +4,57 @@
 // ========================================
 
 #include <mm/vmm.hpp>
-#include <mm/pmm.hpp>
 
 namespace mem
 {
-    AddressSpace* VMM::kernel_space = nullptr;
-
-    inline void* VMM::phys_to_virt(void* phys) {
-        return (void*)((uint64_t)phys + mem::HIGHER_HALF_OFFSET);
+    AddressSpace::AddressSpace() {
+        
     }
 
-    inline void* VMM::virt_to_phys(void* virt) {
-        return (void*)((uint64_t)virt - mem::HIGHER_HALF_OFFSET);
+    AddressSpace::~AddressSpace() {
+        
     }
 
-    inline void VMM::invlpg(void* vaddr) {
-        asm volatile("invlpg (%0)" ::"r" (vaddr) : "memory");
+    /// @brief Allocates a region
+    [[nodiscard]] void* AddressSpace::allocate_region(uint64_t hint_addr, size_t size, PageFlags flags, VMAType type) {
+
     }
 
-    /// @brief Custom memory set for freestanding environments
-    static void zero_page(void* virt_addr) {
-        uint64_t* ptr = (uint64_t*)virt_addr;
-        for (size_t i = 0; i < 512; i++) ptr[i] = 0;
+    /// @brief Frees a region
+    bool AddressSpace::free_region(uint64_t addr, size_t size) {
+
     }
 
-    AddressSpace* VMM::get_kernel_space() {
-        return kernel_space;
+    /// @brief Gets a VMA by a virtual address
+    [[nodiscard]] VMArea* AddressSpace::get_vma(uint64_t address) {
+
     }
+
+    /// @brief Maps a page directly without VMA interference 
+    bool AddressSpace::map_page_immediate(uint64_t virt, uint64_t phys, PageFlags flags) {
+
+    }
+
+    /// @brief Unmaps a page directly without VMA interference 
+    void AddressSpace::unmap_page_immediate(uint64_t virt) {
+
+    }
+
+    /// @brief Gets physical address from virtual address
+    [[nodiscard]] uint64_t AddressSpace::get_physical_address(uint64_t virt_addr) const {
+
+    }
+
+    /// @brief Activates the address space by placing it in the CPU
+    void AddressSpace::activate() {
+
+    }
+
+    AddressSpace* kernel_address_space;
+
+    /// @brief Initializes the VMM
+    void init_vmm() {
+
+    }
+
 } // namespace mem

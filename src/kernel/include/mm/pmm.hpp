@@ -13,7 +13,7 @@
 
 namespace mem
 {
-    constexpr uint64_t PAGE_SIZE = 4096;
+    constexpr uint64_t FRAME_SIZE = 4096;
     constexpr uint64_t HIGHER_HALF_OFFSET = 0xFFFFFFFF80000000;
 
     class PMM {
@@ -38,7 +38,7 @@ namespace mem
         static void clear_bit(size_t bit);
         static bool test_bit(size_t bit);
 
-        // SMP Lock
+        // SMP Lock (TODO in far future)
         static void lock();
         static void unlock();
 

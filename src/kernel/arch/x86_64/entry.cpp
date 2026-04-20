@@ -5,8 +5,9 @@
 
 #include <arch/x86_64/entry.hpp>
 #include <arch/x86_64/multiboot.hpp>
-#include <hal/cpu.hpp>
-#include <arch/x86_64/mm/pmm.hpp>
+#include <cpu.hpp>
+#include <arch/x86_64/mm/pmm_setup.hpp>
+#include <mm/vmm.hpp>
 #include <kernel_main.hpp>
 
 /// @brief Entry point for x86_64 arch

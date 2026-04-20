@@ -4,7 +4,7 @@
 // ========================================
 
 #include <kernel_main.hpp>
-#include <hal/cpu.hpp>
+#include <cpu.hpp>
 
 const char* kernel_version = "MioOS kernel 2.0";
 

@@ -5,7 +5,7 @@
 
 #include <mm/pmm.hpp>
 #include <arch/x86_64/multiboot.hpp>
-#include <hal/cpu.hpp>
+#include <cpu.hpp>
 
 extern "C" uint8_t kernel_start_phys[];
 extern "C" uint8_t kernel_end_phys[];
@@ -37,7 +37,7 @@ namespace mem
 
     /// @brief Initializes arch independent logic for PMM by setting up bitmap
     void PMM::init(void* bitmap_virt_addr, uint64_t top_physical_memory) {
-        total_frames = top_physical_memory / PAGE_SIZE;
+        total_frames = top_physical_memory / FRAME_SIZE;
         bitmap_size_bytes = (total_frames / 8) + 1;
         bitmap = reinterpret_cast<uint64_t*>(bitmap_virt_addr);
         
@@ -68,7 +68,7 @@ namespace mem
                 used_frames_count++;
                 
                 unlock();
-                return reinterpret_cast<void*>(frame_index * PAGE_SIZE);
+                return reinterpret_cast<void*>(frame_index * FRAME_SIZE);
             }
         }
 
@@ -105,7 +105,7 @@ namespace mem
                     free_frames_count -= count;
                     used_frames_count += count;
                     unlock();
-                    return reinterpret_cast<void*>(start_frame * PAGE_SIZE);
+                    return reinterpret_cast<void*>(start_frame * FRAME_SIZE);
                 }
             } else {
                 consecutive_free = 0; // Reset counter if we hit a used frame
@@ -120,7 +120,7 @@ namespace mem
     /// @param phys_addr Frame physical base
     void PMM::free_frame(void* phys_addr) {
         lock();
-        uint64_t frame_index = reinterpret_cast<uint64_t>(phys_addr) / PAGE_SIZE;
+        uint64_t frame_index = reinterpret_cast<uint64_t>(phys_addr) / FRAME_SIZE;
         if (test_bit(frame_index)) {
             clear_bit(frame_index);
             free_frames_count++;
@@ -137,7 +137,7 @@ namespace mem
     /// @brief Frees multiple frames
     /// @param phys_addr First frame physical base
     void PMM::free_frames(void* phys_addr, uint64_t count) {
-        uint64_t start_frame = reinterpret_cast<uint64_t>(phys_addr) / PAGE_SIZE;
+        uint64_t start_frame = reinterpret_cast<uint64_t>(phys_addr) / FRAME_SIZE;
         lock();
         for (uint64_t i = 0; i < count; i++) {
             if (test_bit(start_frame + i)) {
@@ -156,12 +156,12 @@ namespace mem
     /// @param base Region base physical address
     /// @param length Region length
     void PMM::mark_region_free(uint64_t base, uint64_t length) {
-        uint64_t align_offset = base % PAGE_SIZE;
-        uint64_t aligned_base = base + (align_offset ? (PAGE_SIZE - align_offset) : 0);
+        uint64_t align_offset = base % FRAME_SIZE;
+        uint64_t aligned_base = base + (align_offset ? (FRAME_SIZE - align_offset) : 0);
         uint64_t aligned_length = length - (aligned_base - base);
 
-        size_t frames = aligned_length / PAGE_SIZE;
-        size_t start_frame = aligned_base / PAGE_SIZE;
+        size_t frames = aligned_length / FRAME_SIZE;
+        size_t start_frame = aligned_base / FRAME_SIZE;
 
         for (size_t i = 0; i < frames; i++) {
             if (test_bit(start_frame + i)) { // Only decrement count if it was used
@@ -176,8 +176,8 @@ namespace mem
     /// @param base Region base physical address
     /// @param length Region length
     void PMM::mark_region_used(uint64_t base, uint64_t length) {
-        uint64_t frames = (length + PAGE_SIZE - 1) / PAGE_SIZE; // Round up
-        uint64_t start_frame = base / PAGE_SIZE;
+        uint64_t frames = (length + FRAME_SIZE - 1) / FRAME_SIZE; // Round up
+        uint64_t start_frame = base / FRAME_SIZE;
 
         for (uint64_t i = 0; i < frames; i++) {
             if (!test_bit(start_frame + i)) {
@@ -188,7 +188,7 @@ namespace mem
         }
     }
 
-    uint64_t PMM::get_total_memory() { return total_frames * PAGE_SIZE; }
-    uint64_t PMM::get_free_memory() { return free_frames_count * PAGE_SIZE; }
-    uint64_t PMM::get_used_memory() { return used_frames_count * PAGE_SIZE; }
+    uint64_t PMM::get_total_memory() { return total_frames * FRAME_SIZE; }
+    uint64_t PMM::get_free_memory() { return free_frames_count * FRAME_SIZE; }
+    uint64_t PMM::get_used_memory() { return used_frames_count * FRAME_SIZE; }
 } // namespace mem

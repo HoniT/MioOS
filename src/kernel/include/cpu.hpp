@@ -5,13 +5,15 @@
 
 #pragma once
 
-#ifndef ARCH_VMM_HPP
-#define ARCH_VMM_HPP
+#ifndef CPU_HPP
+#define CPU_HPP
 
 namespace hal {
-    namespace mem {
-        
+    namespace cpu {
+        void halt(void);
+        void enable_interrupts(void);
+        void disable_interrupts(void);
     }
 }
 
-#endif // ARCH_VMM_HPP
+#endif // CPU_HPP

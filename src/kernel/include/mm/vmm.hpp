@@ -9,218 +9,56 @@
 #define VMM_HPP
 
 #include <stdint.h>
+#include <stddef.h>
+#include <mm/vma.hpp>
 
 namespace mem
 {
-    #pragma region Structs
 
-    // PML4 Entry
-    typedef union {
-        uint64_t raw;
-        struct {
-            uint64_t present         : 1;
-            uint64_t read_write      : 1;
-            uint64_t user_supervisor : 1;
-            uint64_t write_through   : 1;
-            uint64_t cache_disable   : 1;
-            uint64_t accessed        : 1;
-            uint64_t ignored_1       : 1;
-            uint64_t page_size       : 1;
-            uint64_t ignored_2       : 3;
-            uint64_t restart         : 1;
-            uint64_t phys_addr       : 40;
-            uint64_t ignored_3       : 11;
-            uint64_t execute_disable : 1;
-        } __attribute__((packed));
-    } pml4e_t;
-
-    // PDPT Entry (References a Page Directory or Maps a 1GB Page)
-    typedef union {
-        uint64_t raw;
-        
-        struct {
-            uint64_t present         : 1;
-            uint64_t read_write      : 1;
-            uint64_t user_supervisor : 1;
-            uint64_t write_through   : 1;
-            uint64_t cache_disable   : 1;
-            uint64_t accessed        : 1;
-            uint64_t ignored_1       : 1;
-            uint64_t page_size       : 1;
-            uint64_t ignored_2       : 3;
-            uint64_t restart         : 1;
-            uint64_t phys_addr       : 40;
-            uint64_t ignored_3       : 11;
-            uint64_t execute_disable : 1;
-        } __attribute__((packed)) dir;
-
-        struct {
-            uint64_t present         : 1;
-            uint64_t read_write      : 1;
-            uint64_t user_supervisor : 1;
-            uint64_t write_through   : 1;
-            uint64_t cache_disable   : 1;
-            uint64_t accessed        : 1;
-            uint64_t dirty           : 1;
-            uint64_t page_size       : 1;
-            uint64_t global          : 1;
-            uint64_t ignored_1       : 2;
-            uint64_t restart         : 1;
-            uint64_t pat             : 1;
-            uint64_t reserved_1      : 17;
-            uint64_t phys_addr       : 22;
-            uint64_t ignored_2       : 7;
-            uint64_t prot_key        : 4;
-            uint64_t execute_disable : 1;
-        } __attribute__((packed)) page_1gb;
-    } pdpte_t;
-
-    // Page Directory Entry (References a Page Table or Maps a 2MB Page)
-    typedef union {
-        uint64_t raw;
-
-        struct {
-            uint64_t present         : 1;
-            uint64_t read_write      : 1;
-            uint64_t user_supervisor : 1;
-            uint64_t write_through   : 1;
-            uint64_t cache_disable   : 1;
-            uint64_t accessed        : 1;
-            uint64_t ignored_1       : 1;
-            uint64_t page_size       : 1;
-            uint64_t ignored_2       : 3;
-            uint64_t restart         : 1;
-            uint64_t phys_addr       : 40;
-            uint64_t ignored_3       : 11;
-            uint64_t execute_disable : 1;
-        } __attribute__((packed)) table;
-
-        struct {
-            uint64_t present         : 1;
-            uint64_t read_write      : 1;
-            uint64_t user_supervisor : 1;
-            uint64_t write_through   : 1;
-            uint64_t cache_disable   : 1;
-            uint64_t accessed        : 1;
-            uint64_t dirty           : 1;
-            uint64_t page_size       : 1;
-            uint64_t global          : 1;
-            uint64_t ignored_1       : 2;
-            uint64_t restart         : 1;
-            uint64_t pat             : 1;
-            uint64_t reserved_1      : 8;
-            uint64_t phys_addr       : 31;
-            uint64_t ignored_2       : 7;
-            uint64_t prot_key        : 4;
-            uint64_t execute_disable : 1;
-        } __attribute__((packed)) page_2mb;
-    } pde_t;
-
-    // Page Table Entry (Maps a 4KB Page)
-    typedef union {
-        uint64_t raw;
-        struct {
-            uint64_t present         : 1;
-            uint64_t read_write      : 1;
-            uint64_t user_supervisor : 1;
-            uint64_t write_through   : 1;
-            uint64_t cache_disable   : 1;
-            uint64_t accessed        : 1;
-            uint64_t dirty           : 1;
-            uint64_t pat             : 1;
-            uint64_t global          : 1;
-            uint64_t ignored_1       : 2;
-            uint64_t restart         : 1;
-            uint64_t phys_addr       : 40;
-            uint64_t ignored_2       : 7;
-            uint64_t prot_key        : 4;
-            uint64_t execute_disable : 1;
-        } __attribute__((packed));
-    } pte_t;
-
-    #pragma endregion
-
-    #pragma region Flags & Enums
-
-    enum PageFlags : uint64_t {
-        Present         = 1ULL << 0,
-        ReadWrite       = 1ULL << 1,
-        User            = 1ULL << 2,
-        WriteThrough    = 1ULL << 3,
-        CacheDisable    = 1ULL << 4,
-        Accessed        = 1ULL << 5,
-        Dirty           = 1ULL << 6,
-        HugePage        = 1ULL << 7, // 2MB/1GB
-        Global          = 1ULL << 8,
-        NoExecute       = 1ULL << 63
-    };
-
-    enum VMAType {
-        VMA_HEAP,
-        VMA_STACK,
-        VMA_CODE,
-        VMA_MMAP,
-        VMA_ANONYMOUS
-    };
-
-    // Virtual Memory Area - Tracks logical memory regions
-    struct VMA {
-        uint64_t start_addr;
-        uint64_t end_addr;
-        uint64_t flags;
-        VMAType type;
-        
-        VMA* next; // Singly linked list for this AddressSpace
-    };
-
-    #pragma endregion
-
-    class Spinlock {
-        /* TODO in future */
-    };
-
-    // Represents a single Process's Memory Space
+    /**
+     * @brief Represents a complete Virtual Address Space (a single CPU context).
+     * * The kernel possesses one master AddressSpace. Every user-mode process 
+     * instantiates its own AddressSpace, which automatically links the higher-half 
+     * kernel mappings upon creation.
+     */
     class AddressSpace {
     public:
         AddressSpace();
         ~AddressSpace();
 
-        // Hardware Mapping
-        bool map_page(void* phys_addr, void* virt_addr, uint64_t flags);
-        void unmap_page(void* virt_addr);
-        void* get_phys_addr(void* virt_addr);
-        
-        // Logical Mapping (Demand Paging)
-        bool allocate_vma(uint64_t virt_addr, uint64_t size, uint64_t flags, VMAType type);
-        bool handle_page_fault(uint64_t fault_addr, uint32_t error_code);
+        [[nodiscard]] void* allocate_region(uint64_t hint_addr, size_t size, PageFlags flags, VMAType type);
+        bool free_region(uint64_t addr, size_t size);
 
-        void activate(); // Load this space into CR3
+        [[nodiscard]] VMArea* get_vma(uint64_t address);
 
-        pml4e_t* get_pml4() { return pml4; }
+        bool map_page_immediate(uint64_t virt, uint64_t phys, PageFlags flags);
+        void unmap_page_immediate(uint64_t virt);
 
-    private:
-        pml4e_t* pml4;
-        void* pml4_phys;
-        
-        VMA* vma_list;
-        Spinlock lock;
+        [[nodiscard]] uint64_t get_physical_address(uint64_t virt_addr) const;
 
-        void free_table_hierarchy(pml4e_t* pml4_virt);
-    };
+        void activate();
 
-    class VMM {
-    public:
-        static void init();
-        static AddressSpace* get_kernel_space();
-
-        static inline void* phys_to_virt(void* phys);
-        static inline void* virt_to_phys(void* virt);
-        static inline void invlpg(void* vaddr);
+        [[nodiscard]] inline void* get_root() const { return root_phys; }
 
     private:
-        static AddressSpace* kernel_space;
+        void* root_phys;
+        void* root_virt;
+        VMATree vma_tree;
+
+        // Spinlock lock; // (TODO in far future)
     };
+
+    extern AddressSpace* kernel_address_space;
+    void init_vmm();
 
 } // namespace mem
+
+namespace hal::mem
+{
+    bool map_page(void* root_virt, uint64_t virt, uint64_t phys, uint64_t flags);
+    void unmap_page(void* root_virt, uint64_t virt);
+    uint64_t get_phys_address(void* root_virt, uint64_t virt);
+} // namespace hal::mem
+
 
 #endif // VMM_HPP
