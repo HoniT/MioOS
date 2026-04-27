@@ -10,7 +10,7 @@
 
 namespace hal {
     namespace cpu {
-        void halt(void);
+        [[noreturn]] void halt(void);
         void enable_interrupts(void);
         void disable_interrupts(void);
     }

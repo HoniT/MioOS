@@ -13,8 +13,6 @@ using mem::PMM;
 extern "C" uint8_t kernel_start_phys[];
 extern "C" uint8_t kernel_end_phys[];
 
-/// @brief Gets arch dependent info and initializes PMM accordingly
-/// @param mbi 
 void arch::mem::init_pmm(void* mbi) {
     multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(mbi);
     if (!mmap_tag) {
@@ -22,39 +20,53 @@ void arch::mem::init_pmm(void* mbi) {
         return;
     }
 
-    // Find Top of Memory to scale bitmap accordingly
-    uint32_t num_entries = (mmap_tag->size - sizeof(multiboot_tag_mmap)) / mmap_tag->entry_size;
+    // 1. Calculate top of physical memory
     uint64_t top_physical_memory = 0;
-    for (uint32_t i = 0; i < num_entries; i++) {
-        multiboot_mmap_entry* entry = &mmap_tag->entries[i];
+    for (uint8_t* ptr = (uint8_t*)mmap_tag->entries; 
+        ptr < (uint8_t*)mmap_tag + mmap_tag->size; 
+        ptr += mmap_tag->entry_size) {
+        multiboot_mmap_entry* entry = (multiboot_mmap_entry*)ptr;
         if (entry->addr + entry->len > top_physical_memory) {
             top_physical_memory = entry->addr + entry->len;
         }
     }
 
-    // Initialize the Universal PMM Backend
-    uint64_t bitmap_phys_addr = (uint64_t)kernel_end_phys;
+    // 2. Safely place the bitmap AFTER both the kernel and the MBI structure
+    uint64_t kernel_end = (uint64_t)kernel_end_phys;
+    uint64_t mb2_phys = (uint64_t)mbi - ::mem::HIGHER_HALF_OFFSET;
+    uint32_t mb2_size = *reinterpret_cast<uint32_t*>(mbi);
+    uint64_t mb2_end = mb2_phys + mb2_size;
+
+    // Pick the highest address to avoid overlapping GRUB data
+    uint64_t bitmap_phys_addr = (kernel_end > mb2_end) ? kernel_end : mb2_end;
+    
+    // Page-align the start of the bitmap for safety/cleanliness
+    bitmap_phys_addr = (bitmap_phys_addr + ::mem::FRAME_SIZE - 1) & ~(::mem::FRAME_SIZE - 1);
+
     void* bitmap_virt = reinterpret_cast<void*>(bitmap_phys_addr + ::mem::HIGHER_HALF_OFFSET);
     
+    // 3. Initialize PMM (Sets everything to ~0ULL)
     PMM::init(bitmap_virt, top_physical_memory);
-
-    // Mark available regions as free based on GRUB's x86_64 memory map
-    for (uint32_t i = 0; i < num_entries; i++) {
-        multiboot_mmap_entry* entry = &mmap_tag->entries[i];
+    
+    // 4. Mark available regions free
+    for (uint8_t* ptr = (uint8_t*)mmap_tag->entries; 
+        ptr < (uint8_t*)mmap_tag + mmap_tag->size; 
+        ptr += mmap_tag->entry_size) {
+        multiboot_mmap_entry* entry = (multiboot_mmap_entry*)ptr;
         if (entry->type == 1) { // MULTIBOOT_MEMORY_AVAILABLE
             PMM::mark_region_free(entry->addr, entry->len);
         }
     }
 
-    // Explicitly protect crucial physical memory regions
+    // 5. Explicitly protect crucial physical memory regions
+    PMM::mark_region_used(0x0, 0x100000); // Protect low memory (VGA, IVT, BIOS data)
+    
     uint64_t kernel_size = (uint64_t)kernel_end_phys - (uint64_t)kernel_start_phys;
     PMM::mark_region_used((uint64_t)kernel_start_phys, kernel_size);
-
+    
     uint64_t total_frames = top_physical_memory / ::mem::FRAME_SIZE;
-    uint64_t bitmap_size_bytes = (total_frames / 8) + 1;
+    uint64_t bitmap_size_bytes = ((total_frames + 63) / 64) * 8; 
     PMM::mark_region_used(bitmap_phys_addr, bitmap_size_bytes);
-
-    uint64_t mb2_phys = (uint64_t)mbi - ::mem::HIGHER_HALF_OFFSET;
-    uint32_t mb2_size = *reinterpret_cast<uint32_t*>(mbi);
+    
     PMM::mark_region_used(mb2_phys, mb2_size);
 }

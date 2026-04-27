@@ -3,16 +3,16 @@
 // Distributed under the terms of the MIT License.
 // ========================================
 
-#include <mm/pmm.hpp>
+#include <arch/x86_64/mm/pmm_setup.hpp>
 #include <arch/x86_64/multiboot.hpp>
 #include <cpu.hpp>
+#include <mm/pmm.hpp>
+#include <arch/x86_64/entry.hpp>
 
-extern "C" uint8_t kernel_start_phys[];
-extern "C" uint8_t kernel_end_phys[];
+using mem::PMM;
 
 namespace mem
 {
-    // Initialize static members
     uint64_t* PMM::bitmap = nullptr;
     size_t PMM::bitmap_size_bytes = 0;
     uint64_t PMM::total_frames = 0;
@@ -35,34 +35,30 @@ namespace mem
     void PMM::lock() { /* TODO: Acquire atomic spinlock */ }
     void PMM::unlock() { /* TODO: Release atomic spinlock */ }
 
-    /// @brief Initializes arch independent logic for PMM by setting up bitmap
     void PMM::init(void* bitmap_virt_addr, uint64_t top_physical_memory) {
         total_frames = top_physical_memory / FRAME_SIZE;
-        bitmap_size_bytes = (total_frames / 8) + 1;
+        uint64_t bitmap_entries = (total_frames + 63) / 64; 
+        bitmap_size_bytes = bitmap_entries * 8;
         bitmap = reinterpret_cast<uint64_t*>(bitmap_virt_addr);
         
-        // Mark EVERYTHING as used by default (safe state)
-        for (size_t i = 0; i < bitmap_size_bytes / 8; i++) {
+        for (size_t i = 0; i < bitmap_entries; i++) {
             bitmap[i] = ~0ULL; 
         }
         used_frames_count = total_frames;
         free_frames_count = 0;
     }
 
-    /// @brief Allocates a frame in physical memory
-    /// @return Frame physical base
     void* PMM::alloc_frame() {
         lock();
         
-        // Scan 64 frames at a time
-        for (uint64_t i = last_scanned_index; i < total_frames / 64; i++) {
-            // If the 64-bit block is not entirely 1s (not full)
+        for (uint64_t i = last_scanned_index; i < (total_frames + 63) / 64; i++) {
             if (bitmap[i] != ~0ULL) {
                 int bit = __builtin_ffsll(~bitmap[i]) - 1;
-                
                 uint64_t frame_index = (i * 64) + bit;
-                set_bit(frame_index);
                 
+                if (frame_index >= total_frames) break; 
+                
+                set_bit(frame_index);
                 last_scanned_index = i;
                 free_frames_count--;
                 used_frames_count++;
@@ -72,7 +68,6 @@ namespace mem
             }
         }
 
-        // Fallback: If we hit the end of the bitmap, loop back to the start once
         if (last_scanned_index > 0) {
             last_scanned_index = 0;
             unlock();
@@ -80,11 +75,9 @@ namespace mem
         }
 
         unlock();
-        return nullptr; // Out of memory
+        return nullptr;
     }
 
-    /// @brief Allocates multiple frames in physical memory
-    /// @return First frames physical base
     void* PMM::alloc_frames(uint64_t count) {
         if (count == 0) return nullptr;
         
@@ -92,7 +85,6 @@ namespace mem
         uint64_t start_frame = 0;
         uint64_t consecutive_free = 0;
 
-        // Linear search for contiguous blocks (Needed for VMM tables or DMA)
         for (uint64_t i = 0; i < total_frames; i++) {
             if (!test_bit(i)) {
                 if (consecutive_free == 0) start_frame = i;
@@ -108,7 +100,7 @@ namespace mem
                     return reinterpret_cast<void*>(start_frame * FRAME_SIZE);
                 }
             } else {
-                consecutive_free = 0; // Reset counter if we hit a used frame
+                consecutive_free = 0; 
             }
         }
         
@@ -116,8 +108,6 @@ namespace mem
         return nullptr;
     }
 
-    /// @brief Frees a frame
-    /// @param phys_addr Frame physical base
     void PMM::free_frame(void* phys_addr) {
         lock();
         uint64_t frame_index = reinterpret_cast<uint64_t>(phys_addr) / FRAME_SIZE;
@@ -126,7 +116,6 @@ namespace mem
             free_frames_count++;
             used_frames_count--;
             
-            // Move the scanner back to optimize the next allocation
             if (frame_index / 64 < last_scanned_index) {
                 last_scanned_index = frame_index / 64;
             }
@@ -134,8 +123,6 @@ namespace mem
         unlock();
     }
 
-    /// @brief Frees multiple frames
-    /// @param phys_addr First frame physical base
     void PMM::free_frames(void* phys_addr, uint64_t count) {
         uint64_t start_frame = reinterpret_cast<uint64_t>(phys_addr) / FRAME_SIZE;
         lock();
@@ -152,19 +139,18 @@ namespace mem
         unlock();
     }
 
-    /// @brief Marks a specific region of memory in bitmap as free
-    /// @param base Region base physical address
-    /// @param length Region length
     void PMM::mark_region_free(uint64_t base, uint64_t length) {
         uint64_t align_offset = base % FRAME_SIZE;
         uint64_t aligned_base = base + (align_offset ? (FRAME_SIZE - align_offset) : 0);
-        uint64_t aligned_length = length - (aligned_base - base);
 
+        if (base + length <= aligned_base) return;
+
+        uint64_t aligned_length = (base + length) - aligned_base;
         size_t frames = aligned_length / FRAME_SIZE;
         size_t start_frame = aligned_base / FRAME_SIZE;
 
         for (size_t i = 0; i < frames; i++) {
-            if (test_bit(start_frame + i)) { // Only decrement count if it was used
+            if (test_bit(start_frame + i)) { 
                 clear_bit(start_frame + i);
                 free_frames_count++;
                 used_frames_count--;
@@ -172,12 +158,12 @@ namespace mem
         }
     }
 
-    /// @brief Marks a specific region of memory in bitmap as used
-    /// @param base Region base physical address
-    /// @param length Region length
     void PMM::mark_region_used(uint64_t base, uint64_t length) {
-        uint64_t frames = (length + FRAME_SIZE - 1) / FRAME_SIZE; // Round up
+        if (length == 0) return;
+
         uint64_t start_frame = base / FRAME_SIZE;
+        uint64_t end_frame = (base + length + FRAME_SIZE - 1) / FRAME_SIZE; 
+        uint64_t frames = end_frame - start_frame;
 
         for (uint64_t i = 0; i < frames; i++) {
             if (!test_bit(start_frame + i)) {

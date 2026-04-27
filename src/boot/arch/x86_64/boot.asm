@@ -20,6 +20,7 @@ header_end:
 section .boot.bss nobits
 
 global p4_table
+global p3_table
 align 4096
 p4_table: resb 4096
 p3_table: resb 4096

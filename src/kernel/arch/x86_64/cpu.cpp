@@ -5,7 +5,7 @@
 
 #include <cpu.hpp>
 
-void hal::cpu::halt(void) {
+[[noreturn]] void hal::cpu::halt(void) {
     for(;;) {
         asm volatile("cli");
         asm volatile("hlt");

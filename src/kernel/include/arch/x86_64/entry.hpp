@@ -10,6 +10,11 @@
 
 #include <stdint.h>
 
+[[noreturn]] void kpanic(const char* msg) noexcept;
+void klog(const char* msg) noexcept;
+void klog_hex(uint64_t num) noexcept;
+void klog_num(int64_t num) noexcept;
+
 extern "C" void entry_x86_64(void* mbi, const uint32_t magic);
 
 #endif // ENTRY_HPP
