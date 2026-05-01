@@ -10,8 +10,8 @@
 #include <mm/address_space.hpp>
 #include <arch/x86_64/entry.hpp>
 
-extern "C" arch::mem::PageTable p4_table;
-extern "C" arch::mem::PageTable p3_table;
+extern "C" x86_64::mem::PageTable p4_table;
+extern "C" x86_64::mem::PageTable p3_table;
 
 extern "C" uint8_t _text_start[];
 extern "C" uint8_t _text_end[];
@@ -36,14 +36,14 @@ constexpr const char* paging_error_to_string(PagingError err) noexcept {
     }
 }
 
-alignas(mem::VMMState) static uint8_t g_vmm_storage[sizeof(mem::VMMState)];
-mem::VMMState* g_vmm = nullptr;
+alignas(x86_64::mem::VMMState) static uint8_t g_vmm_storage[sizeof(x86_64::mem::VMMState)];
+x86_64::mem::VMMState* g_vmm = nullptr;
 
-void mem::vmm_init() noexcept {
+void x86_64::mem::vmm_init() noexcept {
     const PhysAddr boot_pml4_phys =
         reinterpret_cast<VirtAddr>(&p4_table) - KERNEL_VIRT_BASE;
 
-    g_vmm = new (g_vmm_storage) mem::VMMState(boot_pml4_phys);
+    g_vmm = new (g_vmm_storage) x86_64::mem::VMMState(boot_pml4_phys);
 
     if (!g_vmm->m_backend.kernel_context().is_valid())
     kpanic("VMM: kernel PML4 allocation failed — PMM has no free frames");
@@ -51,7 +51,7 @@ void mem::vmm_init() noexcept {
     if (!g_vmm->m_kernel_as.context().is_valid())
     kpanic("VMM: kernel AddressSpace context invalid after construction");
     
-    if (!arch::mem::X86_64PagingBackend::nx_supported())
+    if (!x86_64::mem::X86_64PagingBackend::nx_supported())
     if (klog) klog("VMM: WARNING — NX/XD bit not supported by CPU.");
 
     auto reg = [&](VirtAddr vstart, VirtAddr vend,
@@ -88,13 +88,13 @@ void mem::vmm_init() noexcept {
     {
         const uint64_t kernel_end_pa  = reinterpret_cast<uint64_t>(kernel_end_phys);
         const uint64_t bitmap_pa      =
-            (kernel_end_pa + mem::FRAME_SIZE - 1) & ~(mem::FRAME_SIZE - 1);
-        const VirtAddr bitmap_virt    = bitmap_pa + mem::HIGHER_HALF_OFFSET;
+            (kernel_end_pa + ::mem::FRAME_SIZE - 1) & ~(::mem::FRAME_SIZE - 1);
+        const VirtAddr bitmap_virt    = bitmap_pa + ::mem::HIGHER_HALF_OFFSET;
 
         // Size: one bit per frame, rounded up to a page.
-        const uint64_t top_phys_approx = mem::PMM::get_total_memory();
+        const uint64_t top_phys_approx = ::mem::PMM::get_total_memory();
         const usize    bitmap_sz =
-            page_align_up((top_phys_approx / mem::FRAME_SIZE / 8) + 1);
+            page_align_up((top_phys_approx / ::mem::FRAME_SIZE / 8) + 1);
 
         PagingError err = g_vmm->m_kernel_as.register_vma(
             bitmap_virt, bitmap_sz,
@@ -109,7 +109,7 @@ void mem::vmm_init() noexcept {
         }
     }
 
-    p3_table[0] = arch::mem::PageTableEntry::make_empty();
+    p3_table[0] = x86_64::mem::PageTableEntry::make_empty();
     g_vmm->m_backend.flush_tlb_full();
     
     if (klog) klog("VMM: initialised and kernel address space activated.");

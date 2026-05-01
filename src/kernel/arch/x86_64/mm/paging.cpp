@@ -5,7 +5,7 @@
 
 #include <arch/x86_64/mm/paging.hpp>
 
-namespace arch::mem {
+namespace x86_64::mem {
 
     // Assembly wrappers
     void X86_64PagingBackend::write_cr3(uint64_t val) noexcept {
@@ -318,4 +318,4 @@ namespace arch::mem {
         }
     }
 
-} // namespace arch::mem
+} // namespace x86_64::mem

@@ -8,9 +8,9 @@
 #ifndef PMM_X86_64_HPP
 #define PMM_X86_64_HPP
 
-namespace arch::mem {
+namespace x86_64::mem {
     void init_pmm(void* mbi);
-} // namespace arch::mem
+} // namespace x86_64::mem
 
 
 #endif // PMM_X86_64_HPP

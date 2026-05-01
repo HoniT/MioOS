@@ -13,7 +13,7 @@
 #include <mm/pmm.hpp>
 #include <mm/kheap.hpp>
 
-namespace arch::mem {
+namespace x86_64::mem {
     // Represents a single page
     union PageTableEntry {
         // Raw value

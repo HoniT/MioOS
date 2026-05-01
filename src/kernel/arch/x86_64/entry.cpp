@@ -9,6 +9,7 @@
 #include <arch/x86_64/mm/pmm_setup.hpp>
 #include <arch/x86_64/mm/vmm_setup.hpp>
 #include <kernel_main.hpp>
+#include <arch/x86_64/graphics/vga_print.hpp>
 
 #include <stdint.h>
 
@@ -102,18 +103,10 @@ extern "C" void entry_x86_64(void* mbi, uint32_t magic) {
     }
     
     // Memory manager init
-    arch::mem::init_pmm(mbi);
-    mem::vmm_init();
+    x86_64::mem::init_pmm(mbi);
+    x86_64::mem::vmm_init();
 
-    // Test VGA print to see that everythings right before VGA print implementation
-
-    uint16_t* vga_buffer = (uint16_t*)0xFFFFFFFF800B8000;
-    
-    const char* str = "Successfully booted into 64-bit Higher-Half Long Mode!";
-    
-    for (int i = 0; str[i] != '\0'; ++i) {
-        vga_buffer[i] = (uint16_t)str[i] | ((uint16_t)15 << 8); 
-    }
+    x86_64::vga::printf("Successfully booted into a %d-bit Higher half %s\n", 64, "kernel");
 
     // Calling arch independent main function
     kernel_main();

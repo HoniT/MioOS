@@ -13,7 +13,7 @@ using mem::PMM;
 extern "C" uint8_t kernel_start_phys[];
 extern "C" uint8_t kernel_end_phys[];
 
-void arch::mem::init_pmm(void* mbi) {
+void x86_64::mem::init_pmm(void* mbi) {
     multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(mbi);
     if (!mmap_tag) {
         hal::cpu::halt();
