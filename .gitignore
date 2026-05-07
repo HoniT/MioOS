@@ -1,0 +1,10 @@
+
+# Output files
+*.o
+*.bin
+*.elf
+*.iso
+*.img
+
+/build/
+/env/
