@@ -1,6 +1,8 @@
 // ========================================
 // Copyright Ioane Baidoshvili 2026.
 // Distributed under the terms of the MIT License.
+//
+// x86_64 CPU helper methods
 // ========================================
 
 #include <cpu.hpp>

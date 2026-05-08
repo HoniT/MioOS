@@ -7,6 +7,8 @@
 #ifndef KERNEL_PANIC_HPP
 #define KERNEL_PANIC_HPP
 
-void kernel_panic();
+/// @brief Preforms kernel panic
+/// @param msg Displayed message
+void kernel_panic(const char* msg, ...);
 
 #endif // KERNEL_PANIC_HPP

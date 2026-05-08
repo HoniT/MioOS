@@ -7,13 +7,12 @@
 #ifndef PMM_HPP
 #define PMM_HPP
 
-#include <mm/mm_types.hpp>
+#include <mm/mm_defs.hpp>
 #include <stddef.h>
 
 namespace mem
 {
     constexpr PhysAddr FRAME_SIZE = 4096;
-    constexpr PhysAddr HIGHER_HALF_OFFSET = 0xFFFFFFFF80000000;
 
     class PMM {
     public:

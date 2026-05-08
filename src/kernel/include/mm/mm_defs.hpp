@@ -4,8 +4,8 @@
 // ========================================
 
 #pragma once
-#ifndef MM_TYPES_HPP
-#define MM_TYPES_HPP
+#ifndef MM_DEFS_HPP
+#define MM_DEFS_HPP
 
 #include <stdint.h>
 
@@ -13,6 +13,8 @@ namespace mem
 {
     using PhysAddr = uint64_t;
     using VirtAddr = uint64_t;
+
+    constexpr PhysAddr HIGHER_HALF_OFFSET = 0xFFFFFFFF80000000;
 } // namespace mem
 
-#endif // MM_TYPES_HPP
+#endif // MM_DEFS_HPP

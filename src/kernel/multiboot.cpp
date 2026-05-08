@@ -1,6 +1,8 @@
 // ========================================
 // Copyright Ioane Baidoshvili 2026.
 // Distributed under the terms of the MIT License.
+//
+// GRUB Multiboot2 helper methods
 // ========================================
 
 #include <multiboot.hpp>
