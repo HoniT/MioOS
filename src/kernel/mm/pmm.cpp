@@ -42,7 +42,7 @@ namespace mem
         // Getting the MMAP from GRUB
         multiboot_tag_mmap* mmap_tag = Multiboot2::get_mmap(mbi);
         if (!mmap_tag) {
-            kernel_panic("No memory map passed by GRUB\n");
+            kernel_panic("PMM: No memory map passed by GRUB\n");
             return;
         }
 
@@ -102,7 +102,7 @@ namespace mem
         
         PMM::mark_region_used(mb2_phys, mb2_size); // Mb2 info
 
-        kprintf("Physical memory manager initialized\n");
+        kprintf("PMM: Physical memory manager initialized\n");
     }
 
     void* PMM::alloc_frame() {

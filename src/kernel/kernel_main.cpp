@@ -10,6 +10,7 @@
 #include <cpu.hpp>
 #include <kernel_panic.hpp>
 #include <mm/pmm.hpp>
+#include <mm/vmm.hpp>
 #include <graphics/kprint.hpp>
 
 extern "C" void kernel_main(void* mbi, uint32_t magic) {
@@ -19,6 +20,7 @@ extern "C" void kernel_main(void* mbi, uint32_t magic) {
     }
 
     mem::PMM::init(mbi);
+    mem::VMM::init();
 
     kprintf("Kernel initialization finished\n");
     cpu::halt();
